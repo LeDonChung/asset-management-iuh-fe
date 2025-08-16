@@ -19,15 +19,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const token = request.cookies.get('token')?.value
-
-  if (protectedRoutes.some(route => pathname.startsWith(route)) && !token) {
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirectTo', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  if (authRoutes.some(route => pathname.startsWith(route)) && token) {
+  // Always redirect to /admin for all other routes
+  if (pathname !== '/admin' && !pathname.startsWith('/admin/')) {
     return NextResponse.redirect(new URL('/admin', request.url))
   }
 
