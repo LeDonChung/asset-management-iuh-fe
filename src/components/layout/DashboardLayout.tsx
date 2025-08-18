@@ -3,6 +3,9 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRole } from "@/contexts/RoleContext";
+import RoleSwitcher from "@/components/ui/RoleSwitcher";
 
 import {
   LayoutDashboard,
@@ -13,34 +16,90 @@ import {
   Asterisk,
   Package2,
   Building,
+  ChevronDown,
+  ChevronRight,
+  List,
+  FileText,
+  BarChart3,
+  ClipboardList,
 } from "lucide-react";
 
 // Helper: Navigation by role
 const getNavigationByRole = (userRole: string) => {
   const baseNavigation = [
+    // Dashboard cho admin roles
     {
       name: "Dashboard",
       href: "/admin",
       icon: LayoutDashboard,
-      roles: ["SUPER_ADMIN", "ADMIN"],
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU"],
     },
+    // Dashboard cho đơn vị sử dụng
     {
-      name: "Dashboard",
+      name: "Dashboard", 
       href: "/staff",
       icon: LayoutDashboard,
-      roles: ["STAFF"],
+      roles: ["DON_VI_SU_DUNG"],
     },
+    // Quản lý tài sản
     {
       name: "Tài sản",
       href: "/asset",
       icon: Package2,
-      roles: ["SUPER_ADMIN", "ADMIN"],
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU", "DON_VI_SU_DUNG"],
+      children: [
+        {
+          name: "Danh sách tài sản",
+          href: "/asset",
+        },
+        {
+          name: "Tiếp nhận tài sản",
+          href: "/asset/receive",
+        },
+        {
+          name: "Chuyển giao tài sản",
+          href: "/asset/transfer",
+        },
+        {
+          name: "Phân bổ tài sản",
+          href: "/asset/allocate",
+        },
+        {
+          name: "Sổ tài sản",
+          href: "/asset/asset-book",
+        }
+      ],
     },
+    // Quản lý đơn vị
     {
       name: "Đơn vị",
       href: "/unit",
       icon: Building,
-      roles: ["SUPER_ADMIN", "ADMIN"],
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
+      children: [
+        {
+          name: "Danh sách đơn vị",
+          href: "/unit",
+        },
+        {
+          name: "Tạo đơn vị mới",
+          href: "/unit/create",
+        },
+      ],
+    },
+    // Báo cáo
+    {
+      name: "Báo cáo",
+      href: "/reports", 
+      icon: BarChart3,
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU", "DON_VI_SU_DUNG"],
+    },
+    // Kiểm kê (chỉ admin roles)
+    {
+      name: "Kiểm kê",
+      href: "/inventory",
+      icon: ClipboardList,
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
     },
   ];
   return baseNavigation.filter((item) => item.roles.includes(userRole));
@@ -118,11 +177,10 @@ export const SidebarUserSection = React.memo(function SidebarUserSection({
 }: {
   handleLogout: () => void;
 }) {
-  // Mock user data - thay thế bằng real data từ context/state management
-  const mockUser = {
-    name: "Lê Đôn Chủng",
-    role: "ADMIN"
-  };
+  const { user } = useAuth();
+  const { currentRole } = useRole();
+
+  if (!user) return null;
 
   return (
     <div className="border-t border-gray-200 p-4 bg-gray-50">
@@ -130,21 +188,24 @@ export const SidebarUserSection = React.memo(function SidebarUserSection({
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
             <span className="text-xs font-semibold text-white">
-              {mockUser.name.charAt(0)}
+              {user.fullName.charAt(0)}
             </span>
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{mockUser.name}</p>
-            <p className="text-xs text-gray-500">{mockUser.role}</p>
+            <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
+            <p className="text-xs text-gray-500">{currentRole?.name || 'No Role'}</p>
           </div>
         </div>
-        <button
-          onClick={handleLogout}
-          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-          title="Đăng xuất"
-        >
-          <LogOut className="h-4 w-4" />
-        </button>
+        <div className="flex items-center space-x-2">
+          <RoleSwitcher variant="compact" showLabel={false} />
+          <button
+            onClick={handleLogout}
+            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            title="Đăng xuất"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -156,6 +217,11 @@ interface NavigationItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: string[];
+  children?: {
+    name: string;
+    href: string;
+    icon?: React.ComponentType<{ className?: string }>;
+  }[];
 }
 export const SidebarNavigation = React.memo(function SidebarNavigation({
   navigation,
@@ -170,6 +236,22 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
   isMobile?: boolean;
   setIsMobileSidebarOpen?: (v: boolean) => void;
 }) {
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+
+  // Helper function to determine if a child item is active
+  const isChildItemActive = useCallback((childHref: string, currentPath: string) => {
+    // Exact match
+    if (currentPath === childHref) return true;
+    
+    // Special case for "/asset" - only active when exactly "/asset"
+    if (childHref === "/asset") {
+      return currentPath === "/asset";
+    }
+    
+    // For other paths, check if current path starts with child href + "/"
+    return currentPath.startsWith(childHref + "/");
+  }, []);
+
   const handleNavClick = useCallback(
     (
       isMobile: boolean | undefined,
@@ -182,33 +264,112 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
     },
     [handleNavigation]
   );
+
+  const toggleExpanded = useCallback((itemName: string) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [itemName]: !prev[itemName]
+    }));
+  }, []);
+
+  // Auto-expand parent if child is active
+  useEffect(() => {
+    navigation.forEach(item => {
+      if (item.children) {
+        const hasActiveChild = item.children.some(child => 
+          isChildItemActive(child.href, pathname)
+        );
+        if (hasActiveChild && !expandedItems[item.name]) {
+          setExpandedItems(prev => ({
+            ...prev,
+            [item.name]: true
+          }));
+        }
+      }
+    });
+  }, [pathname, navigation, expandedItems, isChildItemActive]);
+
   return (
     <nav className="flex-1 px-4 py-6 space-y-1">
       {navigation.map((item) => {
-        // Highlight if pathname matches or starts with item.href (and next char is / or end)
-        const isActive =
-          pathname === item.href ||
-          (pathname.startsWith(item.href + "/") && item.href !== "/");
+        const isExpanded = expandedItems[item.name];
+        const isActive = pathname === item.href || (pathname.startsWith(item.href + "/") && item.href !== "/");
+        const hasActiveChild = item.children?.some(child => 
+          isChildItemActive(child.href, pathname)
+        );
+
         return (
-          <Link
-            key={item.name}
-            href={item.href}
-            className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-              isActive
-                ? "bg-blue-50 text-blue-700"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-            }`}
-            onClick={handleNavClick(isMobile, setIsMobileSidebarOpen)}
-          >
-            <item.icon
-              className={`mr-3 h-5 w-5 ${
-                isActive
-                  ? "text-blue-600"
-                  : "text-gray-400 group-hover:text-gray-500"
-              }`}
-            />
-            <span>{item.name}</span>
-          </Link>
+          <div key={item.name}>
+            {/* Parent menu item */}
+            {item.children ? (
+              <button
+                className={`group w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                  isActive || hasActiveChild
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+                onClick={() => toggleExpanded(item.name)}
+              >
+                <div className="flex items-center">
+                  <item.icon
+                    className={`mr-3 h-5 w-5 ${
+                      isActive || hasActiveChild
+                        ? "text-blue-600"
+                        : "text-gray-400 group-hover:text-gray-500"
+                    }`}
+                  />
+                  <span>{item.name}</span>
+                </div>
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                )}
+              </button>
+            ) : (
+              <Link
+                href={item.href}
+                className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                  isActive
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+                onClick={handleNavClick(isMobile, setIsMobileSidebarOpen)}
+              >
+                <item.icon
+                  className={`mr-3 h-5 w-5 ${
+                    isActive
+                      ? "text-blue-600"
+                      : "text-gray-400 group-hover:text-gray-500"
+                  }`}
+                />
+                <span>{item.name}</span>
+              </Link>
+            )}
+
+            {/* Child menu items */}
+            {item.children && isExpanded && (
+              <div className="ml-6 mt-1 space-y-1">
+                {item.children.map((child) => {
+                  const isChildActive = isChildItemActive(child.href, pathname);
+                  return (
+                    <Link
+                      key={child.name}
+                      href={child.href}
+                      className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        isChildActive
+                          ? "bg-blue-50 text-blue-700"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      }`}
+                      onClick={handleNavClick(isMobile, setIsMobileSidebarOpen)}
+                    >
+                      <span>{child.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         );
       })}
     </nav>
@@ -217,6 +378,8 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
 
 // Topbar
 function Topbar() {
+  const { user } = useAuth();
+  
   return (
     <div className="relative z-10 flex-shrink-0 flex h-16 bg-white border-b border-gray-200">
       <button
@@ -241,17 +404,22 @@ function Topbar() {
             </span>
           </div>
         </div>
-        <div className="flex items-center space-x-3">
-          <div className="hidden sm:flex flex-col text-right">
-            <h1 className="text-lg font-semibold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent text-right">
-              {getGreeting().text}
-            </h1>
-            <p className="text-xs text-gray-500 font-normal mt-0.5 text-right">
-              Chúc bạn có một ngày tuyệt vời!
-            </p>
+        <div className="flex items-center space-x-4">
+          <div className="hidden md:block">
+            <RoleSwitcher />
           </div>
-          <div className="relative p-2 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl shadow-sm border border-blue-100/50 transition-all duration-300 hover:shadow-md hover:scale-105">
-            <div className="flex-shrink-0">{getGreeting().icon}</div>
+          <div className="flex items-center space-x-3">
+            <div className="hidden sm:flex flex-col text-right">
+              <h1 className="text-lg font-semibold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent text-right">
+                {getGreeting().text} {user?.fullName.split(' ').pop()}
+              </h1>
+              <p className="text-xs text-gray-500 font-normal mt-0.5 text-right">
+                Chúc bạn có một ngày tuyệt vời!
+              </p>
+            </div>
+            <div className="relative p-2 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl shadow-sm border border-blue-100/50 transition-all duration-300 hover:shadow-md hover:scale-105">
+              <div className="flex-shrink-0">{getGreeting().icon}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -269,18 +437,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Mock user data - thay thế bằng real auth context
-  const mockUser = {
-    name: "Lê Đôn Chủng",
-    role: "ADMIN"
-  };
-  const user = mockUser;
-  const isLoading = false;
+  // Use real auth context
+  const { user, isLoading, logout, isAuthenticated } = useAuth();
+  const { currentRole } = useRole();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+  }, [isAuthenticated, isLoading, router]);
 
   // Memoize navigation to avoid re-creating on every render
   const navigation = useMemo(
-    () => (user ? getNavigationByRole(user.role) : []),
-    [user?.role]
+    () => (currentRole ? getNavigationByRole(currentRole.code) : []),
+    [currentRole?.code]
   );
 
   // Memoize handleNavigation to avoid re-creating function
@@ -292,9 +464,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [isNavigating]);
 
   const handleLogout = async () => {
-    // Mock logout - thay thế bằng real logout function
-    console.log("Logging out...");
-    router.push("/login");
+    logout();
   };
 
   useEffect(() => {
@@ -309,7 +479,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const openSidebar = () => setIsMobileSidebarOpen(true);
     window.addEventListener("openMobileSidebar", openSidebar);
     return () => window.removeEventListener("openMobileSidebar", openSidebar);
-  }, [user, router, pathname]);
+  }, [pathname]);
 
   if (isLoading) {
     return (
@@ -320,6 +490,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect in useEffect
   }
 
   if (user) {

@@ -2,7 +2,8 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
-import { AuthProvider } from '@/context/AuthContext'
+import { AuthProvider } from '@/contexts/AuthContext'
+import { RoleProvider } from '@/contexts/RoleContext'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { useState } from 'react'
 
@@ -24,27 +25,29 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          {children}
-          <Toaster 
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-              success: {
+          <RoleProvider>
+            {children}
+            <Toaster 
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
                 style: {
-                  background: '#10b981',
+                  background: '#363636',
+                  color: '#fff',
                 },
-              },
-              error: {
-                style: {
-                  background: '#ef4444',
+                success: {
+                  style: {
+                    background: '#10b981',
+                  },
                 },
-              },
-            }}
-          />
+                error: {
+                  style: {
+                    background: '#ef4444',
+                  },
+                },
+              }}
+            />
+          </RoleProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-
+import { Providers } from "@/lib/providers";
 
 import { ReactNode } from 'react';
 
@@ -11,16 +11,18 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "QR Check-in System",
-  description: "QR Code-based attendance management system",
+  title: "Asset Management System - IUH",
+  description: "Hệ thống quản lý tài sản - Đại học Công nghiệp TP.HCM",
 };
 
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="vi">
       <body className={`${inter.variable} antialiased`}>
+        <Providers>
           {children}
+        </Providers>
       </body>
     </html>
   );

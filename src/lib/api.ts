@@ -95,3 +95,34 @@ api.interceptors.response.use(
 )
 
 export default api
+
+// Asset Book API functions
+export const assetBookApi = {
+  // Get asset books for a unit
+  getAssetBooks: (filter: any) => api.get('/asset-books', { params: filter }),
+  
+  // Get specific asset book
+  getAssetBook: (id: string) => api.get(`/asset-books/${id}`),
+  
+  // Get asset book items
+  getAssetBookItems: (bookId: string, filter?: any) => 
+    api.get(`/asset-books/${bookId}/items`, { params: filter }),
+  
+  // Create asset book
+  createAssetBook: (data: any) => api.post('/asset-books', data),
+  
+  // Lock/unlock asset book
+  lockAssetBook: (id: string) => api.patch(`/asset-books/${id}/lock`),
+  unlockAssetBook: (id: string) => api.patch(`/asset-books/${id}/unlock`),
+  
+  // Export asset book
+  exportAssetBook: (id: string) => api.get(`/asset-books/${id}/export`, { responseType: 'blob' }),
+}
+
+export const roomApi = {
+  // Get rooms for a unit
+  getRoomsByUnit: (unitId: string) => api.get(`/units/${unitId}/rooms`),
+  
+  // Get all rooms
+  getRooms: (filter?: any) => api.get('/rooms', { params: filter }),
+}

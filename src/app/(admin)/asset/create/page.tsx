@@ -67,15 +67,15 @@ export default function CreateAssetPage() {
     } else {
       setFormData(prev => ({
         ...prev,
-        [name]: name === 'quantity' || name === 'purchasePackage' 
+        [name]: name === 'quantity' || name === 'purchasePackage'
           ? (value === '' ? undefined : Number(value))
-          : name === 'plannedRoomId' 
-          ? (value === '' ? undefined : value)
-          : value
+          : name === 'plannedRoomId'
+            ? (value === '' ? undefined : value)
+            : value
       }));
     }
   };
-  
+
   // Filter rooms based on selected unit
   useEffect(() => {
     if (unitId) {
@@ -92,31 +92,31 @@ export default function CreateAssetPage() {
 
   const generateAssetCodes = (categoryId: string, type: AssetType) => {
     const currentYear = new Date().getFullYear().toString().slice(-2);
-    
+
     // Mã kế toán: xx-yyyy/nn
     const ktCode = `${currentYear}-0001/00`;
-    
+
     // Mã tài sản cố định: xxxx.yyyy
     const category = mockCategories.find(cat => cat.id === categoryId);
     const fixedCode = category ? `${category.code}001.00001` : "0001.00001";
-    
+
     return { ktCode, fixedCode };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!unitId) {
       alert("Vui lòng chọn đơn vị sử dụng");
       return;
     }
-    
+
     setIsLoading(true);
 
     try {
       // Generate asset codes
       const { ktCode, fixedCode } = generateAssetCodes(formData.categoryId, formData.type);
-      
+
       // Mock API call - replace with real API
       const newAsset = {
         ...formData,
@@ -132,10 +132,10 @@ export default function CreateAssetPage() {
       };
 
       console.log("Creating asset:", newAsset);
-      
+
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       router.push("/asset");
     } catch (error) {
       console.error("Error creating asset:", error);
@@ -155,7 +155,7 @@ export default function CreateAssetPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Thêm tài sản mới</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Định danh tài sản mới</h1>
           <p className="text-gray-600">Nhập thông tin chi tiết cho tài sản mới</p>
         </div>
       </div>
@@ -166,9 +166,9 @@ export default function CreateAssetPage() {
           {/* Form Header */}
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Package2 className="h-4 w-4 text-blue-600" />
+              <div className="flex-shrink-0 h-10 w-10">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
+                  <Package2 className="h-5 w-5 text-white" />
                 </div>
               </div>
               <div className="ml-3">

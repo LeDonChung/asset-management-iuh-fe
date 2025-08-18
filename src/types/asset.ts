@@ -2,19 +2,35 @@
 
 export enum AssetType {
   TSCD = "TSCD", // Tài sản cố định
-  CCDC = "CCDC" // Công cụ dụng cụ (đổi thành CCDC theo convention thông thường)
+  CCDC = "CCDC" // Công cụ dụng cụ
 }
 
 export enum AssetStatus {
-  CHO_TIEP_NHAN = "chờ_tiếp_nhận", // Tài sản từ ban kế hoạch đầu tư gửi xuống, chờ tiếp nhận
-  CHO_PHAN_BO = "chờ_phân_bổ", // Đã tiếp nhận, chờ phân bổ đến đơn vị
-  DA_PHAN_BO = "đã_phân_bổ", // Đã phân bổ nhưng chưa di chuyển đến vị trí thực tế
+  CHO_PHAN_BO = "chờ_phân_bổ", // Chờ phân bổ đến đơn vị
   DANG_SU_DUNG = "đang_sử_dụng", // Đang sử dụng tại vị trí thực tế
-  BAO_TRI = "bảo_trì", // Thêm trạng thái bảo trì
   HU_HONG = "hư_hỏng",
   DE_XUAT_THANH_LY = "đề_xuất_thanh_lý",
-  THANH_LY = "thanh_lý", // Thêm trạng thái thanh lý
   DA_THANH_LY = "đã_thanh_lý"
+}
+
+// Asset Log Types
+export enum AssetLogStatus {
+  PENDING = "PENDING",
+  IN_PROGRESS = "IN_PROGRESS", 
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED"
+}
+
+export interface AssetLog {
+  id: string;
+  assetId: string;
+  action: string;
+  reason: string;
+  status: AssetLogStatus;
+  fromLocation?: string;
+  toLocation?: string;
+  createdAt: string;
+  createdBy: string;
 }
 
 // User and Role Management
@@ -37,16 +53,19 @@ export interface Permission {
 
 export interface User {
   id: string;
-  username: string;
+  username: string; // Tài khoản: Mã nhân viên
+  password?: string; // Không hiển thị trong frontend
   fullName: string;
   email: string;
+  unitId?: string; // Đơn vị
   phoneNumber?: string;
-  birthDate?: string;
+  birthDate?: string; // date
   status: UserStatus;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
   roles?: Role[];
+  unit?: Unit; // Relation to Unit
 }
 
 // Unit Management
@@ -63,41 +82,33 @@ export enum UnitType {
 
 export interface Unit {
   id: string;
-  name: string;
-  phone?: string;
-  email?: string;
+  name: string; // Tên đơn vị sử dụng
+  phone?: string; // Số điện thoại
+  email?: string; // Email
   type: UnitType;
-  representativeId: string;
+  representativeId: string; // Người đại diện
   status: UnitStatus;
   createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt?: string;
+  createdAt: string; // date
+  updatedAt: string; // date
+  deletedAt?: string; // date
   representative?: User;
 }
 
 // Room Management
 export enum RoomStatus {
   ACTIVE = "ACTIVE", 
-  INACTIVE = "INACTIVE",
-  MAINTENANCE = "MAINTENANCE"
+  INACTIVE = "INACTIVE"
 }
 
 export interface Room {
   id: string;
-  name: string;
-  building?: string;
-  floor: string;
-  roomNumber?: string;
-  area?: number;
-  capacity?: number | null;
-  description?: string;
+  building?: string; // Tòa
+  floor: string; // Tầng
+  roomNumber?: string; // Số phòng / tên phòng
   status: RoomStatus;
-  unitId: string;
+  unitId: string; // Mã đơn vị sử dụng
   unit?: Unit;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 // Transaction Management
@@ -121,9 +132,9 @@ export interface AssetTransaction {
   fromRoomId?: string;
   toRoomId?: string;
   createdBy: string;
-  createdAt: string;
+  createdAt: string; // datetime
   approvedBy?: string;
-  approvedAt?: string;
+  approvedAt?: string; // datetime
   status: TransactionStatus;
   note?: string;
   fromUnit?: Unit;
@@ -147,24 +158,33 @@ export interface Asset {
   fixedCode: string; // Mã tài sản cố định xxxx.yyyy  
   name: string;
   specs?: string; // Thông số kỹ thuật
-  entryDate: string; // Ngày nhập
-  plannedRoomId?: string; // Vị trí theo kế hoạch - updated to string
+  entryDate: string; // Ngày nhập (date)
+  currentRoomId?: string; // Vị trí hiện tại, null là đang nhập kho, chưa phân bổ
+  plannedRoomId?: string; // Vị trí theo kế hoạch, null là đang nhập kho, chưa phân bổ
   unit: string; // Đơn vị tính
-  quantity: number; // Số lượng
+  quantity: number; // Số lượng (Với tài sản cố định = 1)
   origin?: string; // Xuất xứ
   purchasePackage: number; // Gói mua
   type: AssetType;
-  isLocked: boolean; // Đã bàn giao không cho cập nhật
-  categoryId: string; // Danh mục
+  isLocked: boolean; // Khi đã bàn giao thì không cho cập nhật lại
+  isHandOver: boolean; // Đã bàn giao
+  categoryId: string; // Danh mục - 4: máy tính, 3: thiết bị văn phòng, 5: máy in
   status: AssetStatus;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
   
+  // Thông tin bàn giao (cho sổ tài sản)
+  assignedDate?: string; // Ngày bàn giao
+  assignedTo?: string; // Người được bàn giao
+  department?: string; // Phòng ban
+  location?: string; // Vị trí cụ thể
+  
   // Relations
   category?: Category;
   room?: Room;
+  plannedRoom?: Room; // Thêm relation cho phòng theo kế hoạch
   rfidTag?: RfidTag;
   logs?: AssetLog[];
   transactions?: AssetTransaction[];
@@ -180,9 +200,9 @@ export interface Category {
 }
 
 export interface RfidTag {
-  rfidId: string; // E280F3362000F00005E66021
-  assetId: string;
-  assignedDate: string;
+  rfidId: string; // E280F3362000F00005E66021 - primary key
+  assetId: string; // Mã tài sản
+  assignedDate: string; // Ngày định danh và đưa vào tài sản
   asset?: Asset;
 }
 
@@ -207,21 +227,21 @@ export enum BookStatus {
 
 export interface AssetBook {
   id: string;
-  unitId: string;
-  year: number;
+  unitId: string; // Đơn vị quản lý sổ
+  year: number; // Năm
   createdBy: string;
-  createdAt: string;
-  lockedAt?: string;
-  status: BookStatus;
+  createdAt: string; // datetime
+  lockedAt?: string; // datetime - Khóa sổ khi kết thúc năm
+  status: BookStatus; // Open, Closed
   unit?: Unit;
   items?: AssetBookItem[];
 }
 
 export enum AssetBookItemStatus {
-  IN_USE = "IN_USE",
-  TRANSFERRED = "TRANSFERRED", 
-  LIQUIDATED = "LIQUIDATED",
-  MISSING = "MISSING"
+  IN_USE = "IN_USE", // Đang sử dụng
+  TRANSFERRED = "TRANSFERRED", // Đã được di chuyển đi chỗ khác
+  LIQUIDATED = "LIQUIDATED", // Đã được thanh lý
+  MISSING = "MISSING" // Đã thất lạc
 }
 
 export interface AssetBookItem {
@@ -229,8 +249,8 @@ export interface AssetBookItem {
   bookId: string;
   assetId: string;
   roomId: string;
-  assignedAt: string;
-  quantity: number;
+  assignedAt: string; // datetime - Ngày được ghi nhận vào sổ
+  quantity: number; // Số lượng thực tế trong sổ
   status: AssetBookItemStatus;
   note?: string;
   book?: AssetBook;
@@ -247,15 +267,15 @@ export enum InventorySessionStatus {
 
 export interface InventorySession {
   id: string;
-  year: number;
-  period: number;
-  unitId?: string;
-  isGlobal: boolean;
-  startDate: string;
-  endDate: string;
+  year: number; // Năm
+  period: number; // Đợt
+  unitId?: string; // Nếu chỉ cho 1 đơn vị thì isGlobal = false và unitId != null
+  isGlobal: boolean; // true: Một kỳ cho toàn bộ các đơn vị sử dụng, false: Một kỳ cho một đơn vị sử dụng
+  startDate: string; // date
+  endDate: string; // date
   status: InventorySessionStatus;
   createdBy: string;
-  createdAt: string;
+  createdAt: string; // datetime
   unit?: Unit;
   committees?: InventoryCommittee[];
   results?: InventoryResult[];
@@ -264,10 +284,10 @@ export interface InventorySession {
 export interface InventoryCommittee {
   id: string;
   sessionId: string;
-  leaderId: string;
-  secretaryId: string;
-  representativeId: string;
-  createdAt: string;
+  leaderId: string; // Trưởng phòng
+  secretaryId: string; // Thư ký
+  representativeId: string; // Đại diện đơn vị sử dụng
+  createdAt: string; // datetime
   session?: InventorySession;
   leader?: User;
   secretary?: User;
@@ -279,34 +299,34 @@ export interface InventoryCommitteeMember {
   id: string;
   committeeId: string;
   userId: string;
-  role: string;
+  role: string; // Vai trò: Member, Auditor,…
   committee?: InventoryCommittee;
   user?: User;
 }
 
 export enum ScanMethod {
-  RFID = "RFID",
-  MANUAL = "MANUAL"
+  RFID = "RFID", // Bằng RFID
+  MANUAL = "MANUAL" // Bằng thủ công
 }
 
 export enum InventoryResultStatus {
-  MATCHED = "MATCHED",
-  MISSING = "MISSING",
-  EXCESS = "EXCESS", 
-  BROKEN = "BROKEN",
-  LIQUIDATION_PROPOSED = "LIQUIDATION_PROPOSED"
+  MATCHED = "MATCHED", // Khớp
+  MISSING = "MISSING", // Thiếu
+  EXCESS = "EXCESS", // Thừa
+  BROKEN = "BROKEN", // Hỏng
+  LIQUIDATION_PROPOSED = "LIQUIDATION_PROPOSED" // Đề xuất thanh lý
 }
 
 export interface InventoryResult {
   id: string;
   sessionId: string;
   assetId: string;
-  systemQuantity: number;
-  countedQuantity: number;
-  scanMethod: ScanMethod;
-  status: InventoryResultStatus;
+  systemQuantity: number; // Số lượng trên hệ thống (default: 1)
+  countedQuantity: number; // Số lượng kiểm kê thực tế (default: 0)
+  scanMethod: ScanMethod; // Phương thức kiểm kê
+  status: InventoryResultStatus; // Trạng thái kiểm kê của tài sản
   note?: string;
-  createdAt: string;
+  createdAt: string; // datetime
   session?: InventorySession;
   asset?: Asset;
 }
@@ -318,26 +338,26 @@ export enum AlertStatus {
 }
 
 export enum AlertType {
-  UNAUTHORIZED_MOVEMENT = "UNAUTHORIZED_MOVEMENT"
+  UNAUTHORIZED_MOVEMENT = "UNAUTHORIZED_MOVEMENT" // Di chuyển không hợp lệ
 }
 
 export interface Alert {
   id: string;
   assetId: string;
-  detectedAt: string;
+  detectedAt: string; // datetime - Thời gian phát hiện
   roomId: string;
-  type: AlertType;
+  type: AlertType; // Di chuyển không hợp lệ
   status: AlertStatus;
-  createdAt: string;
+  createdAt: string; // datetime
   asset?: Asset;
   room?: Room;
   resolution?: AlertResolution;
 }
 
 export enum AlertResolutionStatus {
-  CONFIRMED = "CONFIRMED",
-  FALSE_ALARM = "FALSE_ALARM",
-  SYSTEM_ERROR = "SYSTEM_ERROR"
+  CONFIRMED = "CONFIRMED", // Đã xác minh
+  FALSE_ALARM = "FALSE_ALARM", // Sai phạm
+  SYSTEM_ERROR = "SYSTEM_ERROR" // Lỗi hệ thống
 }
 
 export interface AlertResolution {
@@ -346,7 +366,7 @@ export interface AlertResolution {
   resolverId: string;
   resolution: AlertResolutionStatus;
   note?: string;
-  resolvedAt: string;
+  resolvedAt: string; // datetime
   alert?: Alert;
   resolver?: User;
 }
@@ -362,48 +382,48 @@ export enum DamageReportStatus {
 export interface DamageReport {
   id: string;
   assetId: string;
-  reporter: string;
+  reporter: string; // Tên người report
   roomId: string;
-  description: string;
-  mediaUrl?: string;
+  description: string; // text - Mô tả
+  mediaUrl?: string; // Ảnh / Video minh chứng
   status: DamageReportStatus;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string; // datetime
+  updatedAt: string; // datetime
   asset?: Asset;
   room?: Room;
 }
 
 // Liquidation Management
 export enum LiquidationStatus {
-  PROPOSED = "PROPOSED",
-  APPROVED = "APPROVED", 
-  REJECTED = "REJECTED"
+  PROPOSED = "PROPOSED", // Đề xuất thanh lý
+  APPROVED = "APPROVED", // Chấp nhận
+  REJECTED = "REJECTED" // Từ chối
 }
 
 export interface LiquidationProposal {
   id: string;
-  proposerId: string;
-  unitId: string;
-  reason: string;
-  status: LiquidationStatus;
-  createdAt: string;
-  updatedAt: string;
+  proposerId: string; // Người đề xuất
+  unitId: string; // Đơn vị sử dụng
+  reason: string; // text
+  status: LiquidationStatus; // Trạng thái đề xuất
+  createdAt: string; // datetime
+  updatedAt: string; // datetime
   proposer?: User;
   unit?: Unit;
   items?: LiquidationProposalItem[];
 }
 
 export enum LiquidationProposalItemCondition {
-  DAMAGED = "DAMAGED",
-  UNUSABLE = "UNUSABLE"
+  DAMAGED = "DAMAGED", // Hư hỏng
+  UNUSABLE = "UNUSABLE" // Không thể sử dụng
 }
 
 export interface LiquidationProposalItem {
   id: string;
   proposalId: string;
   assetId: string;
-  reason: string;
-  condition: LiquidationProposalItemCondition;
+  reason: string; // text
+  condition: LiquidationProposalItemCondition; // Trạng thái tài sản hiện tại
   mediaUrl?: string;
   proposal?: LiquidationProposal;
   asset?: Asset;
@@ -417,6 +437,7 @@ export interface AssetFilter {
   roomId?: string;
   unitId?: string;
   isLocked?: boolean;
+  isHandOver?: boolean; // Thêm trường lọc theo trạng thái bàn giao
   hasRfid?: boolean;
   entryDateFrom?: string; // Thêm trường lọc theo ngày từ
   entryDateTo?: string;   // Thêm trường lọc theo ngày đến
@@ -426,11 +447,36 @@ export interface AssetFormData {
   name: string;
   specs?: string;
   entryDate: string;
-  plannedRoomId?: string; // updated to string
+  plannedRoomId?: string; // ID phòng theo kế hoạch
   unit: string;
   quantity: number;
   origin?: string;
   purchasePackage: number;
   type: AssetType;
   categoryId: string;
+}
+
+// Additional interfaces for Asset Book Management with Role-based Access
+export interface AssetBookFilter {
+  unitId?: string;
+  year?: number;
+  status?: BookStatus;
+  search?: string;
+}
+
+export interface AssetBookItemFilter {
+  bookId?: string;
+  assetId?: string;
+  roomId?: string;
+  status?: AssetBookItemStatus;
+  assignedDateFrom?: string;
+  assignedDateTo?: string;
+}
+
+export interface UserPermissions {
+  canViewAllUnits: boolean;
+  canManageAssetBooks: boolean;
+  canCreateAssetBooks: boolean;
+  canLockAssetBooks: boolean;
+  allowedUnits: string[]; // Array of unit IDs the user can access
 }

@@ -9,8 +9,6 @@ import {
   Calendar,
   User,
   AlertCircle,
-  Filter,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -32,7 +30,7 @@ const mockAssetTransactions: AssetTransaction[] = [
     id: "TXN-2025-001",
     type: TransactionType.TRANSFER,
     fromUnitId: "PKHDTU",
-    toUnitId: "PQT",
+    toUnitId: "PQT", 
     createdBy: "Nguyễn Văn Minh",
     createdAt: "2025-08-15T09:30:00Z",
     status: TransactionStatus.PENDING,
@@ -48,12 +46,12 @@ const mockAssetTransactions: AssetTransaction[] = [
       updatedAt: "2024-01-01T00:00:00Z"
     },
     toUnit: {
-      id: "PQT",
+      id: "PQT", 
       name: "Phòng Quản Trị",
       type: UnitType.PHONG_QUAN_TRI,
       status: UnitStatus.ACTIVE,
       representativeId: "tran.ha",
-      createdBy: "admin",
+      createdBy: "admin", 
       createdAt: "2024-01-01T00:00:00Z",
       updatedAt: "2024-01-01T00:00:00Z"
     },
@@ -65,7 +63,7 @@ const mockAssetTransactions: AssetTransaction[] = [
         note: "Laptop Dell Latitude mới - Đã test đầy đủ chức năng, bao gồm chuột không dây và cặp đựng",
         asset: {
           id: "LAPTOP-001",
-          ktCode: "25-0001/KT",
+          ktCode: "25-0001/KT", 
           fixedCode: "2141.00001",
           name: "Laptop Dell Latitude 5530",
           specs: "Intel Core i7-1250U, 16GB DDR4 RAM, 512GB NVMe SSD, 15.6\" FHD, Windows 11 Pro",
@@ -86,13 +84,13 @@ const mockAssetTransactions: AssetTransaction[] = [
       },
       {
         id: "ITM-2025-002",
-        transactionId: "TXN-2025-001",
+        transactionId: "TXN-2025-001", 
         assetId: "PC-001",
         note: "Máy tính để bàn HP - Cấu hình mạnh cho phòng thí nghiệm, kèm màn hình 24 inch",
         asset: {
           id: "PC-001",
           ktCode: "25-0002/KT",
-          fixedCode: "2142.00001",
+          fixedCode: "2142.00001", 
           name: "Máy tính để bàn HP EliteDesk 800 G9",
           specs: "Intel Core i5-12500, 16GB DDR4, 1TB HDD + 256GB SSD, DVD-RW, có màn hình HP 24\" IPS",
           entryDate: "2025-07-22",
@@ -102,7 +100,7 @@ const mockAssetTransactions: AssetTransaction[] = [
           type: AssetType.TSCD,
           isLocked: false,
           isHandOver: false,
-          categoryId: "2142",
+          categoryId: "2142", 
           status: AssetStatus.CHO_PHAN_BO,
           createdBy: "nguyen.minh",
           createdAt: "2025-07-22T08:00:00Z",
@@ -143,7 +141,7 @@ const mockAssetTransactions: AssetTransaction[] = [
     type: TransactionType.TRANSFER,
     fromUnitId: "PKHDTU",
     toUnitId: "PQT",
-    createdBy: "Nguyễn Văn Minh",
+    createdBy: "Nguyễn Văn Minh", 
     createdAt: "2025-08-16T14:15:00Z",
     status: TransactionStatus.PENDING,
     note: "Bàn giao nội thất văn phòng đợt 2 - Trang bị phòng họp mới",
@@ -159,7 +157,7 @@ const mockAssetTransactions: AssetTransaction[] = [
     },
     toUnit: {
       id: "PQT",
-      name: "Phòng Quản Trị",
+      name: "Phòng Quản Trị", 
       type: UnitType.PHONG_QUAN_TRI,
       status: UnitStatus.ACTIVE,
       representativeId: "tran.ha",
@@ -177,7 +175,7 @@ const mockAssetTransactions: AssetTransaction[] = [
           id: "TABLE-001",
           ktCode: "25-0004/KT",
           fixedCode: "3331.00001",
-          name: "Bàn họp oval gỗ MFC",
+          name: "Bàn họp oval gỗ MFC", 
           specs: "Kích thước 240x120x75cm, mặt gỗ MFC phủ Melamine, chân inox 304, có ổ cắm điện tích hợp",
           entryDate: "2025-08-01",
           unit: "Chiếc",
@@ -189,7 +187,7 @@ const mockAssetTransactions: AssetTransaction[] = [
           categoryId: "3331",
           status: AssetStatus.CHO_PHAN_BO,
           createdBy: "nguyen.minh",
-          createdAt: "2025-08-01T08:00:00Z",
+          createdAt: "2025-08-01T08:00:00Z", 
           updatedAt: "2025-08-16T14:15:00Z",
           category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" }
         }
@@ -253,7 +251,7 @@ const mockAssetTransactions: AssetTransaction[] = [
     type: TransactionType.TRANSFER,
     fromUnitId: "PKHDTU",
     toUnitId: "PQT",
-    createdBy: "Lê Thị Hương",
+    createdBy: "Lê Thị Hương", 
     createdAt: "2025-08-17T10:45:00Z",
     status: TransactionStatus.PENDING,
     note: "Bàn giao thiết bị phòng thí nghiệm - Khoa Công nghệ Thông tin",
@@ -269,7 +267,7 @@ const mockAssetTransactions: AssetTransaction[] = [
     },
     toUnit: {
       id: "PQT",
-      name: "Phòng Quản Trị",
+      name: "Phòng Quản Trị", 
       type: UnitType.PHONG_QUAN_TRI,
       status: UnitStatus.ACTIVE,
       representativeId: "tran.ha",
@@ -389,7 +387,7 @@ const mockAssetTransactions: AssetTransaction[] = [
     type: TransactionType.TRANSFER,
     fromUnitId: "PKHDTU",
     toUnitId: "PQT",
-    createdBy: "Phạm Minh Tuấn",
+    createdBy: "Phạm Minh Tuấn", 
     createdAt: "2025-08-18T08:00:00Z",
     status: TransactionStatus.PENDING,
     note: "Bàn giao thiết bị y tế - Phòng y tế trường học",
@@ -405,7 +403,7 @@ const mockAssetTransactions: AssetTransaction[] = [
     },
     toUnit: {
       id: "PQT",
-      name: "Phòng Quản Trị",
+      name: "Phòng Quản Trị", 
       type: UnitType.PHONG_QUAN_TRI,
       status: UnitStatus.ACTIVE,
       representativeId: "tran.ha",
@@ -467,185 +465,6 @@ const mockAssetTransactions: AssetTransaction[] = [
         }
       }
     ]
-  },
-  {
-    id: "TXN-2025-005",
-    type: TransactionType.TRANSFER,
-    fromUnitId: "PKHDTU",
-    toUnitId: "PQT",
-    createdBy: "Trần Thị Mai",
-    createdAt: "2025-08-10T16:30:00Z",
-    status: TransactionStatus.APPROVED,
-    note: "Bàn giao máy móc công nghiệp - Xưởng thực hành cơ khí",
-    approvedAt: "2025-08-12T09:15:00Z",
-    approvedBy: "tran.ha",
-    fromUnit: {
-      id: "PKHDTU",
-      name: "Phòng Kế Hoạch Đầu Tư",
-      type: UnitType.PHONG_KE_HOACH_DAU_TU,
-      status: UnitStatus.ACTIVE,
-      representativeId: "tran.mai",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    toUnit: {
-      id: "PQT",
-      name: "Phòng Quản Trị",
-      type: UnitType.PHONG_QUAN_TRI,
-      status: UnitStatus.ACTIVE,
-      representativeId: "tran.ha",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    items: [
-      {
-        id: "ITM-2025-013",
-        transactionId: "TXN-2025-005",
-        assetId: "MACHINE-001",
-        note: "Máy tiện CNC - Đã được kiểm tra và hiệu chỉnh, sẵn sàng đưa vào sử dụng",
-        asset: {
-          id: "MACHINE-001",
-          ktCode: "25-0013/KT",
-          fixedCode: "6151.00001",
-          name: "Máy tiện CNC Fanuc 0i-MF",
-          specs: "Độ chính xác ±0.005mm, tốc độ trục chính 4000rpm, kẹp 3 chấu Ø250mm",
-          entryDate: "2025-07-28",
-          unit: "Chiếc",
-          quantity: 1,
-          purchasePackage: 5,
-          type: AssetType.TSCD,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "6151",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "tran.mai",
-          createdAt: "2025-07-28T08:00:00Z",
-          updatedAt: "2025-08-10T16:30:00Z",
-          category: { id: "6151", name: "Máy công cụ", code: "6151" }
-        }
-      }
-    ]
-  },
-  // Additional mock data for testing filters
-  {
-    id: "TXN-2025-006",
-    type: TransactionType.TRANSFER,
-    fromUnitId: "PKHDTU",
-    toUnitId: "PQT",
-    createdBy: "Nguyễn Thị Lan",
-    createdAt: "2025-08-05T10:00:00Z",
-    status: TransactionStatus.REJECTED,
-    note: "Bàn giao thiết bị điện tử - Bị từ chối do không đúng quy cách",
-    fromUnit: {
-      id: "PKHDTU",
-      name: "Phòng Kế Hoạch Đầu Tư",
-      type: UnitType.PHONG_KE_HOACH_DAU_TU,
-      status: UnitStatus.ACTIVE,
-      representativeId: "nguyen.lan",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    toUnit: {
-      id: "PQT",
-      name: "Phòng Quản Trị",
-      type: UnitType.PHONG_QUAN_TRI,
-      status: UnitStatus.ACTIVE,
-      representativeId: "tran.ha",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    items: [
-      {
-        id: "ITM-2025-014",
-        transactionId: "TXN-2025-006",
-        assetId: "TABLET-001",
-        note: "Tablet Samsung - Không đúng model yêu cầu",
-        asset: {
-          id: "TABLET-001",
-          ktCode: "25-0014/KT",
-          fixedCode: "2145.00001",
-          name: "Tablet Samsung Galaxy Tab S8",
-          specs: "11 inch, 8GB RAM, 256GB Storage, S-Pen",
-          entryDate: "2025-08-01",
-          unit: "Chiếc",
-          quantity: 5,
-          purchasePackage: 6,
-          type: AssetType.TSCD,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "2145",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "nguyen.lan",
-          createdAt: "2025-08-01T08:00:00Z",
-          updatedAt: "2025-08-05T10:00:00Z",
-          category: { id: "2145", name: "Thiết bị di động", code: "2145" }
-        }
-      }
-    ]
-  },
-  {
-    id: "TXN-2025-007",
-    type: TransactionType.TRANSFER,
-    fromUnitId: "PKHDTU",
-    toUnitId: "PQT",
-    createdBy: "Hoàng Văn Đức",
-    createdAt: "2025-07-30T15:45:00Z",
-    status: TransactionStatus.APPROVED,
-    note: "Bàn giao thiết bị âm thanh phòng hội nghị",
-    approvedAt: "2025-08-01T09:30:00Z",
-    approvedBy: "tran.ha",
-    fromUnit: {
-      id: "PKHDTU",
-      name: "Phòng Kế Hoạch Đầu Tư",
-      type: UnitType.PHONG_KE_HOACH_DAU_TU,
-      status: UnitStatus.ACTIVE,
-      representativeId: "hoang.duc",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    toUnit: {
-      id: "PQT",
-      name: "Phòng Quản Trị",
-      type: UnitType.PHONG_QUAN_TRI,
-      status: UnitStatus.ACTIVE,
-      representativeId: "tran.ha",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    items: [
-      {
-        id: "ITM-2025-015",
-        transactionId: "TXN-2025-007",
-        assetId: "AUDIO-001",
-        note: "Bộ âm thanh hội nghị chuyên nghiệp",
-        asset: {
-          id: "AUDIO-001",
-          ktCode: "25-0015/KT",
-          fixedCode: "2192.00001",
-          name: "Hệ thống âm thanh hội nghị Bosch",
-          specs: "Bộ điều khiển trung tâm, 12 micro đại biểu, 2 loa cột",
-          entryDate: "2025-07-25",
-          unit: "Bộ",
-          quantity: 1,
-          purchasePackage: 7,
-          type: AssetType.TSCD,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "2192",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "hoang.duc",
-          createdAt: "2025-07-25T08:00:00Z",
-          updatedAt: "2025-07-30T15:45:00Z",
-          category: { id: "2192", name: "Thiết bị hội nghị", code: "2192" }
-        }
-      }
-    ]
   }
 ];
 
@@ -656,7 +475,7 @@ const typeLabels = {
 
 const statusColors = {
   [TransactionStatus.PENDING]: "bg-yellow-100 text-yellow-800",
-  [TransactionStatus.APPROVED]: "bg-green-100 text-green-800",
+  [TransactionStatus.APPROVED]: "bg-green-100 text-green-800", 
   [TransactionStatus.REJECTED]: "bg-red-100 text-red-800",
 };
 
@@ -671,49 +490,19 @@ export default function AssetReceivePage() {
   const [filteredTransactions, setFilteredTransactions] = useState<AssetTransaction[]>(mockAssetTransactions);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
-  
-  // Filter states
-  const [statusFilter, setStatusFilter] = useState<TransactionStatus | "">("");
-  const [fromDateFilter, setFromDateFilter] = useState("");
-  const [toDateFilter, setToDateFilter] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
 
-  // Filter transactions
+  // Filter transactions - chỉ hiển thị giao dịch chờ tiếp nhận
   useEffect(() => {
-    let filtered = transactions;
+    let filtered = transactions.filter(transaction => 
+      transaction.status === TransactionStatus.PENDING
+    );
 
-    // Filter by status
-    if (statusFilter) {
-      filtered = filtered.filter(transaction => transaction.status === statusFilter);
-    }
-    // No else clause - show all transactions when no status filter is selected
-
-    // Filter by date range
-    if (fromDateFilter || toDateFilter) {
-      filtered = filtered.filter(transaction => {
-        const transactionDate = new Date(transaction.createdAt).toISOString().split('T')[0];
-        
-        let isInRange = true;
-        
-        if (fromDateFilter && transactionDate < fromDateFilter) {
-          isInRange = false;
-        }
-        
-        if (toDateFilter && transactionDate > toDateFilter) {
-          isInRange = false;
-        }
-        
-        return isInRange;
-      });
-    }
-
-    // Filter by search term
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(transaction =>
+      filtered = filtered.filter(transaction => 
         transaction.note?.toLowerCase().includes(searchLower) ||
         transaction.fromUnit?.name.toLowerCase().includes(searchLower) ||
-        transaction.items?.some(item =>
+        transaction.items?.some(item => 
           item.asset?.name.toLowerCase().includes(searchLower) ||
           item.asset?.ktCode.toLowerCase().includes(searchLower)
         )
@@ -721,11 +510,11 @@ export default function AssetReceivePage() {
     }
 
     setFilteredTransactions(filtered);
-  }, [transactions, searchTerm, statusFilter, fromDateFilter, toDateFilter]);
+  }, [transactions, searchTerm]);
 
   const handleSelectTransaction = (transactionId: string) => {
-    setSelectedTransactions(prev =>
-      prev.includes(transactionId)
+    setSelectedTransactions(prev => 
+      prev.includes(transactionId) 
         ? prev.filter(id => id !== transactionId)
         : [...prev, transactionId]
     );
@@ -739,51 +528,42 @@ export default function AssetReceivePage() {
     }
   };
 
-  const handleResetFilters = () => {
-    setStatusFilter("");
-    setFromDateFilter("");
-    setToDateFilter("");
-    setSearchTerm("");
-  };
-
-  const hasActiveFilters = statusFilter || fromDateFilter || toDateFilter || searchTerm;
-
   const handleReceiveTransaction = (transactionId: string) => {
     if (confirm("Bạn có chắc chắn muốn tiếp nhận bàn giao này?")) {
-      setTransactions(prev =>
-        prev.map(transaction =>
+      setTransactions(prev => 
+        prev.map(transaction => 
           transaction.id === transactionId
-            ? {
-              ...transaction,
-              status: TransactionStatus.APPROVED,
-              approvedAt: new Date().toISOString(),
-              approvedBy: "current_user"
-            }
+            ? { 
+                ...transaction, 
+                status: TransactionStatus.APPROVED,
+                approvedAt: new Date().toISOString(),
+                approvedBy: "current_user"
+              }
             : transaction
         )
       );
-
+      
       alert("Tiếp nhận bàn giao thành công! Tài sản đã sẵn sàng để phân bổ.");
     }
   };
 
   const handleBulkReceive = () => {
     if (selectedTransactions.length === 0) return;
-
+    
     if (confirm(`Bạn có chắc chắn muốn tiếp nhận ${selectedTransactions.length} bàn giao đã chọn?`)) {
-      setTransactions(prev =>
-        prev.map(transaction =>
+      setTransactions(prev => 
+        prev.map(transaction => 
           selectedTransactions.includes(transaction.id)
-            ? {
-              ...transaction,
-              status: TransactionStatus.APPROVED,
-              approvedAt: new Date().toISOString(),
-              approvedBy: "current_user"
-            }
+            ? { 
+                ...transaction, 
+                status: TransactionStatus.APPROVED,
+                approvedAt: new Date().toISOString(),
+                approvedBy: "current_user"
+              }
             : transaction
         )
       );
-
+      
       setSelectedTransactions([]);
       alert(`Đã tiếp nhận thành công ${selectedTransactions.length} bàn giao!`);
     }
@@ -799,6 +579,13 @@ export default function AssetReceivePage() {
             Tiếp nhận danh sách bàn giao tài sản từ ban kế hoạch đầu tư
           </p>
         </div>
+        <div className="flex items-center space-x-3">
+          <Link href="/asset">
+            <Button variant="outline">
+              Quay lại danh sách tài sản
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Info Banner */}
@@ -808,147 +595,28 @@ export default function AssetReceivePage() {
           <div>
             <h3 className="text-sm font-medium text-blue-900">Lưu ý</h3>
             <p className="text-sm text-blue-700 mt-1">
-              Đây là danh sách bàn giao do ban kế hoạch đầu tư gửi xuống.
+              Đây là danh sách bàn giao do ban kế hoạch đầu tư gửi xuống. 
               Sau khi tiếp nhận, tài sản sẽ có thể được phân bổ đến các đơn vị sử dụng.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-4 flex-1">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  type="text"
-                  placeholder="Tìm kiếm theo ghi chú, đơn vị, tên tài sản, mã tài sản..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center space-x-2"
-              >
-                <Filter className="h-4 w-4" />
-                <span>Bộ lọc</span>
-                {hasActiveFilters && (
-                  <span className="ml-1 bg-blue-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                    !
-                  </span>
-                )}
-              </Button>
-              {hasActiveFilters && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResetFilters}
-                  className="text-gray-600 hover:text-red-600"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Xóa bộ lọc
-                </Button>
-              )}
-            </div>
+      {/* Search */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center space-x-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              type="text"
+              placeholder="Tìm kiếm theo ghi chú, đơn vị, tên tài sản, mã tài sản..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
-
-          {/* Filter Panel */}
-          {showFilters && (
-            <div className="border-t pt-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Status Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Trạng thái
-                  </label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as TransactionStatus | "")}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Tất cả trạng thái</option>
-                    <option value={TransactionStatus.PENDING}>Chờ tiếp nhận</option>
-                    <option value={TransactionStatus.APPROVED}>Đã tiếp nhận</option>
-                    <option value={TransactionStatus.REJECTED}>Từ chối</option>
-                  </select>
-                </div>
-
-                {/* From Date Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Từ ngày
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      type="date"
-                      value={fromDateFilter}
-                      onChange={(e) => setFromDateFilter(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                {/* To Date Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Đến ngày
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      type="date"
-                      value={toDateFilter}
-                      onChange={(e) => setToDateFilter(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
-
-      {/* Filter Results Summary */}
-      {hasActiveFilters && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                Hiển thị {filteredTransactions.length} kết quả
-              </span>
-              <div className="flex items-center space-x-2">
-                {statusFilter && (
-                  <Badge className="bg-blue-100 text-blue-800">
-                    Trạng thái: {statusLabels[statusFilter as keyof typeof statusLabels]}
-                  </Badge>
-                )}
-                {fromDateFilter && (
-                  <Badge className="bg-green-100 text-green-800">
-                    Từ: {new Date(fromDateFilter).toLocaleDateString("vi-VN")}
-                  </Badge>
-                )}
-                {toDateFilter && (
-                  <Badge className="bg-green-100 text-green-800">
-                    Đến: {new Date(toDateFilter).toLocaleDateString("vi-VN")}
-                  </Badge>
-                )}
-                {searchTerm && (
-                  <Badge className="bg-purple-100 text-purple-800">
-                    Tìm kiếm: "{searchTerm}"
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Bulk Actions */}
       {selectedTransactions.length > 0 && (
@@ -991,6 +659,9 @@ export default function AssetReceivePage() {
                   Thông tin bàn giao
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Đơn vị gửi
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Số lượng tài sản
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1018,9 +689,9 @@ export default function AssetReceivePage() {
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
-                            <Package2 className="h-5 w-5 text-white" />
+                        <div className="flex-shrink-0 h-8 w-8">
+                          <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                            <Package2 className="h-4 w-4 text-blue-600" />
                           </div>
                         </div>
                         <div className="ml-3">
@@ -1028,9 +699,15 @@ export default function AssetReceivePage() {
                             {transaction.note}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {transaction.id}
+                            ID: {transaction.id}
                           </div>
                         </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center">
+                        <User className="h-4 w-4 mr-1 text-gray-400" />
+                        <div className="text-sm text-gray-900">{transaction.fromUnit?.name}</div>
                       </div>
                     </td>
                     <td className="px-4 py-4">
@@ -1055,19 +732,19 @@ export default function AssetReceivePage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            title="Xem"
                             className="flex items-center"
                           >
                             <Eye className="h-4 w-4 mr-1" />
+                            Xem chi tiết
                           </Button>
                         </Link>
                         <Button
                           onClick={() => handleReceiveTransaction(transaction.id)}
                           size="sm"
-                          title="Tiếp nhận"
                           className="bg-green-500 hover:bg-green-600 text-white"
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
+                          Tiếp nhận
                         </Button>
                       </div>
                     </td>
@@ -1083,22 +760,8 @@ export default function AssetReceivePage() {
             <Package2 className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">Không có bàn giao nào</h3>
             <p className="mt-1 text-sm text-gray-500">
-              {hasActiveFilters 
-                ? "Không có bàn giao nào phù hợp với các bộ lọc hiện tại. Hãy thử điều chỉnh bộ lọc."
-                : "Hiện tại không có bàn giao nào cần tiếp nhận."
-              }
+              Hiện tại không có bàn giao nào cần tiếp nhận hoặc không phù hợp với từ khóa tìm kiếm.
             </p>
-            {hasActiveFilters && (
-              <Button
-                onClick={handleResetFilters}
-                variant="outline"
-                size="sm"
-                className="mt-3"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Xóa bộ lọc
-              </Button>
-            )}
           </div>
         )}
       </div>
