@@ -29,6 +29,11 @@ import {
   AssetStatus,
   UnitType,
   UnitStatus,
+  AssetTransaction,
+  TransactionType,
+  TransactionStatus,
+  AssetTransactionItem,
+  Unit,
 } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,13 +44,13 @@ import { Card } from "@/components/ui/card";
 const mockAvailableAssets: Asset[] = [
   {
     id: "LAPTOP-001",
-    ktCode: "25-0001/KT", 
+    ktCode: "25-0001/KT",
     fixedCode: "2141.00001",
     name: "Laptop Dell Latitude 5530",
     specs: "Intel Core i7-1250U, 16GB DDR4 RAM, 512GB NVMe SSD, 15.6\" FHD, Windows 11 Pro",
     entryDate: "2025-07-20",
     unit: "Chiếc",
-    quantity: 10,
+    quantity: 1,
     purchasePackage: 1,
     type: AssetType.TSCD,
     isLocked: false,
@@ -60,17 +65,17 @@ const mockAvailableAssets: Asset[] = [
   {
     id: "PC-001",
     ktCode: "25-0002/KT",
-    fixedCode: "2142.00001", 
+    fixedCode: "2142.00001",
     name: "Máy tính để bàn HP EliteDesk 800 G9",
     specs: "Intel Core i5-12500, 16GB DDR4, 1TB HDD + 256GB SSD, DVD-RW, có màn hình HP 24\" IPS",
     entryDate: "2025-07-22",
     unit: "Bộ",
-    quantity: 15,
+    quantity: 1,
     purchasePackage: 1,
     type: AssetType.TSCD,
     isLocked: false,
     isHandOver: false,
-    categoryId: "2142", 
+    categoryId: "2142",
     status: AssetStatus.CHO_PHAN_BO,
     createdBy: "nguyen.minh",
     createdAt: "2025-07-22T08:00:00Z",
@@ -85,7 +90,7 @@ const mockAvailableAssets: Asset[] = [
     specs: "In laser đen trắng, scan màu, copy, fax, tốc độ 38trang/phút, WiFi, duplex tự động",
     entryDate: "2025-07-25",
     unit: "Chiếc",
-    quantity: 5,
+    quantity: 1,
     purchasePackage: 1,
     type: AssetType.TSCD,
     isLocked: false,
@@ -101,7 +106,7 @@ const mockAvailableAssets: Asset[] = [
     id: "TABLE-001",
     ktCode: "25-0004/KT",
     fixedCode: "3331.00001",
-    name: "Bàn họp oval gỗ MFC", 
+    name: "Bàn họp oval gỗ MFC",
     specs: "Kích thước 240x120x75cm, mặt gỗ MFC phủ Melamine, chân inox 304, có ổ cắm điện tích hợp",
     entryDate: "2025-08-01",
     unit: "Chiếc",
@@ -113,7 +118,7 @@ const mockAvailableAssets: Asset[] = [
     categoryId: "3331",
     status: AssetStatus.CHO_PHAN_BO,
     createdBy: "nguyen.minh",
-    createdAt: "2025-08-01T08:00:00Z", 
+    createdAt: "2025-08-01T08:00:00Z",
     updatedAt: "2025-08-16T14:15:00Z",
     category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" }
   },
@@ -145,7 +150,7 @@ const mockAvailableAssets: Asset[] = [
     specs: "Laser 3LCD, 4200 lumens, độ phân giải XGA 1024x768, tuổi thọ laser 20.000h, HDMI/VGA",
     entryDate: "2025-08-10",
     unit: "Chiếc",
-    quantity: 3,
+    quantity: 1,
     purchasePackage: 3,
     type: AssetType.TSCD,
     isLocked: false,
@@ -204,6 +209,300 @@ const mockUnits = [
   },
 ];
 
+// Mock data cho lịch sử phân bổ
+const mockAllocationHistory: AssetTransaction[] = [
+  {
+    id: "TXN-2025-001",
+    type: TransactionType.ALLOCATE,
+    fromUnitId: "PQT",
+    toUnitId: "CNTT",
+    createdBy: "Trần Thị Hà",
+    createdAt: "2025-08-15T10:30:00Z",
+    status: TransactionStatus.APPROVED,
+    note: "Phân bổ thiết bị máy tính cho khoa CNTT",
+    approvedAt: "2025-08-15T10:30:00Z",
+    approvedBy: "Trần Thị Hà",
+    fromUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: "ACTIVE" as any,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "CNTT",
+      name: "Khoa Công nghệ Thông tin",
+      type: UnitType.DON_VI_SU_DUNG,
+      status: "ACTIVE" as any,
+      representativeId: "nguyen.nam",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-ALLOC-001",
+        transactionId: "ALLOC-2025-001",
+        assetId: "LAPTOP-001",
+        note: "Laptop Dell Latitude 5530 - 1 chiếc",
+        asset: {
+          id: "LAPTOP-001",
+          ktCode: "25-0001/KT",
+          fixedCode: "2141.00001",
+          name: "Laptop Dell Latitude 5530",
+          specs: "Intel Core i7-1250U, 16GB DDR4 RAM, 512GB NVMe SSD",
+          entryDate: "2025-07-20",
+          unit: "Chiếc",
+          quantity: 1,
+          purchasePackage: 1,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "2141",
+          status: AssetStatus.DANG_SU_DUNG,
+          createdBy: "nguyen.minh",
+          createdAt: "2025-07-20T08:00:00Z",
+          updatedAt: "2025-08-15T09:30:00Z",
+          category: { id: "2141", name: "Máy tính xách tay", code: "2141" }
+        }
+      },
+      {
+        id: "ITM-ALLOC-002",
+        transactionId: "ALLOC-2025-001",
+        assetId: "PC-001",
+        note: "Máy tính để bàn HP EliteDesk 800 G9 - 2 bộ",
+        asset: {
+          id: "PC-001",
+          ktCode: "25-0002/KT",
+          fixedCode: "2142.00001",
+          name: "Máy tính để bàn HP EliteDesk 800 G9",
+          specs: "Intel Core i5-12500, 16GB DDR4, có màn hình HP 24\"",
+          entryDate: "2025-07-22",
+          unit: "Bộ",
+          quantity: 2,
+          purchasePackage: 1,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "2142",
+          status: AssetStatus.DANG_SU_DUNG,
+          createdBy: "nguyen.minh",
+          createdAt: "2025-07-22T08:00:00Z",
+          updatedAt: "2025-08-15T09:30:00Z",
+          category: { id: "2142", name: "Máy tính để bàn", code: "2142" }
+        }
+      }
+    ]
+  },
+  {
+    id: "TXN-2025-002",
+    type: TransactionType.ALLOCATE,
+    fromUnitId: "PQT",
+    toUnitId: "KINH_TE",
+    createdBy: "Trần Thị Hà",
+    createdAt: "2025-08-12T14:20:00Z",
+    status: TransactionStatus.APPROVED,
+    note: "Phân bổ thiết bị văn phòng cho khoa Kinh tế",
+    approvedAt: "2025-08-12T14:20:00Z",
+    approvedBy: "Trần Thị Hà",
+    fromUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: "ACTIVE" as any,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "KINH_TE",
+      name: "Khoa Kinh tế",
+      type: UnitType.DON_VI_SU_DUNG,
+      status: "ACTIVE" as any,
+      representativeId: "le.minh",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-ALLOC-003",
+        transactionId: "ALLOC-2025-002",
+        assetId: "PRINTER-001",
+        note: "Máy in đa chức năng HP LaserJet Pro M428fdw - 1 chiếc",
+        asset: {
+          id: "PRINTER-001",
+          ktCode: "25-0003/KT",
+          fixedCode: "2231.00001",
+          name: "Máy in đa chức năng HP LaserJet Pro M428fdw",
+          specs: "In laser đen trắng, scan màu, copy, fax, WiFi",
+          entryDate: "2025-07-25",
+          unit: "Chiếc",
+          quantity: 1,
+          purchasePackage: 1,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "2231",
+          status: AssetStatus.DANG_SU_DUNG,
+          createdBy: "nguyen.minh",
+          createdAt: "2025-07-25T08:00:00Z",
+          updatedAt: "2025-08-15T09:30:00Z",
+          category: { id: "2231", name: "Máy in, máy photocopy", code: "2231" }
+        }
+      },
+      {
+        id: "ITM-ALLOC-004",
+        transactionId: "ALLOC-2025-002",
+        assetId: "TABLE-001",
+        note: "Bàn họp oval gỗ MFC - 1 chiếc",
+        asset: {
+          id: "TABLE-001",
+          ktCode: "25-0004/KT",
+          fixedCode: "3331.00001",
+          name: "Bàn họp oval gỗ MFC",
+          specs: "Kích thước 240x120x75cm, mặt gỗ MFC phủ Melamine",
+          entryDate: "2025-08-01",
+          unit: "Chiếc",
+          quantity: 1,
+          purchasePackage: 2,
+          type: AssetType.CCDC,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "3331",
+          status: AssetStatus.DANG_SU_DUNG,
+          createdBy: "nguyen.minh",
+          createdAt: "2025-08-01T08:00:00Z",
+          updatedAt: "2025-08-16T14:15:00Z",
+          category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" }
+        }
+      }
+    ]
+  },
+  {
+    id: "TXN-2025-003",
+    type: TransactionType.ALLOCATE,
+    fromUnitId: "PQT",
+    toUnitId: "CO_KHI",
+    createdBy: "Trần Thị Hà",
+    createdAt: "2025-08-10T09:15:00Z",
+    status: TransactionStatus.APPROVED,
+    note: "Phân bổ thiết bị cho khoa Cơ khí",
+    approvedAt: "2025-08-10T09:15:00Z",
+    approvedBy: "Trần Thị Hà",
+    fromUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: "ACTIVE" as any,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "CO_KHI",
+      name: "Khoa Cơ khí",
+      type: UnitType.DON_VI_SU_DUNG,
+      status: "ACTIVE" as any,
+      representativeId: "hoang.duc",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-ALLOC-005",
+        transactionId: "ALLOC-2025-003",
+        assetId: "PROJECTOR-001",
+        note: "Máy chiếu laser Epson EB-L200X - 1 chiếc",
+        asset: {
+          id: "PROJECTOR-001",
+          ktCode: "25-0007/KT",
+          fixedCode: "2191.00001",
+          name: "Máy chiếu laser Epson EB-L200X",
+          specs: "Laser 3LCD, 4200 lumens, độ phân giải XGA",
+          entryDate: "2025-08-10",
+          unit: "Chiếc",
+          quantity: 1,
+          purchasePackage: 3,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "2191",
+          status: AssetStatus.DANG_SU_DUNG,
+          createdBy: "le.huong",
+          createdAt: "2025-08-10T08:00:00Z",
+          updatedAt: "2025-08-17T10:45:00Z",
+          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" }
+        }
+      }
+    ]
+  },
+  {
+    id: "TXN-2025-004",
+    type: TransactionType.ALLOCATE,
+    fromUnitId: "PQT",
+    toUnitId: "HC_CHINH",
+    createdBy: "Trần Thị Hà",
+    createdAt: "2025-08-08T16:45:00Z",
+    status: TransactionStatus.PENDING,
+    note: "Phân bổ nội thất văn phòng - Chờ duyệt",
+    fromUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: "ACTIVE" as any,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "HC_CHINH",
+      name: "Phòng Hành chính",
+      type: UnitType.DON_VI_SU_DUNG,
+      status: "ACTIVE" as any,
+      representativeId: "pham.tuan",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-ALLOC-006",
+        transactionId: "ALLOC-2025-004",
+        assetId: "CHAIR-001",
+        note: "Ghế xoay giám đốc da PU - 10 chiếc",
+        asset: {
+          id: "CHAIR-001",
+          ktCode: "25-0005/KT",
+          fixedCode: "3331.00002",
+          name: "Ghế xoay giám đốc da PU",
+          specs: "Ghế xoay chân nhôm 5 chấu, đệm da PU cao cấp",
+          entryDate: "2025-08-03",
+          unit: "Chiếc",
+          quantity: 10,
+          purchasePackage: 2,
+          type: AssetType.CCDC,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "3331",
+          status: AssetStatus.CHO_PHAN_BO,
+          createdBy: "nguyen.minh",
+          createdAt: "2025-08-03T08:00:00Z",
+          updatedAt: "2025-08-16T14:15:00Z",
+          category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" }
+        }
+      }
+    ]
+  }
+];
+
 // Interface cho allocation item
 interface AllocationItem {
   id: string;
@@ -245,16 +544,28 @@ export default function AssetAllocatePage() {
   });
   const [showAssetFilters, setShowAssetFilters] = useState(false);
 
+  // State cho lịch sử phân bổ
+  const [showHistory, setShowHistory] = useState(false);
+  const [showHistoryFilters, setShowHistoryFilters] = useState(false);
+  const [historyFilters, setHistoryFilters] = useState({
+    dateFrom: "",
+    dateTo: "",
+    status: "",
+    unit: "",
+    creator: ""
+  });
+  const [filteredHistory, setFilteredHistory] = useState(mockAllocationHistory);
+
   // Filter assets
   useEffect(() => {
-    let filtered = availableAssets.filter(asset => 
+    let filtered = availableAssets.filter(asset =>
       asset.status === AssetStatus.CHO_PHAN_BO
     );
 
     // Apply search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(asset => 
+      filtered = filtered.filter(asset =>
         asset.name.toLowerCase().includes(searchLower) ||
         asset.ktCode.toLowerCase().includes(searchLower) ||
         asset.fixedCode.toLowerCase().includes(searchLower) ||
@@ -286,6 +597,46 @@ export default function AssetAllocatePage() {
     setFilteredAssets(filtered);
   }, [availableAssets, searchTerm, assetFilters]);
 
+  // Filter history
+  useEffect(() => {
+    let filtered = mockAllocationHistory;
+
+    // Filter by date range
+    if (historyFilters.dateFrom) {
+      filtered = filtered.filter(item =>
+        new Date(item.createdAt) >= new Date(historyFilters.dateFrom)
+      );
+    }
+    if (historyFilters.dateTo) {
+      filtered = filtered.filter(item =>
+        new Date(item.createdAt) <= new Date(historyFilters.dateTo)
+      );
+    }
+
+    // Filter by status
+    if (historyFilters.status) {
+      filtered = filtered.filter(item =>
+        item.status === historyFilters.status
+      );
+    }
+
+    // Filter by unit
+    if (historyFilters.unit) {
+      filtered = filtered.filter(item =>
+        item.toUnit?.name.toLowerCase().includes(historyFilters.unit.toLowerCase())
+      );
+    }
+
+    // Filter by creator
+    if (historyFilters.creator) {
+      filtered = filtered.filter(item =>
+        item.createdBy.toLowerCase().includes(historyFilters.creator.toLowerCase())
+      );
+    }
+
+    setFilteredHistory(filtered);
+  }, [historyFilters]);
+
   // Get unique categories from assets
   const availableCategories = Array.from(
     new Set(availableAssets.map(asset => asset.category?.id).filter(Boolean))
@@ -304,12 +655,24 @@ export default function AssetAllocatePage() {
     });
   };
 
+  // Clear history filters
+  const clearHistoryFilters = () => {
+    setHistoryFilters({
+      dateFrom: "",
+      dateTo: "",
+      status: "",
+      unit: "",
+      creator: ""
+    });
+  };
+
   // Count active filters
   const activeAssetFiltersCount = Object.values(assetFilters).filter(v => v !== "").length;
+  const activeHistoryFiltersCount = Object.values(historyFilters).filter(v => v !== "").length;
 
   const handleSelectAsset = (assetId: string) => {
-    setSelectedAssets(prev => 
-      prev.includes(assetId) 
+    setSelectedAssets(prev =>
+      prev.includes(assetId)
         ? prev.filter(id => id !== assetId)
         : [...prev, assetId]
     );
@@ -329,26 +692,26 @@ export default function AssetAllocatePage() {
       return;
     }
 
-      const newAllocations: AllocationItem[] = selectedAssets.map(assetId => {
-        const asset = availableAssets.find(a => a.id === assetId)!;
-        return {
-          id: `ALLOC-${assetId}-${Date.now()}`,
-          asset,
-          allocatedQuantity: asset.quantity, // Lấy toàn bộ số lượng
-          unitId: "",
-          roomId: "",
-          note: ""
-        };
-      });
+    const newAllocations: AllocationItem[] = selectedAssets.map(assetId => {
+      const asset = availableAssets.find(a => a.id === assetId)!;
+      return {
+        id: `ALLOC-${assetId}-${Date.now()}`,
+        asset,
+        allocatedQuantity: asset.quantity, // Lấy toàn bộ số lượng
+        unitId: "",
+        roomId: "",
+        note: ""
+      };
+    });
 
-      setAllocationList(newAllocations);
-      setIsCreatingAllocation(true);
-      // Reset apply all states when creating new allocation
-      setApplyAllUnit("");
-      setApplyAllRoom("");
-    };  const handleUpdateAllocation = (id: string, field: keyof AllocationItem, value: any) => {
-    setAllocationList(prev => 
-      prev.map(item => 
+    setAllocationList(newAllocations);
+    setIsCreatingAllocation(true);
+    // Reset apply all states when creating new allocation
+    setApplyAllUnit("");
+    setApplyAllRoom("");
+  }; const handleUpdateAllocation = (id: string, field: keyof AllocationItem, value: any) => {
+    setAllocationList(prev =>
+      prev.map(item =>
         item.id === id ? { ...item, [field]: value } : item
       )
     );
@@ -364,7 +727,7 @@ export default function AssetAllocatePage() {
       return;
     }
 
-    setAllocationList(prev => 
+    setAllocationList(prev =>
       prev.map(item => ({
         ...item,
         unitId: applyAllUnit,
@@ -378,7 +741,7 @@ export default function AssetAllocatePage() {
 
   const handleSaveAllocation = () => {
     // Validate allocation list
-    const invalidItems = allocationList.filter(item => 
+    const invalidItems = allocationList.filter(item =>
       !item.unitId || item.allocatedQuantity <= 0
     );
 
@@ -389,7 +752,7 @@ export default function AssetAllocatePage() {
 
     if (confirm(`Bạn có chắc chắn muốn tạo phân bổ cho ${allocationList.length} tài sản?`)) {
       // Update asset status to DANG_SU_DUNG
-      setAvailableAssets(prev => 
+      setAvailableAssets(prev =>
         prev.map(asset => {
           const allocation = allocationList.find(item => item.asset.id === asset.id);
           if (allocation) {
@@ -468,7 +831,7 @@ export default function AssetAllocatePage() {
                   </Button>
                 )}
               </div>
-            
+
               {/* Search */}
               <div className="flex items-center space-x-4 mb-6">
                 <div className="flex-1 relative">
@@ -585,8 +948,8 @@ export default function AssetAllocatePage() {
                         {assetFilters.type && (
                           <Badge className="bg-blue-100 text-blue-800 flex items-center gap-1">
                             Loại: {typeLabels[assetFilters.type as keyof typeof typeLabels]}
-                            <X 
-                              className="h-3 w-3 cursor-pointer hover:text-blue-600" 
+                            <X
+                              className="h-3 w-3 cursor-pointer hover:text-blue-600"
                               onClick={() => setAssetFilters(prev => ({ ...prev, type: "" }))}
                             />
                           </Badge>
@@ -594,8 +957,8 @@ export default function AssetAllocatePage() {
                         {assetFilters.category && (
                           <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
                             Danh mục: {availableCategories.find(c => c?.id === assetFilters.category)?.name}
-                            <X 
-                              className="h-3 w-3 cursor-pointer hover:text-green-600" 
+                            <X
+                              className="h-3 w-3 cursor-pointer hover:text-green-600"
                               onClick={() => setAssetFilters(prev => ({ ...prev, category: "" }))}
                             />
                           </Badge>
@@ -603,8 +966,8 @@ export default function AssetAllocatePage() {
                         {assetFilters.dateFrom && (
                           <Badge className="bg-purple-100 text-purple-800 flex items-center gap-1">
                             Từ: {new Date(assetFilters.dateFrom).toLocaleDateString("vi-VN")}
-                            <X 
-                              className="h-3 w-3 cursor-pointer hover:text-purple-600" 
+                            <X
+                              className="h-3 w-3 cursor-pointer hover:text-purple-600"
                               onClick={() => setAssetFilters(prev => ({ ...prev, dateFrom: "" }))}
                             />
                           </Badge>
@@ -612,8 +975,8 @@ export default function AssetAllocatePage() {
                         {assetFilters.dateTo && (
                           <Badge className="bg-orange-100 text-orange-800 flex items-center gap-1">
                             Đến: {new Date(assetFilters.dateTo).toLocaleDateString("vi-VN")}
-                            <X 
-                              className="h-3 w-3 cursor-pointer hover:text-orange-600" 
+                            <X
+                              className="h-3 w-3 cursor-pointer hover:text-orange-600"
                               onClick={() => setAssetFilters(prev => ({ ...prev, dateTo: "" }))}
                             />
                           </Badge>
@@ -669,6 +1032,9 @@ export default function AssetAllocatePage() {
                       <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ngày nhập
                       </th>
+                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Trạng thái
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -682,7 +1048,7 @@ export default function AssetAllocatePage() {
                             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                           />
                         </td>
-                        <td className="px-4 md:px-6 py-4">
+                        <td className="px-4 md:px-6 py-4 max-w-xs">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
                               <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
@@ -726,6 +1092,19 @@ export default function AssetAllocatePage() {
                             {new Date(asset.entryDate).toLocaleDateString("vi-VN")}
                           </div>
                         </td>
+                        <td className="px-4 md:px-6 py-4">
+                          <div className="text-sm text-gray-500">
+                            {asset.status === AssetStatus.CHO_PHAN_BO ? (
+                              <Badge className="bg-yellow-100 text-yellow-800">
+                                Chờ phân bổ
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-green-100 text-green-800">
+                                Đang sử dụng
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -741,6 +1120,288 @@ export default function AssetAllocatePage() {
                   </p>
                 </div>
               )}
+
+
+            </div>
+
+          </div>
+          {/* Allocation History Section */}
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200 mt-6">
+            <div className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center">
+                  <div className="w-1 h-6 bg-green-500 rounded-full mr-3"></div>
+                  <h2 className="text-xl font-bold text-gray-800">Lịch sử phân bổ</h2>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowHistoryFilters(!showHistoryFilters)}
+                    className="flex items-center"
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    Bộ lọc
+                    {activeHistoryFiltersCount > 0 && (
+                      <Badge className="ml-2 bg-green-100 text-green-600 text-xs">
+                        {activeHistoryFiltersCount}
+                      </Badge>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowHistory(!showHistory)}
+                    className="flex items-center"
+                  >
+                    <History className="h-4 w-4 mr-2" />
+                    {showHistory ? 'Ẩn lịch sử' : 'Xem lịch sử'}
+                  </Button>
+                </div>
+              </div>
+
+              {/* History Filters */}
+              {showHistoryFilters && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-gray-700 flex items-center">
+                      <Filter className="h-4 w-4 mr-2 text-green-500" />
+                      Bộ lọc lịch sử phân bổ
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearHistoryFilters}
+                      className="text-gray-500 hover:text-red-600"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Xóa bộ lọc
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Status Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Trạng thái
+                      </label>
+                      <select
+                        value={historyFilters.status}
+                        onChange={(e) => setHistoryFilters(prev => ({ ...prev, status: e.target.value }))}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:border-green-500 focus:ring-2 focus:ring-green-500/20 text-sm"
+                      >
+                        <option value="">Tất cả trạng thái</option>
+                        <option value={TransactionStatus.PENDING}>Chờ duyệt</option>
+                        <option value={TransactionStatus.APPROVED}>Đã phân bổ</option>
+                        <option value={TransactionStatus.REJECTED}>Từ chối</option>
+                      </select>
+                    </div>
+
+                    {/* To Unit Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Đơn vị sử dụng
+                      </label>
+                      <select
+                        value={historyFilters.unit}
+                        onChange={(e) => setHistoryFilters(prev => ({ ...prev, unit: e.target.value }))}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:border-green-500 focus:ring-2 focus:ring-green-500/20 text-sm"
+                      >
+                        <option value="">Tất cả đơn vị</option>
+                        {mockUnits.map(unit => (
+                          <option key={unit.id} value={unit.id}>
+                            {unit.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Date From Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Từ ngày
+                      </label>
+                      <Input
+                        type="date"
+                        value={historyFilters.dateFrom}
+                        onChange={(e) => setHistoryFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                        className="text-sm"
+                      />
+                    </div>
+
+                    {/* Date To Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Đến ngày
+                      </label>
+                      <Input
+                        type="date"
+                        value={historyFilters.dateTo}
+                        onChange={(e) => setHistoryFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Active History Filters Summary */}
+                  {activeHistoryFiltersCount > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex flex-wrap gap-2">
+                        {historyFilters.status && (
+                          <Badge className="bg-blue-100 text-blue-800 flex items-center gap-1">
+                            Trạng thái: {
+                              historyFilters.status === TransactionStatus.APPROVED ? "Đã phân bổ" :
+                                historyFilters.status === TransactionStatus.PENDING ? "Chờ duyệt" :
+                                  "Từ chối"
+                            }
+                            <X
+                              className="h-3 w-3 cursor-pointer hover:text-blue-600"
+                              onClick={() => setHistoryFilters(prev => ({ ...prev, status: "" }))}
+                            />
+                          </Badge>
+                        )}
+                        {historyFilters.unit && (
+                          <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
+                            Đơn vị: {mockUnits.find(u => u.id === historyFilters.unit)?.name}
+                            <X
+                              className="h-3 w-3 cursor-pointer hover:text-green-600"
+                              onClick={() => setHistoryFilters(prev => ({ ...prev, unit: "" }))}
+                            />
+                          </Badge>
+                        )}
+                        {historyFilters.dateFrom && (
+                          <Badge className="bg-purple-100 text-purple-800 flex items-center gap-1">
+                            Từ: {new Date(historyFilters.dateFrom).toLocaleDateString("vi-VN")}
+                            <X
+                              className="h-3 w-3 cursor-pointer hover:text-purple-600"
+                              onClick={() => setHistoryFilters(prev => ({ ...prev, dateFrom: "" }))}
+                            />
+                          </Badge>
+                        )}
+                        {historyFilters.dateTo && (
+                          <Badge className="bg-orange-100 text-orange-800 flex items-center gap-1">
+                            Đến: {new Date(historyFilters.dateTo).toLocaleDateString("vi-VN")}
+                            <X
+                              className="h-3 w-3 cursor-pointer hover:text-orange-600"
+                              onClick={() => setHistoryFilters(prev => ({ ...prev, dateTo: "" }))}
+                            />
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {showHistory && (
+                <div className="bg-white rounded-lg shadow">
+                  {/* Results Counter for History */}
+                  <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                    <div className="text-sm text-gray-700">
+                      Hiển thị <span className="font-medium">{filteredHistory.length}</span> / <span className="font-medium">{mockAllocationHistory.length}</span> giao dịch phân bổ
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Thông tin phân bổ
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Đơn vị sử dụng
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Số tài sản
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Ngày tạo
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Trạng thái
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Thao tác
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredHistory.map((allocation) => (
+                          <tr key={allocation.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-4">
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0 h-10 w-10">
+                                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
+                                    <Package2 className="h-5 w-5 text-white" />
+                                  </div>
+                                </div>
+                                <div className="ml-3">
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {allocation.note}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    {allocation.id}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {allocation.toUnit?.name || "Chưa xác định"}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <Badge className="bg-purple-100 text-purple-800">
+                                {allocation.items?.length || 0} tài sản
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-4 text-sm text-gray-500">
+                              <div className="flex items-center">
+                                <Calendar className="h-4 w-4 mr-1" />
+                                {new Date(allocation.createdAt).toLocaleDateString("vi-VN")}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <Badge className={
+                                allocation.status === TransactionStatus.APPROVED ? "bg-green-100 text-green-800" :
+                                  allocation.status === TransactionStatus.PENDING ? "bg-yellow-100 text-yellow-800" :
+                                    "bg-red-100 text-red-800"
+                              }>
+                                Đã phân bổ
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-4">
+                              <Link href={`/asset/allocate/${allocation.id}`}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex items-center"
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  Chi tiết
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {filteredHistory.length === 0 && (
+                    <div className="text-center py-12 bg-white">
+                      <History className="mx-auto h-12 w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">
+                        {mockAllocationHistory.length === 0 ? "Chưa có lịch sử phân bổ" : "Không tìm thấy kết quả"}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {mockAllocationHistory.length === 0
+                          ? "Các phân bổ đã thực hiện sẽ hiển thị ở đây."
+                          : "Thử điều chỉnh bộ lọc để xem thêm kết quả."
+                        }
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </>
@@ -749,7 +1410,7 @@ export default function AssetAllocatePage() {
           {/* Allocation Configuration - Enhanced Styling */}
           <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-lg border border-gray-100 overflow-hidden">
             {/* Header with gradient background */}
-            <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center text-white">
                   <Button
@@ -765,7 +1426,7 @@ export default function AssetAllocatePage() {
                     Quay lại
                   </Button>
                   <div>
-                    <h2 className="text-xl font-bold">Cấu hình phân bổ tài sản</h2>
+                    <h2 className="text-xl font-bold">Phân bổ tài sản</h2>
                     <p className="text-green-100 text-sm mt-1">
                       Điền đầy đủ thông tin để hoàn tất phân bổ tài sản
                     </p>
@@ -788,7 +1449,6 @@ export default function AssetAllocatePage() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-bold text-gray-800 flex items-center">
-                      <Users className="w-5 h-5 mr-2 text-blue-600" />
                       Áp dụng cho tất cả tài sản
                     </h3>
                     <p className="text-sm text-gray-600 mt-1">
@@ -805,7 +1465,6 @@ export default function AssetAllocatePage() {
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       <span className="flex items-center">
-                        <Building2 className="w-4 h-4 mr-2 text-green-500" />
                         Đơn vị sử dụng
                         <span className="text-red-500 ml-1">*</span>
                       </span>
@@ -831,7 +1490,6 @@ export default function AssetAllocatePage() {
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       <span className="flex items-center">
-                        <MapPin className="w-4 h-4 mr-2 text-orange-500" />
                         Phòng
                       </span>
                     </label>
@@ -898,9 +1556,6 @@ export default function AssetAllocatePage() {
                                     <Tag className="w-3 h-3 mr-1" />
                                     Phân bổ: {item.allocatedQuantity} {item.asset.unit}
                                   </Badge>
-                                  <span className="text-xs text-gray-400">
-                                    (Tổng: {item.asset.quantity} {item.asset.unit})
-                                  </span>
                                 </div>
                               </div>
                             </div>
