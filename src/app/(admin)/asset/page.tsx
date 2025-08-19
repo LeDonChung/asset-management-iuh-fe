@@ -80,7 +80,6 @@ export default function AssetPage() {
   const isAdmin = getCurrentRole()?.code === "ADMIN";
   const isPhongQuanTri = getCurrentRole()?.code === "PHONG_QUAN_TRI";
   const isPhongKeHoach = getCurrentRole()?.code === "PHONG_KE_HOACH_DAU_TU";
-
   // Filter assets
   useEffect(() => {
     let filtered = mockAssets.filter((asset) => !asset.deletedAt);
@@ -157,79 +156,15 @@ export default function AssetPage() {
   };
 
   const handleBulkHandover = () => {
-    if (isPhongKeHoach || (isAdmin || isSuperAdmin)) {
-      // Xử lý bàn giao hàng loạt cho Phòng Kế Hoạch, Admin, Super Admin
-      console.log("Bulk handover:", selectedAssets);
-
-      if (
-        confirm(
-          `Bạn có chắc chắn muốn bàn giao ${selectedAssets.length} tài sản đã chọn?`
-        )
-      ) {
-        setAssets((prev) =>
-          prev.map((asset) =>
-            selectedAssets.includes(asset.id)
-              ? {
-                ...asset,
-                isLocked: true,
-                isHandOver: true,
-                status: AssetStatus.DANG_SU_DUNG
-              }
-              : asset
-          )
-        );
-        setSelectedAssets([]);
-      }
-    } else if (isPhongQuanTri) {
-      router.push("/asset/allocate");
-    }
+    router.push("/asset/transfer");
   };
 
   const handleHandoverAsset = (assetId: string) => {
-    // Xử lý bàn giao một tài sản
-    if (confirm("Bạn có chắc chắn muốn bàn giao tài sản này?")) {
-      setAssets((prev) =>
-        prev.map((asset) =>
-          asset.id === assetId
-            ? {
-              ...asset,
-              isLocked: true,
-              isHandOver: true,
-              status: AssetStatus.DANG_SU_DUNG
-            }
-            : asset
-        )
-      );
-    }
+    router.push("/asset/transfer");
   };
 
   const handleAllocateAsset = (assetId: string) => {
-    const asset = assets.find(a => a.id === assetId);
-    if (!asset) return;
-
-    // Nếu tài sản đã có vị trí theo kế hoạch, phân bổ trực tiếp mà không cần hỏi
-    if (asset.plannedRoomId) {
-      const plannedRoom = MockDataHelper.getRoomById(asset.plannedRoomId);
-      if (plannedRoom) {
-        // Phân bổ trực tiếp đến vị trí theo kế hoạch
-        setAssets(prev => prev.map(a =>
-          a.id === assetId
-            ? { ...a, status: AssetStatus.DANG_SU_DUNG }
-            : a
-        ));
-        // Thông báo thành công
-        alert(`Đã phân bổ tài sản đến vị trí: ${MockDataHelper.formatRoomLocation(plannedRoom)}`);
-        return;
-      }
-    }
-
-    // Nếu chưa có vị trí theo kế hoạch, mở modal để chọn
-    setAllocationData({
-      assetId: assetId,
-      unitId: "",
-      roomId: ""
-    });
-    setShowAllocationModal(true);
+    router.push("/asset/allocate");
   };
 
   const handleAllocationSubmit = () => {
@@ -507,17 +442,6 @@ export default function AssetPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={
-                      selectedAssets.length === filteredAssets.length &&
-                      filteredAssets.length > 0
-                    }
-                    onChange={handleSelectAll}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Thông tin tài sản
                 </th>
@@ -544,14 +468,6 @@ export default function AssetPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {currentAssets.map((asset) => (
                 <tr key={asset.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedAssets.includes(asset.id)}
-                      onChange={() => handleSelectAsset(asset.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">

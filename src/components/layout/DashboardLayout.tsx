@@ -32,14 +32,7 @@ const getNavigationByRole = (userRole: string) => {
       name: "Dashboard",
       href: "/admin",
       icon: LayoutDashboard,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU"],
-    },
-    // Dashboard cho đơn vị sử dụng
-    {
-      name: "Dashboard", 
-      href: "/staff",
-      icon: LayoutDashboard,
-      roles: ["DON_VI_SU_DUNG"],
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU", "DON_VI_SU_DUNG"],
     },
     // Quản lý tài sản
     {
@@ -51,22 +44,27 @@ const getNavigationByRole = (userRole: string) => {
         {
           name: "Danh sách tài sản",
           href: "/asset",
+          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU"],
         },
         {
           name: "Tiếp nhận tài sản",
           href: "/asset/receive",
+          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
         },
         {
-          name: "Chuyển giao tài sản",
+          name: "Bàn giao tài sản",
           href: "/asset/transfer",
+          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_KE_HOACH_DAU_TU"],
         },
         {
           name: "Phân bổ tài sản",
           href: "/asset/allocate",
+          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
         },
         {
           name: "Sổ tài sản",
           href: "/asset/asset-book",
+          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "DON_VI_SU_DUNG"],
         }
       ],
     },
@@ -76,16 +74,7 @@ const getNavigationByRole = (userRole: string) => {
       href: "/unit",
       icon: Building,
       roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
-      children: [
-        {
-          name: "Danh sách đơn vị",
-          href: "/unit",
-        },
-        {
-          name: "Tạo đơn vị mới",
-          href: "/unit/create",
-        },
-      ],
+      
     },
     // Báo cáo
     {
@@ -93,13 +82,6 @@ const getNavigationByRole = (userRole: string) => {
       href: "/reports", 
       icon: BarChart3,
       roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU", "DON_VI_SU_DUNG"],
-    },
-    // Kiểm kê (chỉ admin roles)
-    {
-      name: "Kiểm kê",
-      href: "/inventory",
-      icon: ClipboardList,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
     },
   ];
   return baseNavigation.filter((item) => item.roles.includes(userRole));
@@ -220,6 +202,7 @@ interface NavigationItem {
   children?: {
     name: string;
     href: string;
+    roles?: string[];
     icon?: React.ComponentType<{ className?: string }>;
   }[];
 }
@@ -229,12 +212,14 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
   handleNavigation,
   isMobile,
   setIsMobileSidebarOpen,
+  currentRole,
 }: {
   navigation: NavigationItem[];
   pathname: string;
   handleNavigation: () => void;
   isMobile?: boolean;
   setIsMobileSidebarOpen?: (v: boolean) => void;
+  currentRole?: { code: string; name: string } | null;
 }) {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
 
@@ -276,7 +261,10 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
   useEffect(() => {
     navigation.forEach(item => {
       if (item.children) {
-        const hasActiveChild = item.children.some(child => 
+        const filteredChildren = item.children.filter(child => 
+          child.roles?.includes(currentRole?.code || '') || !child.roles
+        );
+        const hasActiveChild = filteredChildren.some(child => 
           isChildItemActive(child.href, pathname)
         );
         if (hasActiveChild && !expandedItems[item.name]) {
@@ -287,14 +275,17 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
         }
       }
     });
-  }, [pathname, navigation, expandedItems, isChildItemActive]);
+  }, [pathname, navigation, expandedItems, isChildItemActive, currentRole?.code]);
 
   return (
     <nav className="flex-1 px-4 py-6 space-y-1">
       {navigation.map((item) => {
         const isExpanded = expandedItems[item.name];
         const isActive = pathname === item.href || (pathname.startsWith(item.href + "/") && item.href !== "/");
-        const hasActiveChild = item.children?.some(child => 
+        const filteredChildren = item.children?.filter(child => 
+          child.roles?.includes(currentRole?.code || '') || !child.roles
+        );
+        const hasActiveChild = filteredChildren?.some(child => 
           isChildItemActive(child.href, pathname)
         );
 
@@ -348,25 +339,25 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
             )}
 
             {/* Child menu items */}
-            {item.children && isExpanded && (
+            {filteredChildren && isExpanded && filteredChildren.length > 0 && (
               <div className="ml-6 mt-1 space-y-1">
-                {item.children.map((child) => {
-                  const isChildActive = isChildItemActive(child.href, pathname);
-                  return (
-                    <Link
-                      key={child.name}
-                      href={child.href}
-                      className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                        isChildActive
-                          ? "bg-blue-50 text-blue-700"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                      }`}
-                      onClick={handleNavClick(isMobile, setIsMobileSidebarOpen)}
-                    >
-                      <span>{child.name}</span>
-                    </Link>
-                  );
-                })}
+                {filteredChildren.map((child) => {
+                    const isChildActive = isChildItemActive(child.href, pathname);
+                    return (
+                      <Link
+                        key={child.name}
+                        href={child.href}
+                        className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                          isChildActive
+                            ? "bg-blue-50 text-blue-700"
+                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        }`}
+                        onClick={handleNavClick(isMobile, setIsMobileSidebarOpen)}
+                      >
+                        <span>{child.name}</span>
+                      </Link>
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -554,6 +545,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               handleNavigation={handleNavigation}
               isMobile
               setIsMobileSidebarOpen={setIsMobileSidebarOpen}
+              currentRole={currentRole}
             />
             <SidebarUserSection handleLogout={handleLogout} />
           </Suspense>
@@ -582,6 +574,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 navigation={navigation}
                 pathname={pathname}
                 handleNavigation={handleNavigation}
+                currentRole={currentRole}
               />
               {/* Desktop user section */}
               <SidebarUserSection handleLogout={handleLogout} />
