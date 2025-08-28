@@ -331,11 +331,11 @@ export default function AssetDetailPage() {
                     <div className="text-sm text-gray-900">{asset.quantity}</div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">Nguồn gốc</label>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Xuất xứ</label>
                     <div className="text-sm text-gray-900">{asset.origin}</div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">Gói mua sắm</label>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Gói mua</label>
                     <div className="text-sm text-gray-900">Gói {asset.purchasePackage}</div>
                   </div>
                 </div>

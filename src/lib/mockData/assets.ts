@@ -183,7 +183,7 @@ export const mockAssets: Asset[] = [
     category: mockCategories.find(c => c.id === '9')
   },
 
-  // Tài sản chờ phân bổ
+  // Tài sản chờ chuyển giao
   {
     id: 'asset-007',
     ktCode: '04-2024/001',
@@ -201,7 +201,7 @@ export const mockAssets: Asset[] = [
     isLocked: false,
     isHandOver: false,
     categoryId: '4',
-    status: AssetStatus.CHO_PHAN_BO,
+    status: AssetStatus.CHO_CHUYEN_GIAO,
     createdBy: 'user-4',
     createdAt: '2024-08-01T00:00:00Z',
     updatedAt: '2024-08-01T00:00:00Z',
@@ -273,7 +273,7 @@ export const mockAssets: Asset[] = [
     category: mockCategories.find(c => c.id === '4')
   },
 
-  // Tài sản có kế hoạch nhưng chưa bàn giao (cho phòng quản trị xem)
+  // Tài sản có kế hoạch nhưng chờ tiếp nhận (cho phòng quản trị xem)
   {
     id: 'asset-010',
     ktCode: '05-2024/001',
@@ -291,7 +291,7 @@ export const mockAssets: Asset[] = [
     isLocked: true,
     isHandOver: true,
     categoryId: '6',
-    status: AssetStatus.CHO_PHAN_BO,
+    status: AssetStatus.CHO_TIEP_NHAN,
     createdBy: 'user-4',
     createdAt: '2024-08-12T00:00:00Z',
     updatedAt: '2024-08-12T00:00:00Z',
@@ -316,10 +316,10 @@ export const mockAssets: Asset[] = [
     origin: 'Nội thất Hòa Phát',
     purchasePackage: 8,
     type: AssetType.TSCD,
-    isLocked: true,
-    isHandOver: true,
+    isLocked: false,
+    isHandOver: false,
     categoryId: '7',
-    status: AssetStatus.CHO_PHAN_BO,
+    status: AssetStatus.CHO_CHUYEN_GIAO,
     createdBy: 'user-4',
     createdAt: '2024-08-14T00:00:00Z',
     updatedAt: '2024-08-14T00:00:00Z',
@@ -328,7 +328,7 @@ export const mockAssets: Asset[] = [
     category: mockCategories.find(c => c.id === '7')
   },
 
-  // Tài sản đã có kế hoạch và đang chờ bàn giao
+  // Tài sản đã có kế hoạch và đang chờ tiếp nhận
   {
     id: 'asset-012',
     ktCode: '05-2024/003',
@@ -346,7 +346,7 @@ export const mockAssets: Asset[] = [
     isLocked: true,
     isHandOver: true,
     categoryId: '9',
-    status: AssetStatus.CHO_PHAN_BO,
+    status: AssetStatus.CHO_TIEP_NHAN,
     createdBy: 'user-4',
     createdAt: '2024-08-16T00:00:00Z',
     updatedAt: '2024-08-16T00:00:00Z',
@@ -356,7 +356,7 @@ export const mockAssets: Asset[] = [
     category: mockCategories.find(c => c.id === '9')
   },
 
-  // Tài sản laptop chưa phân bổ
+  // Tài sản laptop chưa chuyển giao
   {
     id: 'asset-013',
     ktCode: '05-2024/004',
@@ -374,7 +374,7 @@ export const mockAssets: Asset[] = [
     isLocked: true,
     isHandOver: true,
     categoryId: '4',
-    status: AssetStatus.CHO_PHAN_BO,
+    status: AssetStatus.CHO_CHUYEN_GIAO,
     createdBy: 'user-4',
     createdAt: '2024-08-17T00:00:00Z',
     updatedAt: '2024-08-17T00:00:00Z',

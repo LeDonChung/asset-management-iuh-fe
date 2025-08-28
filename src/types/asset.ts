@@ -6,8 +6,9 @@ export enum AssetType {
 }
 
 export enum AssetStatus {
-  CHO_PHAN_BO = "chờ_phân_bổ", // Chờ phân bổ đến đơn vị
-  DANG_SU_DUNG = "đang_sử_dụng", // Đang sử dụng tại vị trí thực tế
+  CHO_CHUYEN_GIAO = "chờ_bàn_giao",
+  CHO_TIEP_NHAN = "chờ_tiếp_nhận",
+  DANG_SU_DUNG = "đang_sử_dụng", 
   HU_HONG = "hư_hỏng",
   DE_XUAT_THANH_LY = "đề_xuất_thanh_lý",
   DA_THANH_LY = "đã_thanh_lý"
@@ -31,6 +32,7 @@ export interface AssetLog {
   toLocation?: string;
   createdAt: string;
   createdBy: string;
+  asset?: Asset;
 }
 
 // User and Role Management
@@ -160,7 +162,6 @@ export interface Asset {
   specs?: string; // Thông số kỹ thuật
   entryDate: string; // Ngày nhập (date)
   currentRoomId?: string; // Vị trí hiện tại, null là đang nhập kho, chưa phân bổ
-  plannedRoomId?: string; // Vị trí theo kế hoạch, null là đang nhập kho, chưa phân bổ
   unit: string; // Đơn vị tính
   quantity: number; // Số lượng (Với tài sản cố định = 1)
   origin?: string; // Xuất xứ
@@ -184,10 +185,9 @@ export interface Asset {
   // Relations
   category?: Category;
   room?: Room;
-  plannedRoom?: Room; // Thêm relation cho phòng theo kế hoạch
   rfidTag?: RfidTag;
   logs?: AssetLog[];
-  transactions?: AssetTransaction[];
+  transactionItems?: AssetTransactionItem[];
 }
 
 export interface Category {
@@ -206,18 +206,7 @@ export interface RfidTag {
   asset?: Asset;
 }
 
-export interface AssetLog {
-  id: string;
-  assetId: string;
-  action: string;
-  reason: string;
-  fromLocation?: string;
-  toLocation?: string;
-  status: AssetStatus;
-  createdBy: string;
-  createdAt: string;
-  asset?: Asset;
-}
+
 
 // Asset Book Management
 export enum BookStatus {

@@ -13,6 +13,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Asset Management System - IUH",
   description: "Hệ thống quản lý tài sản - Đại học Công nghiệp TP.HCM",
+  icons: {
+    icon: "/logo_iuh.png",
+    shortcut: "/logo_iuh.png",
+    apple: "/logo_iuh.png",
+  },
 };
 
 
