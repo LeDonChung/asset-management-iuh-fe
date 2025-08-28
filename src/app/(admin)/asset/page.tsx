@@ -31,14 +31,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { mockAssets, mockUnits, mockRooms, mockCategories, MockDataHelper } from "@/lib/mockData";
 import { useRouter } from "next/navigation";
 
-interface AllocationData {
+interface HandoverData {
   assetId: string;
   unitId: string;
   roomId: string;
 }
 
 const statusColors = {
-  [AssetStatus.CHO_PHAN_BO]: "bg-yellow-100 text-yellow-800",
+  [AssetStatus.CHO_CHUYEN_GIAO]: "bg-yellow-100 text-yellow-800",
+  [AssetStatus.CHO_TIEP_NHAN]: "bg-orange-100 text-orange-800", 
   [AssetStatus.DANG_SU_DUNG]: "bg-green-100 text-green-800",
   [AssetStatus.HU_HONG]: "bg-red-100 text-red-800",
   [AssetStatus.DE_XUAT_THANH_LY]: "bg-orange-100 text-orange-800",
@@ -46,7 +47,8 @@ const statusColors = {
 };
 
 const statusLabels = {
-  [AssetStatus.CHO_PHAN_BO]: "Chờ phân bổ",
+  [AssetStatus.CHO_CHUYEN_GIAO]: "Chờ chuyển giao",
+  [AssetStatus.CHO_TIEP_NHAN]: "Chờ tiếp nhận",
   [AssetStatus.DANG_SU_DUNG]: "Đang sử dụng",
   [AssetStatus.HU_HONG]: "Hư hỏng",
   [AssetStatus.DE_XUAT_THANH_LY]: "Đề xuất thanh lý",
@@ -65,8 +67,8 @@ export default function AssetPage() {
   const [showFilter, setShowFilter] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [showAllocationModal, setShowAllocationModal] = useState(false);
-  const [allocationData, setAllocationData] = useState<AllocationData>({
+  const [showHandoverModal, setShowHandoverModal] = useState(false);
+  const [handoverData, setHandoverData] = useState<HandoverData>({
     assetId: "",
     unitId: "",
     roomId: ""
@@ -79,7 +81,6 @@ export default function AssetPage() {
   const isSuperAdmin = getCurrentRole()?.code === "SUPER_ADMIN";
   const isAdmin = getCurrentRole()?.code === "ADMIN";
   const isPhongQuanTri = getCurrentRole()?.code === "PHONG_QUAN_TRI";
-  const isPhongKeHoach = getCurrentRole()?.code === "PHONG_KE_HOACH_DAU_TU";
   // Filter assets
   useEffect(() => {
     let filtered = mockAssets.filter((asset) => !asset.deletedAt);
@@ -89,8 +90,7 @@ export default function AssetPage() {
       // Phòng Quản Trị chỉ xem những tài sản đã bàn giao (isHandOver = true)
       filtered = filtered.filter((asset) => asset.isHandOver === true);
     }
-    // Phòng Kế Hoạch Đầu Tư có thể xem tất cả tài sản (không cần filter theo isHandOver)
-    // Admin và Super Admin cũng có thể xem tất cả
+    // Admin và Super Admin có thể xem tất cả tài sản
 
     if (filter.search) {
       const searchLower = filter.search.toLowerCase();
@@ -126,13 +126,13 @@ export default function AssetPage() {
 
   // Update available rooms when unit changes
   useEffect(() => {
-    if (allocationData.unitId) {
-      const rooms = MockDataHelper.getRoomsByUnitId(allocationData.unitId);
+    if (handoverData.unitId) {
+      const rooms = MockDataHelper.getRoomsByUnitId(handoverData.unitId);
       setAvailableRooms(rooms);
     } else {
       setAvailableRooms([]);
     }
-  }, [allocationData.unitId]);
+  }, [handoverData.unitId]);
 
   const handleSelectAsset = (assetId: string) => {
     setSelectedAssets((prev) =>
@@ -151,10 +151,6 @@ export default function AssetPage() {
   };
 
   const router = useRouter();
-  const handleBulkAllocation = () => {
-    router.push("/asset/allocate");
-  };
-
   const handleBulkHandover = () => {
     router.push("/asset/transfer");
   };
@@ -163,30 +159,26 @@ export default function AssetPage() {
     router.push("/asset/transfer");
   };
 
-  const handleAllocateAsset = (assetId: string) => {
-    router.push("/asset/allocate");
-  };
-
-  const handleAllocationSubmit = () => {
-    if (!allocationData.unitId || !allocationData.roomId) {
-      alert("Vui lòng chọn đơn vị và phòng để phân bổ");
+  const handleHandoverSubmit = () => {
+    if (!handoverData.unitId || !handoverData.roomId) {
+      alert("Vui lòng chọn đơn vị và phòng để bàn giao");
       return;
     }
 
-    // Cập nhật tài sản với thông tin phân bổ
+    // Cập nhật tài sản với thông tin bàn giao
     setAssets(prev => prev.map(asset =>
-      asset.id === allocationData.assetId
+      asset.id === handoverData.assetId
         ? {
           ...asset,
-          plannedRoomId: allocationData.roomId,
+          currentRoomId: handoverData.roomId,
           status: AssetStatus.DANG_SU_DUNG
         }
         : asset
     ));
 
     // Reset và đóng modal
-    setAllocationData({ assetId: "", unitId: "", roomId: "" });
-    setShowAllocationModal(false);
+    setHandoverData({ assetId: "", unitId: "", roomId: "" });
+    setShowHandoverModal(false);
   };
 
   const handleDeleteAsset = (assetId: string) => {
@@ -218,11 +210,6 @@ export default function AssetPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý tài sản</h1>
-          {isPhongKeHoach && (
-            <p className="text-gray-600">
-              Quản lý thông tin tài sản cố định và công cụ dụng cụ - Xem tất cả tài sản
-            </p>
-          )}
           {isPhongQuanTri && (
             <p className="text-gray-600">
               Quản lý thông tin tài sản cố định và công cụ dụng cụ - Chỉ xem tài sản đã bàn giao
@@ -236,7 +223,7 @@ export default function AssetPage() {
         </div>
 
         <div className="flex items-center space-x-3">
-          {(isPhongKeHoach || isAdmin || isSuperAdmin) && (
+          {(isAdmin || isSuperAdmin) && (
             <div className="flex items-center space-x-3">
               <Link href="/asset/create">
                 <Button className="flex items-center">
@@ -391,7 +378,7 @@ export default function AssetPage() {
       {/* Bulk Actions */}
       {selectedAssets.length > 0 && (
         <div className="space-y-3">
-          {(isPhongKeHoach || isAdmin || isSuperAdmin) && (
+          {(isAdmin || isSuperAdmin) && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
@@ -422,12 +409,12 @@ export default function AssetPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button
-                    onClick={(isAdmin || isSuperAdmin) ? handleBulkAllocation : handleBulkHandover}
+                    onClick={handleBulkHandover}
                     size="sm"
                     className="flex items-center bg-green-500 hover:bg-green-600 text-white"
                   >
                     <ArrowRightLeft className="h-4 w-4 mr-1" />
-                    Phân bổ {selectedAssets.length} tài sản đã chọn
+                    Bàn giao {selectedAssets.length} tài sản đã chọn
                   </Button>
                 </div>
               </div>
@@ -455,7 +442,7 @@ export default function AssetPage() {
                   Trạng thái
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vị trí kế hoạch
+                  Vị trí hiện tại
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ngày nhập
@@ -510,11 +497,11 @@ export default function AssetPage() {
 
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-900">
-                    {asset.plannedRoomId ? (
+                    {asset.currentRoomId ? (
                       <div>
-                        <span className=" font-medium">
-                          {asset.plannedRoom ? MockDataHelper.formatRoomLocation(asset.plannedRoom) :
-                            mockRooms.find(r => r.id === asset.plannedRoomId)?.roomNumber || asset.plannedRoomId}
+                        <span className="font-medium">
+                          {asset.room ? MockDataHelper.formatRoomLocation(asset.room) :
+                            mockRooms.find(r => r.id === asset.currentRoomId)?.roomNumber || asset.currentRoomId}
                         </span>
                       </div>
                     ) : (
@@ -571,63 +558,9 @@ export default function AssetPage() {
                             <ArrowRightLeft className="h-4 w-4" />
                           </button>
                         )}
-                        {asset.isHandOver && (
-                          <button
-                            onClick={() => handleAllocateAsset(asset.id)}
-                            className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors flex items-center justify-center"
-                            title={asset.plannedRoomId ? "Phân bổ tự động đến vị trí kế hoạch" : "Phân bổ (chọn vị trí thủ công)"}
-                          >
-                            <ArrowRightLeft className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    ) : isPhongKeHoach ? (
-                      // Phòng Kế Hoạch Đầu Tư - chỉ quản lý trước khi bàn giao
-                      <div className="grid grid-cols-3 gap-2">
-                        <Link
-                          href={`/asset/${asset.id}`}
-                          className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                        {!asset.isHandOver && (
-                          <Link
-                            href={`/asset/${asset.id}/edit`}
-                            className="p-1.5 text-green-600 hover:bg-green-100 rounded-lg transition-colors flex items-center justify-center"
-                            title="Chỉnh sửa"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Link>
-                        )}
-                        {!asset.isHandOver && (
-                          <button
-                            onClick={() => handleDeleteAsset(asset.id)}
-                            className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors flex items-center justify-center"
-                            title="Xóa"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                        <Link
-                          href={`/asset/${asset.id}/rfid`}
-                          className="p-1.5 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors flex items-center justify-center"
-                          title="Quét RFID"
-                        >
-                          <Scan className="h-4 w-4" />
-                        </Link>
-                        {!asset.isHandOver && (
-                          <button
-                            onClick={() => handleHandoverAsset(asset.id)}
-                            className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors flex items-center justify-center"
-                            title="Bàn giao"
-                          >
-                            <ArrowRightLeft className="h-4 w-4" />
-                          </button>
-                        )}
                       </div>
                     ) : isPhongQuanTri ? (
-                      // Phòng Quản Trị - chỉ xem và phân bổ tài sản đã bàn giao
+                      // Phòng Quản Trị - chỉ xem tài sản đã bàn giao
                       <div className="flex items-center space-x-2">
                         <Link
                           href={`/asset/${asset.id}`}
@@ -636,13 +569,6 @@ export default function AssetPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Link>
-                        <button
-                          onClick={() => handleAllocateAsset(asset.id)}
-                          className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors flex items-center justify-center"
-                          title={asset.plannedRoomId ? "Phân bổ tự động đến vị trí kế hoạch" : "Phân bổ (chọn vị trí thủ công)"}
-                        >
-                          <ArrowRightLeft className="h-4 w-4" />
-                        </button>
                       </div>
                     ) : null}
                   </td>
@@ -666,7 +592,7 @@ export default function AssetPage() {
       </div>
 
       {/* Pagination */}
-      <div className="bg-white px-4 py-3 rounded-lg shadow flex items-center justify-between border-t border-gray-200 sm:px-6">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
         <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
           <div>
             <p className="text-sm text-gray-700">
@@ -679,8 +605,25 @@ export default function AssetPage() {
               <span className="font-medium">{filteredAssets.length}</span> tài
               sản
             </p>
+
           </div>
-          <div>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-700">Hiển thị:</span>
+              <select
+                className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value={10} className="text-gray-900">
+                  10
+                </option>
+                <option value={20} className="text-gray-900">
+                  20
+                </option>
+                <option value={50} className="text-gray-900">
+                  50
+                </option>
+              </select>
+            </div>
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -708,14 +651,14 @@ export default function AssetPage() {
         </div>
       </div>
 
-      {/* Allocation Modal */}
-      {showAllocationModal && (
+      {/* Handover Modal */}
+      {showHandoverModal && (
         <div className="fixed inset-0 shadow-lg bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Phân bổ tài sản</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Bàn giao tài sản</h3>
               <button
-                onClick={() => setShowAllocationModal(false)}
+                onClick={() => setShowHandoverModal(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -730,9 +673,9 @@ export default function AssetPage() {
                   Đơn vị sử dụng
                 </label>
                 <select
-                  value={allocationData.unitId}
+                  value={handoverData.unitId}
                   onChange={(e) => {
-                    setAllocationData(prev => ({
+                    setHandoverData(prev => ({
                       ...prev,
                       unitId: e.target.value,
                       roomId: "" // Reset room when unit changes
@@ -754,14 +697,14 @@ export default function AssetPage() {
                   Phòng
                 </label>
                 <select
-                  value={allocationData.roomId}
+                  value={handoverData.roomId}
                   onChange={(e) => {
-                    setAllocationData(prev => ({
+                    setHandoverData(prev => ({
                       ...prev,
                       roomId: e.target.value
                     }));
                   }}
-                  disabled={!allocationData.unitId}
+                  disabled={!handoverData.unitId}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                 >
                   <option value="">Chọn phòng</option>
@@ -777,15 +720,15 @@ export default function AssetPage() {
             <div className="flex items-center justify-end space-x-3 mt-6">
               <Button
                 variant="outline"
-                onClick={() => setShowAllocationModal(false)}
+                onClick={() => setShowHandoverModal(false)}
               >
                 Hủy
               </Button>
               <Button
-                onClick={handleAllocationSubmit}
+                onClick={handleHandoverSubmit}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                Phân bổ
+                Bàn giao
               </Button>
             </div>
           </div>
