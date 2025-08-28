@@ -39,7 +39,7 @@ import { mockAssets } from "@/lib/mockData";
 
 // Mock data cho tài sản đã tiếp nhận (status = CHO_PHAN_BO)
 const mockAvailableAssets = mockAssets.filter(
-    (asset) => asset.status === AssetStatus.CHO_PHAN_BO
+    (asset) => asset.isHandOver === false
 );
 
 // Mock data cho đơn vị
@@ -87,7 +87,7 @@ const mockUnits = [
     },
 ];
 
-// Mock data cho lịch sử chuyển giao
+// Mock data cho lịch sử bàn giao
 const mockTransferHistory: AssetTransaction[] = [
     {
         id: "TXN-2025-001",
@@ -97,7 +97,7 @@ const mockTransferHistory: AssetTransaction[] = [
         createdBy: "Trần Thị Hà",
         createdAt: "2025-08-10T14:30:00Z",
         status: TransactionStatus.APPROVED,
-        note: "Chuyển giao máy tính cho phòng thí nghiệm CNTT",
+        note: "bàn giao máy tính cho phòng thí nghiệm CNTT",
         approvedAt: "2025-08-11T09:15:00Z",
         approvedBy: "Nguyễn Văn Nam",
         fromUnit: {
@@ -143,7 +143,7 @@ const mockTransferHistory: AssetTransaction[] = [
         createdBy: "Trần Thị Hà",
         createdAt: "2025-08-05T10:20:00Z",
         status: TransactionStatus.PENDING,
-        note: "Chuyển giao thiết bị văn phòng cho khoa Kinh tế",
+        note: "bàn giao thiết bị văn phòng cho khoa Kinh tế",
         fromUnit: {
             id: "PQT",
             name: "Phòng Quản Trị",
@@ -181,7 +181,7 @@ const mockTransferHistory: AssetTransaction[] = [
         createdBy: "Trần Thị Hà",
         createdAt: "2025-07-28T16:45:00Z",
         status: TransactionStatus.REJECTED,
-        note: "Chuyển giao máy móc cho xưởng cơ khí - Bị từ chối",
+        note: "bàn giao máy móc cho xưởng cơ khí - Bị từ chối",
         fromUnit: {
             id: "PQT",
             name: "Phòng Quản Trị",
@@ -378,7 +378,7 @@ export default function AssetTransferPage() {
 
     const handleCreateTransferList = () => {
         if (selectedAssets.length === 0) {
-            alert("Vui lòng chọn ít nhất một tài sản để chuyển giao!");
+            alert("Vui lòng chọn ít nhất một tài sản để bàn giao!");
             return;
         }
 
@@ -416,7 +416,7 @@ export default function AssetTransferPage() {
         // Add to history
         setTransferHistory(prev => [newTransfer, ...prev]);
 
-        alert("Chuyển giao đã được tạo thành công!");
+        alert("bàn giao đã được tạo thành công!");
 
         // Reset form
         setIsCreatingTransfer(false);
@@ -436,9 +436,9 @@ export default function AssetTransferPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Chuyển giao tài sản</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Bàn giao tài sản</h1>
                     <p className="text-gray-600">
-                        Chuyển giao tài sản đến phòng quản trị
+                        Bàn giao tài sản đến phòng quản trị
                     </p>
                 </div>
             </div>
@@ -448,13 +448,13 @@ export default function AssetTransferPage() {
                 <div className="flex items-start">
                     <AlertCircle className="h-5 w-5 text-blue-500 mr-3 mt-0.5" />
                     <div>
-                        <h3 className="text-sm font-medium text-blue-900">Hướng dẫn chuyển giao</h3>
+                        <h3 className="text-sm font-medium text-blue-900">Hướng dẫn bàn giao</h3>
                         <p className="text-sm text-blue-700 mt-1">
-                            1. Chọn các tài sản cần chuyển giao từ danh sách bên dưới
+                            1. Chọn các tài sản cần bàn giao từ danh sách bên dưới
                             <br />
-                            2. Nhấn "Tạo danh sách chuyển giao" để thiết lập chi tiết chuyển giao
+                            2. Nhấn "Tạo danh sách bàn giao" để thiết lập chi tiết bàn giao
                             <br />
-                            3. Lưu để hoàn tất quá trình chuyển giao
+                            3. Lưu để hoàn tất quá trình bàn giao
                         </p>
                     </div>
                 </div>
@@ -468,7 +468,7 @@ export default function AssetTransferPage() {
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center">
                                     <div className="w-1 h-6 bg-blue-500 rounded-full mr-3"></div>
-                                    <h2 className="text-xl font-bold text-gray-800">Chọn tài sản cần chuyển giao</h2>
+                                    <h2 className="text-xl font-bold text-gray-800">Chọn tài sản cần bàn giao</h2>
                                 </div>
                                 {selectedAssets.length > 0 && (
                                     <Button
@@ -476,7 +476,7 @@ export default function AssetTransferPage() {
                                         className="flex items-center bg-blue-600 hover:bg-blue-700 shadow-lg"
                                     >
                                         <Plus className="h-4 w-4 mr-2" />
-                                        Tạo danh sách chuyển giao ({selectedAssets.length})
+                                        Tạo danh sách bàn giao ({selectedAssets.length})
                                     </Button>
                                 )}
                             </div>
@@ -681,6 +681,9 @@ export default function AssetTransferPage() {
                                             <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 Ngày nhập
                                             </th>
+                                            <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Trạng thái
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
@@ -738,6 +741,15 @@ export default function AssetTransferPage() {
                                                         {new Date(asset.entryDate).toLocaleDateString("vi-VN")}
                                                     </div>
                                                 </td>
+                                                <td className="px-4 md:px-6 py-4">
+                                                    <Badge className={`${
+                                                        asset.status === AssetStatus.CHO_PHAN_BO ? 'bg-yellow-100 text-yellow-800' :
+                                                        'bg-red-100 text-red-800'
+                                                    }`}>
+                                                        {asset.status === AssetStatus.CHO_PHAN_BO ? "Chờ phân bổ" :
+                                                         "Không hợp lệ"}
+                                                    </Badge>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -749,7 +761,7 @@ export default function AssetTransferPage() {
                                     <Package2 className="mx-auto h-12 w-12 text-gray-400" />
                                     <h3 className="mt-2 text-sm font-medium text-gray-900">Không có tài sản</h3>
                                     <p className="mt-1 text-sm text-gray-500">
-                                        Hiện tại không có tài sản nào sẵn sàng để chuyển giao hoặc không phù hợp với từ khóa tìm kiếm.
+                                        Hiện tại không có tài sản nào sẵn sàng để bàn giao hoặc không phù hợp với từ khóa tìm kiếm.
                                     </p>
                                 </div>
                             )}
@@ -762,7 +774,7 @@ export default function AssetTransferPage() {
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center">
                                     <div className="w-1 h-6 bg-green-500 rounded-full mr-3"></div>
-                                    <h2 className="text-xl font-bold text-gray-800">Lịch sử chuyển giao</h2>
+                                    <h2 className="text-xl font-bold text-gray-800">Lịch sử bàn giao</h2>
                                 </div>
                                 <div className="flex items-center space-x-3">
                                     <Button
@@ -795,7 +807,7 @@ export default function AssetTransferPage() {
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="text-sm font-semibold text-gray-700 flex items-center">
                                             <Filter className="h-4 w-4 mr-2 text-green-500" />
-                                            Bộ lọc lịch sử chuyển giao
+                                            Bộ lọc lịch sử bàn giao
                                         </h3>
                                         <Button
                                             variant="ghost"
@@ -812,7 +824,6 @@ export default function AssetTransferPage() {
                                         {/* Status Filter */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                <Tag className="inline h-4 w-4 mr-1" />
                                                 Trạng thái
                                             </label>
                                             <select
@@ -830,7 +841,6 @@ export default function AssetTransferPage() {
                                         {/* To Unit Filter */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                <Users className="inline h-4 w-4 mr-1" />
                                                 Đơn vị nhận
                                             </label>
                                             <select
@@ -845,7 +855,6 @@ export default function AssetTransferPage() {
                                         {/* Date From Filter */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                <CalendarDays className="inline h-4 w-4 mr-1" />
                                                 Từ ngày
                                             </label>
                                             <Input
@@ -859,7 +868,6 @@ export default function AssetTransferPage() {
                                         {/* Date To Filter */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                <CalendarDays className="inline h-4 w-4 mr-1" />
                                                 Đến ngày
                                             </label>
                                             <Input
@@ -926,7 +934,7 @@ export default function AssetTransferPage() {
                                     {/* Results Counter for History */}
                                     <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                                         <div className="text-sm text-gray-700">
-                                            Hiển thị <span className="font-medium">{filteredTransferHistory.length}</span> / <span className="font-medium">{transferHistory.length}</span> giao dịch chuyển giao
+                                            Hiển thị <span className="font-medium">{filteredTransferHistory.length}</span> / <span className="font-medium">{transferHistory.length}</span> giao dịch bàn giao
                                         </div>
                                     </div>
                                     <div className="overflow-x-auto">
@@ -934,7 +942,7 @@ export default function AssetTransferPage() {
                                             <thead className="bg-gray-50">
                                                 <tr>
                                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Thông tin chuyển giao
+                                                        Thông tin bàn giao
                                                     </th>
                                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                         Đơn vị nhận
@@ -1022,11 +1030,11 @@ export default function AssetTransferPage() {
                                         <div className="text-center py-12 bg-white">
                                             <History className="mx-auto h-12 w-12 text-gray-400" />
                                             <h3 className="mt-2 text-sm font-medium text-gray-900">
-                                                {transferHistory.length === 0 ? "Chưa có lịch sử chuyển giao" : "Không tìm thấy kết quả"}
+                                                {transferHistory.length === 0 ? "Chưa có lịch sử bàn giao" : "Không tìm thấy kết quả"}
                                             </h3>
                                             <p className="mt-1 text-sm text-gray-500">
                                                 {transferHistory.length === 0 
-                                                    ? "Các chuyển giao đã thực hiện sẽ hiển thị ở đây." 
+                                                    ? "Các bàn giao đã thực hiện sẽ hiển thị ở đây." 
                                                     : "Thử điều chỉnh bộ lọc để xem thêm kết quả."
                                                 }
                                             </p>
@@ -1055,9 +1063,9 @@ export default function AssetTransferPage() {
                                         Quay lại
                                     </Button>
                                     <div>
-                                        <h2 className="text-xl font-bold">Thông tin chuyển giao tài sản</h2>
+                                        <h2 className="text-xl font-bold">Thông tin bàn giao tài sản</h2>
                                         <p className="text-blue-100 text-sm mt-1">
-                                            Điền đầy đủ thông tin để hoàn tất chuyển giao
+                                            Điền đầy đủ thông tin để hoàn tất bàn giao
                                         </p>
                                     </div>
                                 </div>
@@ -1067,7 +1075,7 @@ export default function AssetTransferPage() {
                                     className="bg-white text-blue-700 hover:bg-gray-100 hover:text-blue-800 font-semibold shadow-md transition-all duration-200"
                                 >
                                     <Save className="h-4 w-4 mr-2" />
-                                    Lưu chuyển giao
+                                    Lưu bàn giao
                                 </Button>
                             </div>
                         </div>
@@ -1079,7 +1087,7 @@ export default function AssetTransferPage() {
                                     <div className="flex items-center pb-3 border-b-2 border-blue-100">
                                         <div className="w-2 h-6 bg-blue-500 rounded-full mr-3"></div>
                                         <h3 className="text-lg font-bold text-gray-800">
-                                            Thông tin chuyển giao
+                                            Thông tin bàn giao
                                         </h3>
                                     </div>
 
@@ -1124,7 +1132,7 @@ export default function AssetTransferPage() {
                                             }))}
                                             rows={4}
                                             className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all duration-200 text-gray-700 resize-none shadow-sm hover:border-gray-300"
-                                            placeholder="Nhập ghi chú cho chuyển giao... (VD: Lý do chuyển giao, yêu cầu đặc biệt, v.v.)"
+                                            placeholder="Nhập ghi chú cho bàn giao... (VD: Lý do bàn giao, yêu cầu đặc biệt, v.v.)"
                                         />
                                     </div>
                                 </div>
@@ -1135,7 +1143,7 @@ export default function AssetTransferPage() {
                                         <div className="flex items-center">
                                             <div className="w-2 h-6 bg-green-500 rounded-full mr-3"></div>
                                             <h3 className="text-lg font-bold text-gray-800">
-                                                Tài sản được chuyển giao
+                                                Tài sản được bàn giao
                                             </h3>
                                         </div>
                                         <div className="flex items-center space-x-2">
@@ -1231,7 +1239,7 @@ export default function AssetTransferPage() {
                                                 </div>
                                                 <h4 className="text-gray-600 font-medium mb-2">Chưa có tài sản nào</h4>
                                                 <p className="text-sm text-gray-500">
-                                                    Quay lại để chọn tài sản cần chuyển giao
+                                                    Quay lại để chọn tài sản cần bàn giao
                                                 </p>
                                             </div>
                                         )}
