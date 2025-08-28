@@ -5,6 +5,18 @@ export { mockUsers, mockRoles } from './users';
 export { mockCategories } from './categories';
 export { mockAssets } from './assets';
 export { mockAssetLogs } from './assetLogs';
+export { 
+  mockLiquidationProposals, 
+  mockLiquidationProposalItems,
+  getLiquidationItemsByProposal,
+  getLiquidationProposalWithItems,
+  getLiquidationStats,
+  getLiquidationProposalsByUnit,
+  getLiquidationProposalsByProposer,
+  getLiquidationProposalsByStatus,
+  getLiquidationProposalsByDateRange,
+  searchLiquidationProposals
+} from './liquidation';
 
 // Helper functions
 export { MockDataHelper } from './helpers';
