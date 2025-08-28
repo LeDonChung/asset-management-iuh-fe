@@ -13,15 +13,11 @@ import {
   Menu,
   X,
   LogOut,
-  Asterisk,
   Package2,
   Building,
   ChevronDown,
   ChevronRight,
-  List,
-  FileText,
   BarChart3,
-  ClipboardList,
 } from "lucide-react";
 
 // Helper: Navigation by role
@@ -179,7 +175,6 @@ export const SidebarUserSection = React.memo(function SidebarUserSection({
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <RoleSwitcher variant="compact" showLabel={false} />
           <button
             onClick={handleLogout}
             className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -518,15 +513,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Mobile Sidebar header */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 bg-white">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Package className="h-5 w-5 text-white" />
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center">
+                <img src={'./logo_iuh.png'} alt="IUH Logo"/>
               </div>
               <div>
                 <span className="text-lg font-semibold text-gray-900">
-                  Asset Manager
+                  Quản lý tài sản
                 </span>
                 <p className="text-xs text-gray-500 font-medium">
-                  IUH Asset Management
+                  Đại học Công nghiệp TP.HCM
                 </p>
               </div>
             </div>
@@ -557,15 +552,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="flex flex-col flex-grow border-r border-gray-200 bg-white overflow-y-auto">
               {/* Desktop Header */}
               <div className="flex items-center flex-shrink-0 px-6 py-5 bg-white border-b border-gray-200">
-                <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-                  <Package className="h-5 w-5 text-white" />
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-3">
+                  <img src={'./logo_iuh.png'} alt="IUH Logo"/>
                 </div>
                 <div>
                   <span className="text-lg font-semibold text-gray-900">
-                    Asset Manager
+                    Quản lý tài sản
                   </span>
                   <p className="text-xs text-gray-500 font-medium">
-                    IUH Asset Management
+                    Đại học Công nghiệp TP.HCM
                   </p>
                 </div>
               </div>
