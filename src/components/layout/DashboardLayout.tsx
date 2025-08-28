@@ -18,6 +18,8 @@ import {
   ChevronDown,
   ChevronRight,
   BarChart3,
+  ClipboardList,
+  Trash2,
 } from "lucide-react";
 
 // Helper: Navigation by role
@@ -78,6 +80,30 @@ const getNavigationByRole = (userRole: string) => {
       href: "/reports", 
       icon: BarChart3,
       roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU", "DON_VI_SU_DUNG"],
+    },
+    // Kiểm kê (chỉ admin roles)
+    {
+      name: "Kiểm kê",
+      href: "/inventory",
+      icon: ClipboardList,
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
+    },
+    // Thanh lý tài sản
+    {
+      name: "Thanh lý",
+      href: "/liquidation",
+      icon: Trash2,
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "DON_VI_SU_DUNG"],
+      children: [
+        {
+          name: "Danh sách đề xuất",
+          href: "/liquidation",
+        },
+        {
+          name: "Tạo đề xuất thanh lý",
+          href: "/liquidation/create",
+        },
+      ],
     },
   ];
   return baseNavigation.filter((item) => item.roles.includes(userRole));
