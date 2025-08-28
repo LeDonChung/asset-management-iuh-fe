@@ -8,6 +8,7 @@ export enum AssetType {
 export enum AssetStatus {
   CHO_CHUYEN_GIAO = "chờ_bàn_giao",
   CHO_TIEP_NHAN = "chờ_tiếp_nhận",
+  CHO_PHAN_BO = "chờ_phân_bổ",
   DANG_SU_DUNG = "đang_sử_dụng", 
   HU_HONG = "hư_hỏng",
   DE_XUAT_THANH_LY = "đề_xuất_thanh_lý",
@@ -33,6 +34,51 @@ export interface AssetLog {
   createdAt: string;
   createdBy: string;
   asset?: Asset;
+}
+
+// Asset Transaction Types
+export enum TransactionType {
+  ALLOCATE = "ALLOCATE", // Phân bổ
+  HANDOVER = "HANDOVER", // Bàn giao
+  RETURN = "RETURN", // Hoàn trả
+  LIQUIDATE = "LIQUIDATE" // Thanh lý
+}
+
+export enum TransactionStatus {
+  PENDING = "PENDING", // Chờ duyệt
+  APPROVED = "APPROVED", // Đã duyệt
+  REJECTED = "REJECTED", // Từ chối
+}
+
+export interface AssetTransactionItem {
+  id: string;
+  transactionId: string;
+  assetId: string;
+  note?: string;
+  asset?: Asset;
+}
+
+export interface AssetTransaction {
+  id: string;
+  type: TransactionType;
+  fromUnitId?: string;
+  toUnitId?: string;
+  fromRoomId?: string;
+  toRoomId?: string;
+  createdBy: string;
+  createdAt: string;
+  status: TransactionStatus;
+  note?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+  rejectionReason?: string;
+  fromUnit?: Unit;
+  toUnit?: Unit;
+  fromRoom?: Room;
+  toRoom?: Room;
+  items?: AssetTransactionItem[];
 }
 
 // User and Role Management
@@ -111,47 +157,6 @@ export interface Room {
   status: RoomStatus;
   unitId: string; // Mã đơn vị sử dụng
   unit?: Unit;
-}
-
-// Transaction Management
-export enum TransactionType {
-  TRANSFER = "Transfer",
-  ALLOCATE = "Allocate", 
-  MOVE = "Move"
-}
-
-export enum TransactionStatus {
-  PENDING = "Pending",
-  APPROVED = "Approved",
-  REJECTED = "Rejected"
-}
-
-export interface AssetTransaction {
-  id: string;
-  type: TransactionType;
-  fromUnitId?: string;
-  toUnitId?: string;
-  fromRoomId?: string;
-  toRoomId?: string;
-  createdBy: string;
-  createdAt: string; // datetime
-  approvedBy?: string;
-  approvedAt?: string; // datetime
-  status: TransactionStatus;
-  note?: string;
-  fromUnit?: Unit;
-  toUnit?: Unit;
-  fromRoom?: Room;
-  toRoom?: Room;
-  items?: AssetTransactionItem[];
-}
-
-export interface AssetTransactionItem {
-  id: string;
-  transactionId: string;
-  assetId: string;
-  note?: string;
-  asset?: Asset;
 }
 
 export interface Asset {
@@ -436,7 +441,7 @@ export interface AssetFormData {
   name: string;
   specs?: string;
   entryDate: string;
-  plannedRoomId?: string; // ID phòng theo kế hoạch
+  currentRoomId?: string; // ID phòng theo kế hoạch
   unit: string;
   quantity: number;
   origin?: string;

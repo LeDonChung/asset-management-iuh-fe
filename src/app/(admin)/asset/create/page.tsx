@@ -49,7 +49,7 @@ export default function CreateAssetPage() {
     name: "",
     specs: "",
     entryDate: new Date().toISOString().split('T')[0],
-    plannedRoomId: undefined,
+    currentRoomId: undefined,
     unit: "",
     quantity: 1,
     origin: "",
@@ -327,17 +327,17 @@ export default function CreateAssetPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Vị trí theo kế hoạch
+                  Vị trí
                 </label>
                 <div className="relative">
                   <select
-                    name="plannedRoomId"
-                    value={formData.plannedRoomId || ""}
+                    name="currentRoomId"
+                    value={formData.currentRoomId || ""}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     disabled={!unitId}
                   >
-                    <option value="">Chưa phân bổ</option>
+                    <option value="">Chưa bàn giao</option>
                     {filteredRooms.map(room => (
                       <option key={room.id} value={room.id}>
                         {room.roomNumber} (Tòa {room.building}, Tầng {room.floor})
@@ -347,7 +347,7 @@ export default function CreateAssetPage() {
                   <Building className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  {!unitId ? "Vui lòng chọn đơn vị sử dụng trước" : "Để trống nếu tài sản chưa được phân bổ"}
+                  {!unitId ? "Vui lòng chọn đơn vị sử dụng trước" : "Để trống nếu tài sản chưa được bàn giao"}
                 </p>
               </div>
               <div></div>

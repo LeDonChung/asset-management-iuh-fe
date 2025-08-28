@@ -25,7 +25,7 @@ const mockAsset: Asset = {
   name: "Máy tính Dell Latitude 5520",
   specs: "Intel Core i5-1135G7, 8GB RAM, 256GB SSD, Windows 11 Pro",
   entryDate: "2024-01-15",
-  plannedRoomId: "1",
+  currentRoomId: "1",
   unit: "Cái",
   quantity: 1,
   origin: "Dell Việt Nam",
@@ -75,7 +75,7 @@ export default function EditAssetPage() {
     name: "",
     specs: "",
     entryDate: "",
-    plannedRoomId: undefined,
+    currentRoomId: undefined,
     unit: "",
     quantity: 1,
     origin: "",
@@ -102,7 +102,7 @@ export default function EditAssetPage() {
           name: mockAsset.name,
           specs: mockAsset.specs || "",
           entryDate: mockAsset.entryDate,
-          plannedRoomId: mockAsset.plannedRoomId,
+          currentRoomId: mockAsset.currentRoomId,
           unit: mockAsset.unit,
           quantity: mockAsset.quantity,
           origin: mockAsset.origin || "",
@@ -287,9 +287,9 @@ export default function EditAssetPage() {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Package2 className="h-4 w-4 text-green-600" />
-                </div>
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
+              <Package2 className="h-5 w-5 text-white" />
+            </div>
               </div>
               <div className="ml-3">
                 <h3 className="text-lg font-medium text-gray-900">Cập nhật thông tin</h3>
@@ -442,12 +442,12 @@ export default function EditAssetPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Vị trí theo kế hoạch
+                  Vị trí
                 </label>
                 <div className="relative">
                   <select
                     name="plannedRoomId"
-                    value={formData.plannedRoomId || ""}
+                    value={formData.currentRoomId || ""}
                     onChange={handleInputChange}
                     className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     disabled={!unitId}
@@ -462,7 +462,7 @@ export default function EditAssetPage() {
                   <Building className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  {!unitId ? "Vui lòng chọn đơn vị sử dụng trước" : "Để trống nếu tài sản chưa được phân bổ"}
+                  {!unitId ? "Vui lòng chọn đơn vị sử dụng trước" : "Để trống nếu tài sản chưa được bàn giao"}
                 </p>
               </div>
               <div></div>
