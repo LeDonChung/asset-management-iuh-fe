@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/contexts/RoleContext";
-import RoleSwitcher from "@/components/ui/RoleSwitcher";
+ 
 
 import {
   LayoutDashboard,
@@ -21,6 +21,7 @@ import {
   ClipboardList,
   Trash2,
 } from "lucide-react";
+ 
 
 // Helper: Navigation by role
 const getNavigationByRole = (userRole: string) => {
@@ -390,7 +391,20 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
 
 // Topbar
 function Topbar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
   
   return (
     <div className="relative z-10 flex-shrink-0 flex h-16 bg-white border-b border-gray-200">
@@ -416,23 +430,43 @@ function Topbar() {
             </span>
           </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <div className="hidden md:block">
-            <RoleSwitcher />
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="hidden sm:flex flex-col text-right">
-              <h1 className="text-lg font-semibold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent text-right">
-                {getGreeting().text} {user?.fullName.split(' ').pop()}
-              </h1>
-              <p className="text-xs text-gray-500 font-normal mt-0.5 text-right">
-                Chúc bạn có một ngày tuyệt vời!
-              </p>
+        <div className="relative" ref={menuRef}>
+          <button
+            className="flex items-center rounded-lg px-2 py-1.5 hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors"
+            onClick={() => setIsMenuOpen((v) => !v)}
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold mr-2">
+              {user?.fullName?.charAt(0)}
             </div>
-            <div className="relative p-2 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl shadow-sm border border-blue-100/50 transition-all duration-300 hover:shadow-md hover:scale-105">
-              <div className="flex-shrink-0">{getGreeting().icon}</div>
+            <div className="hidden sm:flex flex-col items-start mr-1">
+              <span className="text-sm font-medium text-gray-900 leading-4">{user?.fullName}</span>
             </div>
-          </div>
+            <ChevronDown className="h-5 w-5 text-gray-400" />
+          </button>
+          {isMenuOpen && (
+            <div className="absolute right-0 mt-2 w-56 rounded-md border border-gray-200 bg-white shadow-lg focus:outline-none">
+              <div className="h-px bg-gray-100" />
+              <button
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                onClick={() => { setIsMenuOpen(false); router.push('/profile'); }}
+              >
+                Thông tin cá nhân
+              </button>
+              <button
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                onClick={() => { setIsMenuOpen(false); router.push('/change-password'); }}
+              >
+                Đổi mật khẩu
+              </button>
+              <div className="h-px bg-gray-100" />
+              <button
+                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                onClick={() => { setIsMenuOpen(false); logout(); }}
+              >
+                Đăng xuất
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -568,7 +602,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               setIsMobileSidebarOpen={setIsMobileSidebarOpen}
               currentRole={currentRole}
             />
-            <SidebarUserSection handleLogout={handleLogout} />
           </Suspense>
         </div>
 
@@ -597,8 +630,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 handleNavigation={handleNavigation}
                 currentRole={currentRole}
               />
-              {/* Desktop user section */}
-              <SidebarUserSection handleLogout={handleLogout} />
             </div>
           </div>
         </div>

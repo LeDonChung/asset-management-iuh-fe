@@ -24,9 +24,68 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { mockAssets, mockUsers, mockRooms, mockUnits, MockDataHelper } from "@/lib/mockData";
 
+// Mock data cho lịch sử di chuyển
+const mockAssetLogs = [
+  {
+    id: "log-1",
+    assetId: "asset-001",
+    action: "Bàn giao tài sản",
+    reason: "Bàn giao cho phòng IT theo kế hoạch",
+    fromLocation: "Kho trung tâm",
+    toLocation: "Phòng IT - Tầng 3",
+    status: "COMPLETED",
+    createdBy: "Nguyễn Văn A",
+    createdAt: new Date("2024-01-15T09:30:00").toISOString()
+  },
+  {
+    id: "log-2",
+    assetId: "asset-001",
+    action: "Chuyển đổi vị trí",
+    reason: "Chuyển từ phòng IT sang phòng Kế toán",
+    fromLocation: "Phòng IT - Tầng 3",
+    toLocation: "Phòng Kế toán - Tầng 2",
+    status: "COMPLETED",
+    createdBy: "Trần Thị B",
+    createdAt: new Date("2024-02-20T14:15:00").toISOString()
+  },
+  {
+    id: "log-3",
+    assetId: "asset-001",
+    action: "Bảo trì định kỳ",
+    reason: "Bảo trì theo lịch trình hàng tháng",
+    fromLocation: "Phòng Kế toán - Tầng 2",
+    toLocation: "Phòng Kế toán - Tầng 2",
+    status: "COMPLETED",
+    createdBy: "Lê Văn C",
+    createdAt: new Date("2024-03-10T11:00:00").toISOString()
+  },
+  {
+    id: "log-4",
+    assetId: "asset-001",
+    action: "Cập nhật thông tin",
+    reason: "Cập nhật thông số kỹ thuật mới",
+    fromLocation: "Phòng Kế toán - Tầng 2",
+    toLocation: "Phòng Kế toán - Tầng 2",
+    status: "COMPLETED",
+    createdBy: "Phạm Thị D",
+    createdAt: new Date("2024-03-25T16:45:00").toISOString()
+  },
+  {
+    id: "log-5",
+    assetId: "asset-001",
+    action: "Chuyển đổi vị trí",
+    reason: "Chuyển về phòng IT theo yêu cầu",
+    fromLocation: "Phòng Kế toán - Tầng 2",
+    toLocation: "Phòng IT - Tầng 3",
+    status: "IN_PROGRESS",
+    createdBy: "Hoàng Văn E",
+    createdAt: new Date("2024-04-01T08:30:00").toISOString()
+  }
+];
+
 const statusColors = {
   [AssetStatus.CHO_PHAN_BO]: "bg-yellow-100 text-yellow-800",
-  [AssetStatus.DANG_SU_DUNG]: "bg-green-100 text-green-800", 
+  [AssetStatus.DANG_SU_DUNG]: "bg-green-100 text-green-800",
   [AssetStatus.HU_HONG]: "bg-red-100 text-red-800",
   [AssetStatus.DE_XUAT_THANH_LY]: "bg-orange-100 text-orange-800",
   [AssetStatus.DA_THANH_LY]: "bg-gray-100 text-gray-800",
@@ -35,7 +94,7 @@ const statusColors = {
 const statusLabels = {
   [AssetStatus.CHO_PHAN_BO]: "Chờ phân bổ",
   [AssetStatus.DANG_SU_DUNG]: "Đang sử dụng",
-  [AssetStatus.HU_HONG]: "Hư hỏng", 
+  [AssetStatus.HU_HONG]: "Hư hỏng",
   [AssetStatus.DE_XUAT_THANH_LY]: "Đề xuất thanh lý",
   [AssetStatus.DA_THANH_LY]: "Đã thanh lý",
 };
@@ -59,7 +118,7 @@ export default function AssetDetailPage() {
       try {
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         // Lấy asset từ mock data dựa trên ID
         const foundAsset = MockDataHelper.getAssetById(params.id as string);
         if (foundAsset) {
@@ -79,7 +138,7 @@ export default function AssetDetailPage() {
 
   const handleDeleteAsset = async () => {
     if (!asset) return;
-    
+
     if (confirm("Bạn có chắc chắn muốn xóa tài sản này?")) {
       try {
         // Mock API call
@@ -90,6 +149,11 @@ export default function AssetDetailPage() {
         alert("Có lỗi xảy ra khi xóa tài sản");
       }
     }
+  };
+
+  // Lấy logs cho asset hiện tại
+  const getAssetLogs = (assetId: string) => {
+    return mockAssetLogs.filter(log => log.assetId === assetId);
   };
 
   if (isLoading) {
@@ -111,9 +175,9 @@ export default function AssetDetailPage() {
             <Skeleton className="h-10 w-28" />
           </div>
         </div>
-        
+
         <Skeleton className="h-16 w-full" />
-        
+
         <div className="bg-white rounded-lg shadow">
           <div className="border-b border-gray-200">
             <div className="-mb-px flex space-x-8 px-6">
@@ -158,80 +222,53 @@ export default function AssetDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link 
-            href="/asset"
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{asset.name}</h1>
-            <p className="text-gray-600">Chi tiết thông tin tài sản</p>
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Link
+              href="/asset"
+              className="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:shadow-sm"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">{asset.name}</h1>
+              <div className="flex items-center space-x-4 text-sm text-gray-600">
+                <span>Chi tiết thông tin tài sản</span>
+                <span>•</span>
+                <span className="font-mono text-gray-500">#{asset.id}</span>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center space-x-3">
-          {!asset.isLocked && asset.status !== AssetStatus.DANG_SU_DUNG && (
+          <div className="flex items-center space-x-3">
             <>
               <Link href={`/asset/${asset.id}/edit`}>
-                <Button 
-                  className="flex items-center"
+                <Button
+                  className="flex items-center bg-blue-600 text-white  px-4 py-2 rounded-lg shadow-sm"
                   variant="outline"
                 >
-                  <Edit2 className="h-4 w-4 mr-2" />
-                  Chỉnh sửa
+                  <Edit2 className="h-4 w-4 mr-2 text-white" />
+                  <span className="text-white">Chỉnh sửa</span>
                 </Button>
               </Link>
               <Button
                 onClick={handleDeleteAsset}
                 variant="destructive"
-                className="flex items-center"
+                className="flex items-center bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow-sm"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Xóa
               </Button>
             </>
-          )}
-          <Link href={`/asset/${asset.id}/rfid`}>
-            <Button 
-              className="flex items-center bg-purple-600 hover:bg-purple-700"
-            >
-              <Scan className="h-4 w-4 mr-2" />
-              Quét RFID
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* Status Banner */}
-      <div className={`p-4 rounded-lg border-l-4 ${
-        asset.isLocked || asset.status === AssetStatus.DANG_SU_DUNG
-          ? "bg-orange-50 border-orange-400" 
-          : "bg-blue-50 border-blue-400"
-      }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Badge 
-              className={statusColors[asset.status]}
-            >
-              {statusLabels[asset.status]}
-            </Badge>
-            {(asset.isLocked || asset.status === AssetStatus.DANG_SU_DUNG) && (
-              <span className="text-sm text-orange-700">
-                🔒 {asset.status === AssetStatus.DANG_SU_DUNG ? 'Đã bàn giao và đang sử dụng' : 'Đã bàn giao'} - Không thể chỉnh sửa hoặc xóa
-              </span>
-            )}
+            <Link href={`/asset/${asset.id}/rfid`}>
+              <Button
+                className="flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg shadow-sm"
+              >
+                <Scan className="h-4 w-4 mr-2" />
+                Quét RFID
+              </Button>
+            </Link>
           </div>
-          {!asset.isLocked && asset.status === AssetStatus.CHO_PHAN_BO && (
-            <Button
-              size="sm" 
-              className="flex items-center"
-            >
-              <ArrowRightLeft className="h-4 w-4 mr-1" />
-              Bàn giao
-            </Button>
-          )}
         </div>
       </div>
 
@@ -241,11 +278,10 @@ export default function AssetDetailPage() {
           <nav className="-mb-px flex space-x-8 px-6">
             <button
               onClick={() => setActiveTab('info')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'info'
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'info'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               <div className="flex items-center">
                 <Package2 className="h-4 w-4 mr-2" />
@@ -254,11 +290,10 @@ export default function AssetDetailPage() {
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'history'
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'history'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               <div className="flex items-center">
                 <Clock className="h-4 w-4 mr-2" />
@@ -315,9 +350,8 @@ export default function AssetDetailPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">Trạng thái bàn giao</label>
                     <div className="text-sm">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        asset.isHandOver ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${asset.isHandOver ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
                         {asset.isHandOver ? 'Đã bàn giao' : 'Chưa bàn giao'}
                       </span>
                     </div>
@@ -341,104 +375,77 @@ export default function AssetDetailPage() {
                 </div>
               </div>
 
-              {/* Location Info */}
+              {/* Current Location Info */}
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Thông tin vị trí</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Vị trí hiện tại</h3>
                 <div className="space-y-4">
-                  {/* Vị trí theo kế hoạch */}
-                  {asset.plannedRoomId && (
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex-shrink-0">
-                          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <MapPin className="h-4 w-4 text-blue-600" />
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-blue-900 mb-1">Vị trí theo kế hoạch</div>
-                          <div className="text-sm font-semibold text-gray-900">
-                            {asset.plannedRoom ? 
-                              MockDataHelper.formatRoomLocation(asset.plannedRoom) : 
-                              MockDataHelper.getRoomById(asset.plannedRoomId)?.roomNumber || asset.plannedRoomId
-                            }
-                          </div>
-                          {asset.plannedRoom && (
-                            <>
-                              <div className="text-sm text-gray-600">
-                                {asset.plannedRoom.building} - {asset.plannedRoom.floor}
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                Đơn vị: {MockDataHelper.getUnitById(asset.plannedRoom.unitId)?.name || "Không có thông tin"}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Vị trí đang sử dụng */}
                   {asset.currentRoomId ? (
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <div className="flex items-center space-x-3">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200 shadow-sm">
+                      <div className="flex items-start space-x-4">
                         <div className="flex-shrink-0">
-                          <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                            <Building className="h-4 w-4 text-green-600" />
+                          <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shadow-sm">
+                            <Building className="h-6 w-6 text-blue-600" />
                           </div>
                         </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-green-900 mb-1">Vị trí đang sử dụng</div>
-                          <div className="text-sm font-semibold text-gray-900">
-                            {asset.room ? 
-                              MockDataHelper.formatRoomLocation(asset.room) : 
-                              MockDataHelper.getRoomById(asset.currentRoomId)?.roomNumber || asset.currentRoomId
-                            }
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h4 className="text-lg font-semibold text-gray-900">Vị trí hiện tại</h4>
+                            <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                              Đang sử dụng
+                            </Badge>
                           </div>
-                          {asset.room && (
-                            <>
-                              <div className="text-sm text-gray-600">
-                                {asset.room.building} - {asset.room.floor}
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                Đơn vị: {MockDataHelper.getUnitById(asset.room.unitId)?.name || "Không có thông tin"}
-                              </div>
-                              {asset.assignedTo && (
-                                <div className="text-sm text-gray-600">
-                                  Người sử dụng: {asset.assignedTo}
+                          <div className="space-y-2">
+                            <div className="text-xl font-bold text-gray-900">
+                              {asset.room ?
+                                MockDataHelper.formatRoomLocation(asset.room) :
+                                MockDataHelper.getRoomById(asset.currentRoomId)?.roomNumber || asset.currentRoomId
+                              }
+                            </div>
+                            {asset.room && (
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                                  <Building className="h-4 w-4" />
+                                  <span>{asset.room.building} - Tầng {asset.room.floor}</span>
                                 </div>
-                              )}
-                            </>
-                          )}
+                                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                                  <Hash className="h-4 w-4" />
+                                  <span>Đơn vị: {MockDataHelper.getUnitById(asset.room.unitId)?.name || "Không có thông tin"}</span>
+                                </div>
+                                {asset.assignedTo && (
+                                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                                    <User className="h-4 w-4" />
+                                    <span>Người sử dụng: {asset.assignedTo}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center space-x-3">
+                    <div className="bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl p-6 border border-gray-200 shadow-sm">
+                      <div className="flex items-start space-x-4">
                         <div className="flex-shrink-0">
-                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Building className="h-4 w-4 text-gray-400" />
+                          <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center shadow-sm">
+                            <Package2 className="h-6 w-6 text-gray-400" />
                           </div>
                         </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900 mb-1">Vị trí đang sử dụng</div>
-                          <div className="text-sm text-gray-500">Chưa được bàn giao / đang ở kho</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Hiển thị thông báo nếu vị trí kế hoạch và thực tế khác nhau */}
-                  {asset.plannedRoomId && asset.currentRoomId && asset.plannedRoomId !== asset.currentRoomId && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <div className="flex items-center space-x-2">
-                        <div className="flex-shrink-0">
-                          <svg className="h-4 w-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <div className="text-sm text-yellow-800">
-                          <span className="font-medium">Chú ý:</span> Vị trí thực tế khác với vị trí theo kế hoạch
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h4 className="text-lg font-semibold text-gray-900">Vị trí hiện tại</h4>
+                            <Badge className="bg-gray-100 text-gray-600 border-gray-200">
+                              Chưa bàn giao
+                            </Badge>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="text-lg font-medium text-gray-500">
+                              Tài sản đang ở kho / chưa được bàn giao
+                            </div>
+                            <div className="text-sm text-gray-400">
+                              Chưa có thông tin vị trí cụ thể
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -503,72 +510,92 @@ export default function AssetDetailPage() {
           {activeTab === 'history' && (
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-6">Lịch sử di chuyển và thay đổi</h3>
-              <div className="flow-root">
-                <ul className="-mb-8">
-                  {MockDataHelper.getAssetLogs(asset.id).map((log, logIndex) => (
-                    <li key={log.id}>
-                      <div className="relative pb-8">
-                        {logIndex !== MockDataHelper.getAssetLogs(asset.id).length - 1 && (
-                          <span
-                            className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"
-                            aria-hidden="true"
-                          />
-                        )}
-                        <div className="relative flex space-x-3">
-                          <div>
-                            <span className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center ring-8 ring-white">
-                              <Clock className="h-4 w-4 text-white" />
-                            </span>
-                          </div>
-                          <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+
+              {getAssetLogs(asset.id).length > 0 ? (
+                <div className="flow-root">
+                  <ul className="-mb-8">
+                    {getAssetLogs(asset.id).map((log, logIndex) => (
+                      <li key={log.id}>
+                        <div className="relative pb-8">
+                          {logIndex !== getAssetLogs(asset.id).length - 1 && (
+                            <span
+                              className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"
+                              aria-hidden="true"
+                            />
+                          )}
+                          <div className="relative flex space-x-3">
                             <div>
-                              <p className="text-sm text-gray-900">
-                                <span className="font-medium">{log.action}</span>
-                              </p>
-                              <p className="text-sm text-gray-500">{log.reason}</p>
-                              {log.fromLocation && log.toLocation && (
-                                <p className="text-sm text-gray-500">
-                                  <ArrowRightLeft className="h-3 w-3 inline mr-1" />
-                                  {log.fromLocation} → {log.toLocation}
-                                </p>
-                              )}
-                              <div className="mt-1">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  log.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                                  log.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                                  log.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-red-100 text-red-800'
-                                }`}>
-                                  {log.status === 'COMPLETED' ? 'Hoàn thành' :
-                                   log.status === 'IN_PROGRESS' ? 'Đang thực hiện' :
-                                   log.status === 'PENDING' ? 'Chờ thực hiện' :
-                                   'Đã hủy'}
-                                </span>
-                              </div>
+                              <span className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center ring-8 ring-white">
+                                <Clock className="h-4 w-4 text-white" />
+                              </span>
                             </div>
-                            <div className="text-right text-sm whitespace-nowrap text-gray-500">
-                              <div>{new Date(log.createdAt).toLocaleDateString("vi-VN")}</div>
-                              <div>{new Date(log.createdAt).toLocaleTimeString("vi-VN")}</div>
-                              <div className="flex items-center mt-1">
-                                <User className="h-3 w-3 mr-1" />
-                                {log.createdBy}
+                            <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                              <div>
+                                <p className="text-sm text-gray-900">
+                                  <span className="font-medium">{log.action}</span>
+                                </p>
+                                <p className="text-sm text-gray-500">{log.reason}</p>
+                                {log.fromLocation && log.toLocation && (
+                                  <p className="text-sm text-gray-500">
+                                    <ArrowRightLeft className="h-3 w-3 inline mr-1" />
+                                    {log.fromLocation} → {log.toLocation}
+                                  </p>
+                                )}
+                                <div className="mt-1">
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${log.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                                      log.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                                        log.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                          'bg-red-100 text-red-800'
+                                    }`}>
+                                    {log.status === 'COMPLETED' ? 'Hoàn thành' :
+                                      log.status === 'IN_PROGRESS' ? 'Đang thực hiện' :
+                                        log.status === 'PENDING' ? 'Chờ thực hiện' :
+                                          'Đã hủy'}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-right text-sm whitespace-nowrap text-gray-500">
+                                <div>{new Date(log.createdAt).toLocaleDateString("vi-VN")}</div>
+                                <div>{new Date(log.createdAt).toLocaleTimeString("vi-VN")}</div>
+                                <div className="flex items-center mt-1">
+                                  <User className="h-3 w-3 mr-1" />
+                                  {log.createdBy}
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-12 border-2 border-dashed border-gray-200">
+                  <div className="text-center">
+                    <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                      <Clock className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Chưa có lịch sử di chuyển</h3>
+                    <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                      Tài sản này chưa có hoạt động di chuyển hoặc thay đổi nào được ghi nhận.
+                      Lịch sử sẽ xuất hiện khi có các hoạt động như bàn giao, chuyển đổi vị trí,
+                      hoặc cập nhật thông tin.
+                    </p>
+                    <div className="flex items-center justify-center space-x-4 text-sm text-gray-400">
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                        <span>Bàn giao</span>
                       </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              
-              {MockDataHelper.getAssetLogs(asset.id).length === 0 && (
-                <div className="text-center py-8">
-                  <Clock className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">Chưa có lịch sử</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Chưa có hoạt động nào được ghi nhận cho tài sản này.
-                  </p>
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                        <span>Chuyển đổi</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                        <span>Cập nhật</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

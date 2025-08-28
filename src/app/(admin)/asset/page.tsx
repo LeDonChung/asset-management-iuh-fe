@@ -11,6 +11,11 @@ import {
   Package2,
   Scan,
   ArrowRightLeft,
+  Building2,
+  MapPin,
+  Save,
+  X,
+  AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -22,11 +27,15 @@ import {
   Room,
   UnitStatus,
   RoomStatus,
+  AssetTransaction,
 } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
+import { Table, TableColumn } from "@/components/ui/table";
+import HandoverForm from "@/components/handover/HandoverForm";
+import AdvancedFilter, { FilterCondition } from "@/components/filter/AdvancedFilter";
 import { useAuth } from "@/contexts/AuthContext";
 import { mockAssets, mockUnits, mockRooms, mockCategories, MockDataHelper } from "@/lib/mockData";
 import { useRouter } from "next/navigation";
@@ -37,9 +46,11 @@ interface HandoverData {
   roomId: string;
 }
 
+
+
 const statusColors = {
   [AssetStatus.CHO_CHUYEN_GIAO]: "bg-yellow-100 text-yellow-800",
-  [AssetStatus.CHO_TIEP_NHAN]: "bg-orange-100 text-orange-800", 
+  [AssetStatus.CHO_TIEP_NHAN]: "bg-orange-100 text-orange-800",
   [AssetStatus.DANG_SU_DUNG]: "bg-green-100 text-green-800",
   [AssetStatus.HU_HONG]: "bg-red-100 text-red-800",
   [AssetStatus.DE_XUAT_THANH_LY]: "bg-orange-100 text-orange-800",
@@ -66,6 +77,8 @@ export default function AssetPage() {
   const [filter, setFilter] = useState<AssetFilter>({});
   const [showFilter, setShowFilter] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
+  const [conditionLogic, setConditionLogic] = useState<'contains' | 'equals' | 'not_contains'>('contains');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [handoverData, setHandoverData] = useState<HandoverData>({
@@ -74,6 +87,10 @@ export default function AssetPage() {
     roomId: ""
   });
   const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
+
+  // Bulk handover states
+  const [isHandoverMode, setIsHandoverMode] = useState(false);
+  const [assetsToHandover, setAssetsToHandover] = useState<Asset[]>([]);
   const itemsPerPage = 10;
   const { getCurrentRole } = useAuth();
 
@@ -134,29 +151,30 @@ export default function AssetPage() {
     }
   }, [handoverData.unitId]);
 
-  const handleSelectAsset = (assetId: string) => {
-    setSelectedAssets((prev) =>
-      prev.includes(assetId)
-        ? prev.filter((id) => id !== assetId)
-        : [...prev, assetId]
-    );
-  };
 
-  const handleSelectAll = () => {
-    if (selectedAssets.length === filteredAssets.length) {
-      setSelectedAssets([]);
-    } else {
-      setSelectedAssets(filteredAssets.map((asset) => asset.id));
-    }
-  };
 
   const router = useRouter();
+
   const handleBulkHandover = () => {
-    router.push("/asset/transfer");
+    if (selectedAssets.length === 0) {
+      alert("Vui lòng chọn ít nhất một tài sản để bàn giao!");
+      return;
+    }
+
+    const selectedAssetObjects = assets.filter(asset =>
+      selectedAssets.includes(asset.id)
+    );
+
+    setAssetsToHandover(selectedAssetObjects);
+    setIsHandoverMode(true);
   };
 
   const handleHandoverAsset = (assetId: string) => {
-    router.push("/asset/transfer");
+    const asset = assets.find(a => a.id === assetId);
+    if (!asset) return;
+
+    setAssetsToHandover([asset]);
+    setIsHandoverMode(true);
   };
 
   const handleHandoverSubmit = () => {
@@ -193,10 +211,297 @@ export default function AssetPage() {
     }
   };
 
+  const handleHandoverCancel = () => {
+    setIsHandoverMode(false);
+    setAssetsToHandover([]);
+  };
+
+  const handleHandoverSuccess = (transaction: AssetTransaction) => {
+    // Update asset status to DANG_SU_DUNG and set room
+    setAssets(prev =>
+      prev.map(asset => {
+        const handoverItem = transaction.items?.find(item => item.assetId === asset.id);
+        if (handoverItem) {
+          return {
+            ...asset,
+            status: AssetStatus.DANG_SU_DUNG,
+            isHandOver: true,
+            currentRoomId: transaction.toRoomId || ""
+          };
+        }
+        return asset;
+      })
+    );
+
+    // Log transaction (có thể lưu vào database)
+    console.log("Handover Transaction Completed:", transaction);
+
+    // Reset states
+    setSelectedAssets([]);
+    setIsHandoverMode(false);
+    setAssetsToHandover([]);
+
+    alert("Bàn giao tài sản thành công! Tài sản đã được gửi đến các đơn vị sử dụng.");
+  };
+
+
+
   // Handle page change for pagination
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
+
+  // Filter options for AdvancedFilter
+  const filterOptions = [
+    {
+      value: 'name',
+      label: 'Tên tài sản',
+      type: 'text' as const
+    },
+    {
+      value: 'ktCode',
+      label: 'Mã kế toán',
+      type: 'text' as const
+    },
+    {
+      value: 'fixedCode',
+      label: 'Mã tài sản cố định',
+      type: 'text' as const
+    },
+    {
+      value: 'status',
+      label: 'Trạng thái tài sản',
+      type: 'select' as const,
+      options: Object.entries(statusLabels).map(([value, label]) => ({
+        value,
+        label
+      }))
+    },
+    {
+      value: 'type',
+      label: 'Loại tài sản',
+      type: 'select' as const,
+      options: Object.entries(typeLabels).map(([value, label]) => ({
+        value,
+        label
+      }))
+    },
+    {
+      value: 'categoryId',
+      label: 'Danh mục',
+      type: 'select' as const,
+      options: mockCategories.map(category => ({
+        value: category.id,
+        label: category.name
+      }))
+    },
+    {
+      value: 'entryDate',
+      label: 'Ngày nhập',
+      type: 'date' as const
+    }
+  ];
+
+  // Apply advanced filters
+  const applyAdvancedFilters = () => {
+    let filtered = [...assets];
+
+    // Apply search filter first
+    if (filter.search) {
+      const searchTerm = filter.search.toLowerCase();
+      filtered = filtered.filter(asset =>
+        asset.name.toLowerCase().includes(searchTerm) ||
+        asset.ktCode.toLowerCase().includes(searchTerm) ||
+        asset.fixedCode.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Apply condition-based filters
+    if (filterConditions.length > 0) {
+      // Apply condition logic (AND, OR, NOT)
+      if (conditionLogic === 'contains') {
+        // Tất cả điều kiện phải đúng (AND)
+        filterConditions.forEach(condition => {
+          filtered = applyConditionFilter(filtered, condition);
+        });
+      } else if (conditionLogic === 'equals') {
+        // Bất kì điều kiện đúng (OR)
+        const originalFiltered = [...filtered];
+        let orResults: Asset[] = [];
+        filterConditions.forEach(condition => {
+          const conditionResults = applyConditionFilter(originalFiltered, condition);
+          orResults = [...orResults, ...conditionResults.filter(asset =>
+            !orResults.some(existing => existing.id === asset.id)
+          )];
+        });
+        filtered = orResults;
+      } else if (conditionLogic === 'not_contains') {
+        // Không có điều kiện nào đúng - AND logic với negation
+        // Tất cả điều kiện phải KHÔNG đúng (NOT A AND NOT B)
+        filterConditions.forEach(condition => {
+          filtered = applyConditionFilter(filtered, condition, true); // Negate result
+        });
+      }
+    }
+
+    setFilteredAssets(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // Helper function to apply single condition
+  const applyConditionFilter = (assets: Asset[], condition: FilterCondition, negate = false): Asset[] => {
+    const fieldOption = filterOptions.find(opt => opt.value === condition.field);
+
+    // Check if condition has value
+    let hasValue = false;
+    if (fieldOption?.type === 'date') {
+      hasValue = !!(condition.dateFrom || condition.dateTo);
+    } else if (Array.isArray(condition.value)) {
+      hasValue = condition.value.length > 0;
+    } else {
+      hasValue = !!(condition.value && condition.value !== '');
+    }
+
+    if (!hasValue) {
+      return assets;
+    }
+
+    const result = assets.filter(asset => {
+      const fieldValue = (asset as any)[condition.field];
+
+      // Handle date range filtering
+      if (fieldOption?.type === 'date') {
+        const assetDate = new Date(fieldValue);
+        const fromDate = condition.dateFrom ? new Date(condition.dateFrom) : null;
+        const toDate = condition.dateTo ? new Date(condition.dateTo) : null;
+
+        switch (condition.operator) {
+          case 'contains': // "Tất cả" - trong khoảng từ-đến
+            if (fromDate && toDate) {
+              return assetDate >= fromDate && assetDate <= toDate;
+            } else if (fromDate) {
+              return assetDate >= fromDate;
+            } else if (toDate) {
+              return assetDate <= toDate;
+            }
+            return true;
+
+          case 'equals': // "Bất kì" - trong khoảng từ-đến (giống Tất cả cho date)
+            if (fromDate && toDate) {
+              return assetDate >= fromDate && assetDate <= toDate;
+            } else if (fromDate) {
+              return assetDate >= fromDate;
+            } else if (toDate) {
+              return assetDate <= toDate;
+            }
+            return true;
+
+          case 'not_contains': // "Không" - ngoài khoảng từ-đến
+            if (fromDate && toDate) {
+              return !(assetDate >= fromDate && assetDate <= toDate);
+            } else if (fromDate) {
+              return assetDate < fromDate;
+            } else if (toDate) {
+              return assetDate > toDate;
+            }
+            return true;
+
+          default:
+            return true;
+        }
+      }
+
+      switch (condition.operator) {
+        case 'contains': // "Tất cả" - khớp tất cả
+          if (Array.isArray(condition.value)) {
+            if (condition.value.length === 0) return true;
+            // Tất cả values phải khớp (AND logic)
+            return condition.value.every(val => {
+              if (condition.field === 'isHandOver') {
+                return asset.isHandOver === (val === 'true');
+              }
+              // Với select fields, check exact match
+              const fieldOption = filterOptions.find(opt => opt.value === condition.field);
+              if (fieldOption?.type === 'select') {
+                return String(fieldValue) === val;
+              }
+              // Với text fields, check contains - tất cả từ khóa phải có
+              return String(fieldValue).toLowerCase().includes(val.toLowerCase());
+            });
+          } else {
+            if (condition.field === 'isHandOver') {
+              return asset.isHandOver === (condition.value === 'true');
+            }
+            return String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase());
+          }
+
+        case 'equals': // "Bất kì" - khớp ít nhất một
+          if (Array.isArray(condition.value)) {
+            if (condition.value.length === 0) return true;
+            // Ít nhất một value phải khớp (OR logic)
+            return condition.value.some(val => {
+              if (condition.field === 'isHandOver') {
+                return asset.isHandOver === (val === 'true');
+              }
+              // Với select fields, check exact match
+              const fieldOption = filterOptions.find(opt => opt.value === condition.field);
+              if (fieldOption?.type === 'select') {
+                return String(fieldValue) === val;
+              }
+              // Với text fields, check contains - ít nhất một từ khóa phải có
+              return String(fieldValue).toLowerCase().includes(val.toLowerCase());
+            });
+          } else {
+            if (condition.field === 'isHandOver') {
+              return asset.isHandOver === (condition.value === 'true');
+            }
+            return String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase());
+          }
+
+        case 'not_contains': // "Không" - không khớp
+          if (Array.isArray(condition.value)) {
+            if (condition.value.length === 0) return true;
+            // Không được khớp bất kì value nào
+            return !condition.value.some(val => {
+              if (condition.field === 'isHandOver') {
+                return asset.isHandOver === (val === 'true');
+              }
+              // Với select fields, check exact match
+              const fieldOption = filterOptions.find(opt => opt.value === condition.field);
+              if (fieldOption?.type === 'select') {
+                return String(fieldValue) === val;
+              }
+              // Với text fields, check contains - không được chứa bất kì từ khóa nào
+              return String(fieldValue).toLowerCase().includes(val.toLowerCase());
+            });
+          } else {
+            if (condition.field === 'isHandOver') {
+              return asset.isHandOver !== (condition.value === 'true');
+            }
+            return !String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase());
+          }
+
+        default:
+          return true;
+      }
+    });
+
+    return negate ? assets.filter(asset => !result.includes(asset)) : result;
+  };
+
+  // Reset all filters
+  const resetFilters = () => {
+    setFilter({});
+    setFilterConditions([]);
+    setConditionLogic('contains');
+    setFilteredAssets(assets);
+    setCurrentPage(1);
+  };
+
+  // Auto-apply search filter
+  React.useEffect(() => {
+    applyAdvancedFilters();
+  }, [filter.search, assets]);
 
   // Get current page data
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -204,18 +509,162 @@ export default function AssetPage() {
   const currentAssets = filteredAssets.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
 
+  // Define table columns
+  const columns: TableColumn<Asset>[] = [
+    {
+      key: "info",
+      title: "Thông tin tài sản",
+      render: (_, asset) => (
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-10 w-10">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
+              <Package2 className="h-5 w-5 text-white" />
+            </div>
+          </div>
+          <div className="ml-3">
+            <div className="text-sm font-medium text-gray-900">
+              {asset.name}
+            </div>
+            <div className="text-sm text-gray-500">
+              {asset.specs}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "codes",
+      title: "Mã tài sản",
+      render: (_, asset) => (
+        <div>
+          <div className="text-sm text-gray-900">{asset.ktCode}</div>
+          <div className="text-sm text-gray-500">{asset.fixedCode}</div>
+        </div>
+      ),
+    },
+    {
+      key: "category",
+      title: "Loại/Danh mục",
+      render: (_, asset) => (
+        <div>
+          <div className="text-sm text-gray-900">
+            {typeLabels[asset.type as keyof typeof typeLabels]}
+          </div>
+          <div className="text-sm text-gray-500">
+            {asset.category?.name}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      title: "Trạng thái",
+      render: (_, asset) => (
+        <Badge
+          className={
+            statusColors[asset.status as keyof typeof statusColors]
+          }
+        >
+          {statusLabels[asset.status as keyof typeof statusLabels]}
+        </Badge>
+      ),
+    },
+    {
+      key: "location",
+      title: "Vị trí hiện tại",
+      render: (_, asset) => (
+        <div className="text-sm text-gray-900">
+          {asset.currentRoomId ? (
+            <span className="font-medium">
+              {asset.room ? MockDataHelper.formatRoomLocation(asset.room) :
+                mockRooms.find(r => r.id === asset.currentRoomId)?.roomNumber || asset.currentRoomId}
+            </span>
+          ) : (
+            <span className="text-gray-500">Chưa phân bổ</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "entryDate",
+      title: "Ngày nhập",
+      render: (_, asset) => (
+        <div className="text-sm text-gray-500">
+          {new Date(asset.entryDate).toLocaleDateString("vi-VN")}
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      title: "Thao tác",
+      render: (_, asset) => {
+        if (isAdmin || isSuperAdmin || isPhongQuanTri) {
+          // Admin và Super Admin có thể thực hiện tất cả chức năng
+          return (
+            <div className="grid grid-cols-3 gap-2">
+              <Link
+                href={`/asset/${asset.id}`}
+                className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center"
+                title="Xem chi tiết"
+              >
+                <Eye className="h-4 w-4" />
+              </Link>
+              <Link
+                href={`/asset/${asset.id}/edit`}
+                className="p-1.5 text-green-600 hover:bg-green-100 rounded-lg transition-colors flex items-center justify-center"
+                title="Chỉnh sửa"
+              >
+                <Edit2 className="h-4 w-4" />
+              </Link>
+              <button
+                onClick={() => handleDeleteAsset(asset.id)}
+                className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors flex items-center justify-center"
+                title="Xóa"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+              <Link
+                href={`/asset/${asset.id}/rfid`}
+                className="p-1.5 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors flex items-center justify-center"
+                title="Quét RFID"
+              >
+                <Scan className="h-4 w-4" />
+              </Link>
+              <button
+                onClick={() => handleHandoverAsset(asset.id)}
+                className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors flex items-center justify-center"
+                title="Bàn giao"
+              >
+                <ArrowRightLeft className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        } else if (isPhongQuanTri) {
+          // Phòng Quản Trị - chỉ xem tài sản đã bàn giao
+          return (
+            <div className="flex items-center space-x-2">
+              <Link
+                href={`/asset/${asset.id}`}
+                className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center"
+                title="Xem chi tiết"
+              >
+                <Eye className="h-4 w-4" />
+              </Link>
+            </div>
+          );
+        }
+        return null;
+      },
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý tài sản</h1>
-          {isPhongQuanTri && (
-            <p className="text-gray-600">
-              Quản lý thông tin tài sản cố định và công cụ dụng cụ - Chỉ xem tài sản đã bàn giao
-            </p>
-          )}
-          {(isAdmin || isSuperAdmin) && (
+          {(isAdmin || isSuperAdmin || isPhongQuanTri) && (
             <p className="text-gray-600">
               Quản lý toàn bộ thông tin tài sản cố định và công cụ dụng cụ
             </p>
@@ -223,7 +672,7 @@ export default function AssetPage() {
         </div>
 
         <div className="flex items-center space-x-3">
-          {(isAdmin || isSuperAdmin) && (
+          {(isAdmin || isSuperAdmin || isPhongQuanTri) && (
             <div className="flex items-center space-x-3">
               <Link href="/asset/create">
                 <Button className="flex items-center">
@@ -233,507 +682,200 @@ export default function AssetPage() {
               </Link>
             </div>
           )}
-
-          {(isPhongQuanTri || isAdmin || isSuperAdmin) && (
-            <div className="flex items-center space-x-3">
-              <Link href="/asset/receive">
-                <Button className="flex items-center bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow">
-                  <Package2 className="h-5 w-5 mr-2" />
-                  Tiếp nhận tài sản
-                </Button>
-              </Link>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Search and Filter */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center space-x-4 mb-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              type="text"
-              placeholder="Tìm kiếm theo tên, mã kế toán, mã tài sản..."
-              value={filter.search || ""}
-              onChange={(e) =>
-                setFilter((prev) => ({ ...prev, search: e.target.value }))
-              }
-              className="pl-10"
-            />
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => setShowFilter(!showFilter)}
-            className={showFilter ? "bg-blue-50 border-blue-300" : ""}
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            Bộ lọc
-          </Button>
-        </div>
+      {/* Advanced Filter */}
+      <AdvancedFilter
+        title="Tìm kiếm nâng cao"
+        filterOptions={filterOptions}
+        conditions={filterConditions}
+        conditionLogic={conditionLogic}
+        onConditionsChange={setFilterConditions}
+        onConditionLogicChange={setConditionLogic}
+        onApply={applyAdvancedFilters}
+        onReset={resetFilters}
+        className="mb-6"
+      />
 
-        {/* Advanced Filter */}
-        {showFilter && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Trạng thái
-              </label>
-              <select
-                value={filter.status || ""}
-                onChange={(e) =>
-                  setFilter((prev) => ({
-                    ...prev,
-                    status: e.target.value
-                      ? (e.target.value as AssetStatus)
-                      : undefined,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Tất cả trạng thái</option>
-                {Object.entries(statusLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Loại tài sản
-              </label>
-              <select
-                value={filter.type || ""}
-                onChange={(e) =>
-                  setFilter((prev) => ({
-                    ...prev,
-                    type: e.target.value
-                      ? (e.target.value as AssetType)
-                      : undefined,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Tất cả loại</option>
-                {Object.entries(typeLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Danh mục
-              </label>
-              <select
-                value={filter.categoryId || ""}
-                onChange={(e) =>
-                  setFilter((prev) => ({
-                    ...prev,
-                    categoryId: e.target.value || undefined,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Tất cả danh mục</option>
-                {mockCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Trạng thái bàn giao
-              </label>
-              <select
-                value={
-                  filter.isHandOver === undefined
-                    ? ""
-                    : filter.isHandOver.toString()
-                }
-                onChange={(e) =>
-                  setFilter((prev) => ({
-                    ...prev,
-                    isHandOver:
-                      e.target.value === ""
-                        ? undefined
-                        : e.target.value === "true",
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Tất cả</option>
-                <option value="false">Chưa bàn giao</option>
-                <option value="true">Đã bàn giao</option>
-              </select>
-            </div>
-          </div>
-        )}
-      </div>
+
 
       {/* Bulk Actions */}
-      {selectedAssets.length > 0 && (
-        <div className="space-y-3">
-          {(isAdmin || isSuperAdmin) && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="text-sm text-blue-800">
-                    Đã chọn {selectedAssets.length} tài sản
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    onClick={handleBulkHandover}
-                    size="sm"
-                    className="flex items-center bg-orange-500 hover:bg-orange-600 text-white"
-                  >
-                    <ArrowRightLeft className="h-4 w-4 mr-1" />
-                    Bàn giao {selectedAssets.length} tài sản đã chọn
-                  </Button>
-                </div>
-              </div>
+      {selectedAssets.length > 0 && !isHandoverMode && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <span className="text-sm text-blue-800">
+                Đã chọn {selectedAssets.length} tài sản
+              </span>
             </div>
-          )}
-          {(isPhongQuanTri || isAdmin || isSuperAdmin) && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="text-sm text-green-800">
-                    Đã chọn {selectedAssets.length} tài sản
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    onClick={handleBulkHandover}
-                    size="sm"
-                    className="flex items-center bg-green-500 hover:bg-green-600 text-white"
-                  >
-                    <ArrowRightLeft className="h-4 w-4 mr-1" />
-                    Bàn giao {selectedAssets.length} tài sản đã chọn
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Assets Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thông tin tài sản
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Mã tài sản
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Loại/Danh mục
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Trạng thái
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vị trí hiện tại
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ngày nhập
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thao tác
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentAssets.map((asset) => (
-                <tr key={asset.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
-                          <Package2 className="h-5 w-5 text-white" />
-                        </div>
-                      </div>
-                      <div className="ml-3">
-                        <div className="text-sm font-medium text-gray-900">
-                          {asset.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {asset.specs}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="text-sm text-gray-900">{asset.ktCode}</div>
-                    <div className="text-sm text-gray-500">
-                      {asset.fixedCode}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="text-sm text-gray-900">
-                      {typeLabels[asset.type as keyof typeof typeLabels]}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {asset.category?.name}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <Badge
-                      className={
-                        statusColors[asset.status as keyof typeof statusColors]
-                      }
-                    >
-                      {statusLabels[asset.status as keyof typeof statusLabels]}
-                    </Badge>
-
-                  </td>
-                  <td className="px-4 py-4 text-sm text-gray-900">
-                    {asset.currentRoomId ? (
-                      <div>
-                        <span className="font-medium">
-                          {asset.room ? MockDataHelper.formatRoomLocation(asset.room) :
-                            mockRooms.find(r => r.id === asset.currentRoomId)?.roomNumber || asset.currentRoomId}
-                        </span>
-                      </div>
-                    ) : (
-                      <div>
-                        <span className="text-gray-500">Chưa phân bổ</span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-4 text-sm text-gray-500">
-                    {new Date(asset.entryDate).toLocaleDateString("vi-VN")}
-                  </td>
-                  <td className="px-4 py-4">
-                    {(isAdmin || isSuperAdmin) ? (
-                      // Admin và Super Admin có thể thực hiện tất cả chức năng
-                      <div className="grid grid-cols-3 gap-2">
-                        <Link
-                          href={`/asset/${asset.id}`}
-                          className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                        {!asset.isHandOver && (
-                          <Link
-                            href={`/asset/${asset.id}/edit`}
-                            className="p-1.5 text-green-600 hover:bg-green-100 rounded-lg transition-colors flex items-center justify-center"
-                            title="Chỉnh sửa"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Link>
-                        )}
-                        {!asset.isHandOver && (
-                          <button
-                            onClick={() => handleDeleteAsset(asset.id)}
-                            className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors flex items-center justify-center"
-                            title="Xóa"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                        <Link
-                          href={`/asset/${asset.id}/rfid`}
-                          className="p-1.5 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors flex items-center justify-center"
-                          title="Quét RFID"
-                        >
-                          <Scan className="h-4 w-4" />
-                        </Link>
-                        {!asset.isHandOver && (
-                          <button
-                            onClick={() => handleHandoverAsset(asset.id)}
-                            className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors flex items-center justify-center"
-                            title="Bàn giao"
-                          >
-                            <ArrowRightLeft className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    ) : isPhongQuanTri ? (
-                      // Phòng Quản Trị - chỉ xem tài sản đã bàn giao
-                      <div className="flex items-center space-x-2">
-                        <Link
-                          href={`/asset/${asset.id}`}
-                          className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                      </div>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredAssets.length === 0 && (
-          <div className="text-center py-12">
-            <Package2 className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">
-              Không có tài sản nào
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Không tìm thấy tài sản nào phù hợp với bộ lọc hiện tại.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Pagination */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
-        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-gray-700">
-              Hiển thị{" "}
-              <span className="font-medium">{indexOfFirstItem + 1}</span> đến{" "}
-              <span className="font-medium">
-                {Math.min(indexOfLastItem, filteredAssets.length)}
-              </span>{" "}
-              trong tổng số{" "}
-              <span className="font-medium">{filteredAssets.length}</span> tài
-              sản
-            </p>
-
-          </div>
-          <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-700">Hiển thị:</span>
-              <select
-                className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value={10} className="text-gray-900">
-                  10
-                </option>
-                <option value={20} className="text-gray-900">
-                  20
-                </option>
-                <option value={50} className="text-gray-900">
-                  50
-                </option>
-              </select>
-            </div>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-            />
-          </div>
-        </div>
-        <div className="flex-1 flex justify-between sm:hidden">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            Trước
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            Sau
-          </Button>
-        </div>
-      </div>
-
-      {/* Handover Modal */}
-      {showHandoverModal && (
-        <div className="fixed inset-0 shadow-lg bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Bàn giao tài sản</h3>
-              <button
-                onClick={() => setShowHandoverModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Đơn vị sử dụng
-                </label>
-                <select
-                  value={handoverData.unitId}
-                  onChange={(e) => {
-                    setHandoverData(prev => ({
-                      ...prev,
-                      unitId: e.target.value,
-                      roomId: "" // Reset room when unit changes
-                    }));
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              {(isAdmin || isSuperAdmin) && (
+                <Button
+                  onClick={handleBulkHandover}
+                  size="sm"
+                  className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  <option value="">Chọn đơn vị sử dụng</option>
-                  {mockUnits.map(unit => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phòng
-                </label>
-                <select
-                  value={handoverData.roomId}
-                  onChange={(e) => {
-                    setHandoverData(prev => ({
-                      ...prev,
-                      roomId: e.target.value
-                    }));
-                  }}
-                  disabled={!handoverData.unitId}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                >
-                  <option value="">Chọn phòng</option>
-                  {availableRooms.map(room => (
-                    <option key={room.id} value={room.id}>
-                      {MockDataHelper.formatRoomLocation(room)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end space-x-3 mt-6">
-              <Button
-                variant="outline"
-                onClick={() => setShowHandoverModal(false)}
-              >
-                Hủy
-              </Button>
-              <Button
-                onClick={handleHandoverSubmit}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                Bàn giao
-              </Button>
+                  <ArrowRightLeft className="h-4 w-4 mr-1" />
+                  Bàn giao {selectedAssets.length} tài sản đã chọn
+                </Button>
+              )}
             </div>
           </div>
         </div>
       )}
+
+      {/* Pagination - Hidden in handover mode */}
+      {!isHandoverMode && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
+          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700">
+                Hiển thị{" "}
+                <span className="font-medium">{indexOfFirstItem + 1}</span> đến{" "}
+                <span className="font-medium">
+                  {Math.min(indexOfLastItem, filteredAssets.length)}
+                </span>{" "}
+                trong tổng số{" "}
+                <span className="font-medium">{filteredAssets.length}</span> tài
+                sản
+              </p>
+
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-700">Hiển thị:</span>
+                <select
+                  className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value={10} className="text-gray-900">
+                    10
+                  </option>
+                  <option value={20} className="text-gray-900">
+                    20
+                  </option>
+                  <option value={50} className="text-gray-900">
+                    50
+                  </option>
+                </select>
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          </div>
+          <div className="flex-1 flex justify-between sm:hidden">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Trước
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Sau
+            </Button>
+          </div>
+        </div>
+      )}
+      {/* Assets Table or Handover Form */}
+      {!isHandoverMode ? (
+        <Table
+          columns={columns}
+          data={currentAssets}
+          emptyText="Không có tài sản nào"
+          emptyIcon={<Package2 className="mx-auto h-12 w-12 text-gray-400" />}
+          rowKey="id"
+          rowSelection={{
+            selectedRowKeys: selectedAssets,
+            onChange: (selectedRowKeys) => {
+              setSelectedAssets(selectedRowKeys);
+            },
+            getCheckboxProps: (record) => ({
+              disabled: false
+            })
+          }}
+        />
+      ) : (
+        <HandoverForm
+          assets={assetsToHandover}
+          onCancel={handleHandoverCancel}
+          onSuccess={handleHandoverSuccess}
+          title="Bàn giao tài sản"
+        />
+      )}
+
+      {/* Pagination - Hidden in handover mode */}
+      {!isHandoverMode && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
+          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700">
+                Hiển thị{" "}
+                <span className="font-medium">{indexOfFirstItem + 1}</span> đến{" "}
+                <span className="font-medium">
+                  {Math.min(indexOfLastItem, filteredAssets.length)}
+                </span>{" "}
+                trong tổng số{" "}
+                <span className="font-medium">{filteredAssets.length}</span> tài
+                sản
+              </p>
+
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-700">Hiển thị:</span>
+                <select
+                  className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value={10} className="text-gray-900">
+                    10
+                  </option>
+                  <option value={20} className="text-gray-900">
+                    20
+                  </option>
+                  <option value={50} className="text-gray-900">
+                    50
+                  </option>
+                </select>
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          </div>
+          <div className="flex-1 flex justify-between sm:hidden">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Trước
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Sau
+            </Button>
+          </div>
+        </div>
+      )}
+
+
     </div>
   );
 }

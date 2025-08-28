@@ -25,12 +25,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import AdvancedFilter, { FilterCondition, AdvancedFilterState } from "@/components/filter/AdvancedFilter";
+import { Pagination } from "@/components/ui/pagination";
 
 // Mock data cho demo - danh sách bàn giao từ ban kế hoạch đầu tư
 const mockAssetTransactions: AssetTransaction[] = [
   {
     id: "TXN-2025-001",
-    type: TransactionType.TRANSFER,
+    type: TransactionType.HANDOVER,
     fromUnitId: "PKHDTU",
     toUnitId: "PQT",
     createdBy: "Nguyễn Văn Minh",
@@ -140,7 +142,7 @@ const mockAssetTransactions: AssetTransaction[] = [
   },
   {
     id: "TXN-2025-002",
-    type: TransactionType.TRANSFER,
+    type: TransactionType.HANDOVER,
     fromUnitId: "PKHDTU",
     toUnitId: "PQT",
     createdBy: "Nguyễn Văn Minh",
@@ -250,7 +252,7 @@ const mockAssetTransactions: AssetTransaction[] = [
   },
   {
     id: "TXN-2025-003",
-    type: TransactionType.TRANSFER,
+    type: TransactionType.HANDOVER,
     fromUnitId: "PKHDTU",
     toUnitId: "PQT",
     createdBy: "Lê Thị Hương",
@@ -386,7 +388,7 @@ const mockAssetTransactions: AssetTransaction[] = [
   },
   {
     id: "TXN-2025-004",
-    type: TransactionType.TRANSFER,
+    type: TransactionType.HANDOVER,
     fromUnitId: "PKHDTU",
     toUnitId: "PQT",
     createdBy: "Phạm Minh Tuấn",
@@ -470,7 +472,7 @@ const mockAssetTransactions: AssetTransaction[] = [
   },
   {
     id: "TXN-2025-005",
-    type: TransactionType.TRANSFER,
+    type: TransactionType.HANDOVER,
     fromUnitId: "PKHDTU",
     toUnitId: "PQT",
     createdBy: "Trần Thị Mai",
@@ -531,7 +533,7 @@ const mockAssetTransactions: AssetTransaction[] = [
   // Additional mock data for testing filters
   {
     id: "TXN-2025-006",
-    type: TransactionType.TRANSFER,
+    type: TransactionType.HANDOVER,
     fromUnitId: "PKHDTU",
     toUnitId: "PQT",
     createdBy: "Nguyễn Thị Lan",
@@ -589,7 +591,7 @@ const mockAssetTransactions: AssetTransaction[] = [
   },
   {
     id: "TXN-2025-007",
-    type: TransactionType.TRANSFER,
+    type: TransactionType.HANDOVER,
     fromUnitId: "PKHDTU",
     toUnitId: "PQT",
     createdBy: "Hoàng Văn Đức",
@@ -646,6 +648,475 @@ const mockAssetTransactions: AssetTransaction[] = [
         }
       }
     ]
+  },
+  // Thêm dữ liệu để test pagination
+  {
+    id: "TXN-2025-008",
+    type: TransactionType.HANDOVER,
+    fromUnitId: "PKHDTU",
+    toUnitId: "PQT",
+    createdBy: "Vũ Thị Hoa",
+    createdAt: "2025-08-20T11:20:00Z",
+    status: TransactionStatus.PENDING,
+    note: "Bàn giao thiết bị phòng thí nghiệm hóa học",
+    fromUnit: {
+      id: "PKHDTU",
+      name: "Phòng Kế Hoạch Đầu Tư",
+      type: UnitType.PHONG_KE_HOACH_DAU_TU,
+      status: UnitStatus.ACTIVE,
+      representativeId: "vu.hoa",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: UnitStatus.ACTIVE,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-2025-016",
+        transactionId: "TXN-2025-008",
+        assetId: "CHEMICAL-001",
+        note: "Tủ hút khí độc hại - Đạt chuẩn an toàn phòng thí nghiệm",
+        asset: {
+          id: "CHEMICAL-001",
+          ktCode: "25-0016/KT",
+          fixedCode: "3722.00001",
+          name: "Tủ hút khí độc hại Labconco",
+          specs: "Kích thước 120x60x75cm, quạt hút 1200m³/h, đèn UV, mặt kính an toàn",
+          entryDate: "2025-08-18",
+          unit: "Chiếc",
+          quantity: 3,
+          purchasePackage: 8,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "3722",
+          status: AssetStatus.CHO_PHAN_BO,
+          createdBy: "vu.hoa",
+          createdAt: "2025-08-18T08:00:00Z",
+          updatedAt: "2025-08-20T11:20:00Z",
+          category: { id: "3722", name: "Thiết bị phòng thí nghiệm", code: "3722" }
+        }
+      }
+    ]
+  },
+  {
+    id: "TXN-2025-009",
+    type: TransactionType.HANDOVER,
+    fromUnitId: "PKHDTU",
+    toUnitId: "PQT",
+    createdBy: "Lê Văn Sơn",
+    createdAt: "2025-08-21T14:30:00Z",
+    status: TransactionStatus.PENDING,
+    note: "Bàn giao thiết bị thể thao - Sân vận động trường",
+    fromUnit: {
+      id: "PKHDTU",
+      name: "Phòng Kế Hoạch Đầu Tư",
+      type: UnitType.PHONG_KE_HOACH_DAU_TU,
+      status: UnitStatus.ACTIVE,
+      representativeId: "le.son",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: UnitStatus.ACTIVE,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-2025-017",
+        transactionId: "TXN-2025-009",
+        assetId: "SPORTS-001",
+        note: "Máy tập thể dục đa năng - Phòng gym sinh viên",
+        asset: {
+          id: "SPORTS-001",
+          ktCode: "25-0017/KT",
+          fixedCode: "3723.00001",
+          name: "Máy tập thể dục đa năng Life Fitness",
+          specs: "12 chức năng tập luyện, màn hình LCD, điều chỉnh độ khó điện tử",
+          entryDate: "2025-08-19",
+          unit: "Chiếc",
+          quantity: 5,
+          purchasePackage: 9,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "3723",
+          status: AssetStatus.CHO_PHAN_BO,
+          createdBy: "le.son",
+          createdAt: "2025-08-19T08:00:00Z",
+          updatedAt: "2025-08-21T14:30:00Z",
+          category: { id: "3723", name: "Thiết bị thể thao", code: "3723" }
+        }
+      }
+    ]
+  },
+  {
+    id: "TXN-2025-010",
+    type: TransactionType.HANDOVER,
+    fromUnitId: "PKHDTU",
+    toUnitId: "PQT",
+    createdBy: "Nguyễn Thị Dung",
+    createdAt: "2025-08-22T09:15:00Z",
+    status: TransactionStatus.APPROVED,
+    note: "Bàn giao thiết bị thư viện - Thư viện trung tâm",
+    approvedAt: "2025-08-23T10:00:00Z",
+    approvedBy: "tran.ha",
+    fromUnit: {
+      id: "PKHDTU",
+      name: "Phòng Kế Hoạch Đầu Tư",
+      type: UnitType.PHONG_KE_HOACH_DAU_TU,
+      status: UnitStatus.ACTIVE,
+      representativeId: "nguyen.dung",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: UnitStatus.ACTIVE,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-2025-018",
+        transactionId: "TXN-2025-010",
+        assetId: "LIBRARY-001",
+        note: "Máy quét mã vạch thư viện - Hệ thống quản lý sách",
+        asset: {
+          id: "LIBRARY-001",
+          ktCode: "25-0018/KT",
+          fixedCode: "3724.00001",
+          name: "Máy quét mã vạch Honeywell 1900",
+          specs: "Quét 1D/2D, tốc độ 100 scans/giây, kết nối USB, phần mềm quản lý",
+          entryDate: "2025-08-20",
+          unit: "Chiếc",
+          quantity: 8,
+          purchasePackage: 10,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "3724",
+          status: AssetStatus.CHO_PHAN_BO,
+          createdBy: "nguyen.dung",
+          createdAt: "2025-08-20T08:00:00Z",
+          updatedAt: "2025-08-22T09:15:00Z",
+          category: { id: "3724", name: "Thiết bị thư viện", code: "3724" }
+        }
+      }
+    ]
+  },
+  {
+    id: "TXN-2025-011",
+    type: TransactionType.HANDOVER,
+    fromUnitId: "PKHDTU",
+    toUnitId: "PQT",
+    createdBy: "Trần Văn Nam",
+    createdAt: "2025-08-24T16:45:00Z",
+    status: TransactionStatus.PENDING,
+    note: "Bàn giao thiết bị bảo mật - Hệ thống an ninh trường học",
+    fromUnit: {
+      id: "PKHDTU",
+      name: "Phòng Kế Hoạch Đầu Tư",
+      type: UnitType.PHONG_KE_HOACH_DAU_TU,
+      status: UnitStatus.ACTIVE,
+      representativeId: "tran.nam",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: UnitStatus.ACTIVE,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-2025-019",
+        transactionId: "TXN-2025-011",
+        assetId: "SECURITY-001",
+        note: "Camera giám sát IP - Hệ thống an ninh toàn trường",
+        asset: {
+          id: "SECURITY-001",
+          ktCode: "25-0019/KT",
+          fixedCode: "3725.00001",
+          name: "Camera IP Dome Hikvision DS-2CD2142FWD-I",
+          specs: "Độ phân giải 4MP, hồng ngoại 30m, chống nước IP67, PoE",
+          entryDate: "2025-08-22",
+          unit: "Chiếc",
+          quantity: 25,
+          purchasePackage: 11,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "3725",
+          status: AssetStatus.CHO_PHAN_BO,
+          createdBy: "tran.nam",
+          createdAt: "2025-08-22T08:00:00Z",
+          updatedAt: "2025-08-24T16:45:00Z",
+          category: { id: "3725", name: "Thiết bị an ninh", code: "3725" }
+        }
+      }
+    ]
+  },
+  {
+    id: "TXN-2025-012",
+    type: TransactionType.HANDOVER,
+    fromUnitId: "PKHDTU",
+    toUnitId: "PQT",
+    createdBy: "Phạm Thị Lan",
+    createdAt: "2025-08-25T13:20:00Z",
+    status: TransactionStatus.REJECTED,
+    note: "Bàn giao thiết bị văn phòng - Bị từ chối do không đúng quy cách",
+    fromUnit: {
+      id: "PKHDTU",
+      name: "Phòng Kế Hoạch Đầu Tư",
+      type: UnitType.PHONG_KE_HOACH_DAU_TU,
+      status: UnitStatus.ACTIVE,
+      representativeId: "pham.lan",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: UnitStatus.ACTIVE,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-2025-020",
+        transactionId: "TXN-2025-012",
+        assetId: "OFFICE-001",
+        note: "Máy fax đa chức năng - Không đúng model yêu cầu",
+        asset: {
+          id: "OFFICE-001",
+          ktCode: "25-0020/KT",
+          fixedCode: "3726.00001",
+          name: "Máy fax đa chức năng Brother FAX-2840",
+          specs: "Fax, in, scan, copy, tốc độ 33.6kbps, bộ nhớ 100 trang",
+          entryDate: "2025-08-23",
+          unit: "Chiếc",
+          quantity: 3,
+          purchasePackage: 12,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "3726",
+          status: AssetStatus.CHO_PHAN_BO,
+          createdBy: "pham.lan",
+          createdAt: "2025-08-23T08:00:00Z",
+          updatedAt: "2025-08-25T13:20:00Z",
+          category: { id: "3726", name: "Thiết bị văn phòng", code: "3726" }
+        }
+      }
+    ]
+  },
+  {
+    id: "TXN-2025-013",
+    type: TransactionType.HANDOVER,
+    fromUnitId: "PKHDTU",
+    toUnitId: "PQT",
+    createdBy: "Hoàng Thị Mai",
+    createdAt: "2025-08-26T10:30:00Z",
+    status: TransactionStatus.PENDING,
+    note: "Bàn giao thiết bị nhà bếp - Căng tin sinh viên",
+    fromUnit: {
+      id: "PKHDTU",
+      name: "Phòng Kế Hoạch Đầu Tư",
+      type: UnitType.PHONG_KE_HOACH_DAU_TU,
+      status: UnitStatus.ACTIVE,
+      representativeId: "hoang.mai",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: UnitStatus.ACTIVE,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-2025-021",
+        transactionId: "TXN-2025-013",
+        assetId: "KITCHEN-001",
+        note: "Tủ lạnh công nghiệp - Bảo quản thực phẩm căng tin",
+        asset: {
+          id: "KITCHEN-001",
+          ktCode: "25-0021/KT",
+          fixedCode: "3727.00001",
+          name: "Tủ lạnh công nghiệp Panasonic NR-FS560",
+          specs: "Dung tích 560L, 2 cửa, điều chỉnh nhiệt độ -18°C đến +10°C",
+          entryDate: "2025-08-24",
+          unit: "Chiếc",
+          quantity: 2,
+          purchasePackage: 13,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "3727",
+          status: AssetStatus.CHO_PHAN_BO,
+          createdBy: "hoang.mai",
+          createdAt: "2025-08-24T08:00:00Z",
+          updatedAt: "2025-08-26T10:30:00Z",
+          category: { id: "3727", name: "Thiết bị nhà bếp", code: "3727" }
+        }
+      }
+    ]
+  },
+  {
+    id: "TXN-2025-014",
+    type: TransactionType.HANDOVER,
+    fromUnitId: "PKHDTU",
+    toUnitId: "PQT",
+    createdBy: "Lê Văn Hùng",
+    createdAt: "2025-08-27T15:10:00Z",
+    status: TransactionStatus.PENDING,
+    note: "Bàn giao thiết bị phòng họp - Hội trường lớn",
+    fromUnit: {
+      id: "PKHDTU",
+      name: "Phòng Kế Hoạch Đầu Tư",
+      type: UnitType.PHONG_KE_HOACH_DAU_TU,
+      status: UnitStatus.ACTIVE,
+      representativeId: "le.hung",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: UnitStatus.ACTIVE,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-2025-022",
+        transactionId: "TXN-2025-014",
+        assetId: "MEETING-001",
+        note: "Hệ thống âm thanh hội nghị - Phòng họp 200 người",
+        asset: {
+          id: "MEETING-001",
+          ktCode: "25-0022/KT",
+          fixedCode: "3728.00001",
+          name: "Hệ thống âm thanh hội nghị Bose Professional",
+          specs: "Amply 1000W, 8 loa treo tường, 4 micro không dây, mixer 8 kênh",
+          entryDate: "2025-08-25",
+          unit: "Bộ",
+          quantity: 1,
+          purchasePackage: 14,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "3728",
+          status: AssetStatus.CHO_PHAN_BO,
+          createdBy: "le.hung",
+          createdAt: "2025-08-25T08:00:00Z",
+          updatedAt: "2025-08-27T15:10:00Z",
+          category: { id: "3728", name: "Thiết bị hội nghị", code: "3728" }
+        }
+      }
+    ]
+  },
+  {
+    id: "TXN-2025-015",
+    type: TransactionType.HANDOVER,
+    fromUnitId: "PKHDTU",
+    toUnitId: "PQT",
+    createdBy: "Nguyễn Thị Thảo",
+    createdAt: "2025-08-28T12:00:00Z",
+    status: TransactionStatus.APPROVED,
+    note: "Bàn giao thiết bị phòng máy tính - Phòng lab CNTT",
+    approvedAt: "2025-08-29T09:30:00Z",
+    approvedBy: "tran.ha",
+    fromUnit: {
+      id: "PKHDTU",
+      name: "Phòng Kế Hoạch Đầu Tư",
+      type: UnitType.PHONG_KE_HOACH_DAU_TU,
+      status: UnitStatus.ACTIVE,
+      representativeId: "nguyen.thao",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    toUnit: {
+      id: "PQT",
+      name: "Phòng Quản Trị",
+      type: UnitType.PHONG_QUAN_TRI,
+      status: UnitStatus.ACTIVE,
+      representativeId: "tran.ha",
+      createdBy: "admin",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    items: [
+      {
+        id: "ITM-2025-023",
+        transactionId: "TXN-2025-015",
+        assetId: "COMPUTER-002",
+        note: "Máy tính để bàn Dell OptiPlex - Phòng lab 30 máy",
+        asset: {
+          id: "COMPUTER-002",
+          ktCode: "25-0023/KT",
+          fixedCode: "2142.00002",
+          name: "Máy tính để bàn Dell OptiPlex 7090",
+          specs: "Intel Core i7-11700, 16GB DDR4, 512GB SSD, Windows 11 Pro",
+          entryDate: "2025-08-26",
+          unit: "Bộ",
+          quantity: 30,
+          purchasePackage: 15,
+          type: AssetType.TSCD,
+          isLocked: false,
+          isHandOver: false,
+          categoryId: "2142",
+          status: AssetStatus.CHO_PHAN_BO,
+          createdBy: "nguyen.thao",
+          createdAt: "2025-08-26T08:00:00Z",
+          updatedAt: "2025-08-28T12:00:00Z",
+          category: { id: "2142", name: "Máy tính để bàn", code: "2142" }
+        }
+      }
+    ]
   }
 ];
 
@@ -669,59 +1140,108 @@ const statusLabels = {
 export default function AssetReceivePage() {
   const [transactions, setTransactions] = useState<AssetTransaction[]>(mockAssetTransactions);
   const [filteredTransactions, setFilteredTransactions] = useState<AssetTransaction[]>(mockAssetTransactions);
-  const [searchTerm, setSearchTerm] = useState("");
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
-  
-  // Filter states
-  const [statusFilter, setStatusFilter] = useState<TransactionStatus | "">("");
-  const [fromDateFilter, setFromDateFilter] = useState("");
-  const [toDateFilter, setToDateFilter] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
 
-  // Filter transactions
+  // Advanced Filter states
+  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
+  const [conditionLogic, setConditionLogic] = useState<'contains' | 'equals' | 'not_contains'>('contains');
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+
+  // Filter options for AdvancedFilter
+  const filterOptions = [
+    { value: 'note', label: 'Ghi chú', type: 'text' as const },
+    { value: 'status', label: 'Trạng thái', type: 'select' as const },
+    { value: 'createdAt', label: 'Ngày tạo', type: 'date' as const },
+    { value: 'fromUnit', label: 'Đơn vị gửi', type: 'text' as const },
+    { value: 'createdBy', label: 'Người tạo', type: 'text' as const },
+  ];
+
+  // Operator options for filter conditions
+  const operatorOptions = [
+    { value: 'contains', label: 'Tất cả' },
+    { value: 'equals', label: 'Bất kì' },
+    { value: 'not_contains', label: 'Không' }
+  ];
+
+  // Filter transactions based on advanced filter conditions
   useEffect(() => {
     let filtered = transactions;
 
-    // Filter by status
-    if (statusFilter) {
-      filtered = filtered.filter(transaction => transaction.status === statusFilter);
-    }
-    // No else clause - show all transactions when no status filter is selected
-
-    // Filter by date range
-    if (fromDateFilter || toDateFilter) {
+    if (filterConditions.length > 0) {
       filtered = filtered.filter(transaction => {
-        const transactionDate = new Date(transaction.createdAt).toISOString().split('T')[0];
-        
-        let isInRange = true;
-        
-        if (fromDateFilter && transactionDate < fromDateFilter) {
-          isInRange = false;
+        const conditionResults = filterConditions.map(condition => {
+          if (!condition.value || (Array.isArray(condition.value) && condition.value.length === 0)) {
+            return true; // Skip empty conditions
+          }
+
+          let fieldValue: string | string[] = '';
+
+          switch (condition.field) {
+            case 'note':
+              fieldValue = transaction.note || '';
+              break;
+            case 'status':
+              fieldValue = transaction.status;
+              break;
+            case 'createdAt':
+              fieldValue = new Date(transaction.createdAt).toISOString().split('T')[0];
+              break;
+            case 'fromUnit':
+              fieldValue = transaction.fromUnit?.name || '';
+              break;
+            case 'createdBy':
+              fieldValue = transaction.createdBy || '';
+              break;
+            default:
+              return true;
+          }
+
+          // Apply operator logic
+          if (condition.operator === 'contains') {
+            if (Array.isArray(condition.value)) {
+              return condition.value.some(val =>
+                String(fieldValue).toLowerCase().includes(val.toLowerCase())
+              );
+            }
+            return String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase());
+          } else if (condition.operator === 'equals') {
+            if (Array.isArray(condition.value)) {
+              return condition.value.some(val =>
+                String(fieldValue).toLowerCase() === val.toLowerCase()
+              );
+            }
+            return String(fieldValue).toLowerCase() === String(condition.value).toLowerCase();
+          } else if (condition.operator === 'not_contains') {
+            if (Array.isArray(condition.value)) {
+              return !condition.value.some(val =>
+                String(fieldValue).toLowerCase().includes(val.toLowerCase())
+              );
+            }
+            return !String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase());
+          }
+
+          return true;
+        });
+
+        // Apply global condition logic
+        if (conditionLogic === 'contains') {
+          return conditionResults.every(result => result);
+        } else if (conditionLogic === 'equals') {
+          return conditionResults.some(result => result);
+        } else if (conditionLogic === 'not_contains') {
+          return conditionResults.every(result => !result);
         }
-        
-        if (toDateFilter && transactionDate > toDateFilter) {
-          isInRange = false;
-        }
-        
-        return isInRange;
+
+        return true;
       });
     }
 
-    // Filter by search term
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(transaction =>
-        transaction.note?.toLowerCase().includes(searchLower) ||
-        transaction.fromUnit?.name.toLowerCase().includes(searchLower) ||
-        transaction.items?.some(item =>
-          item.asset?.name.toLowerCase().includes(searchLower) ||
-          item.asset?.ktCode.toLowerCase().includes(searchLower)
-        )
-      );
-    }
-
     setFilteredTransactions(filtered);
-  }, [transactions, searchTerm, statusFilter, fromDateFilter, toDateFilter]);
+  }, [transactions, filterConditions, conditionLogic]);
 
   const handleSelectTransaction = (transactionId: string) => {
     setSelectedTransactions(prev =>
@@ -732,21 +1252,49 @@ export default function AssetReceivePage() {
   };
 
   const handleSelectAll = () => {
-    if (selectedTransactions.length === filteredTransactions.length) {
-      setSelectedTransactions([]);
+    const currentPageIds = currentTransactions.map(transaction => transaction.id);
+    const allCurrentPageSelected = currentPageIds.every(id => selectedTransactions.includes(id));
+
+    if (allCurrentPageSelected) {
+      // Deselect all items on current page
+      setSelectedTransactions(prev => prev.filter(id => !currentPageIds.includes(id)));
     } else {
-      setSelectedTransactions(filteredTransactions.map(transaction => transaction.id));
+      // Select all items on current page
+      setSelectedTransactions(prev => {
+        const newSelection = [...prev];
+        currentPageIds.forEach(id => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id);
+          }
+        });
+        return newSelection;
+      });
     }
   };
 
   const handleResetFilters = () => {
-    setStatusFilter("");
-    setFromDateFilter("");
-    setToDateFilter("");
-    setSearchTerm("");
+    setFilterConditions([]);
+    setConditionLogic('contains');
   };
 
-  const hasActiveFilters = statusFilter || fromDateFilter || toDateFilter || searchTerm;
+  const hasActiveFilters = filterConditions.some(c =>
+    c.value && (Array.isArray(c.value) ? c.value.length > 0 : c.value !== '')
+  );
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterConditions, conditionLogic]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   const handleReceiveTransaction = (transactionId: string) => {
     if (confirm("Bạn có chắc chắn muốn tiếp nhận bàn giao này?")) {
@@ -815,105 +1363,19 @@ export default function AssetReceivePage() {
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-4 flex-1">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  type="text"
-                  placeholder="Tìm kiếm theo ghi chú, đơn vị, tên tài sản, mã tài sản..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center space-x-2"
-              >
-                <Filter className="h-4 w-4" />
-                <span>Bộ lọc</span>
-                {hasActiveFilters && (
-                  <span className="ml-1 bg-blue-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                    !
-                  </span>
-                )}
-              </Button>
-              {hasActiveFilters && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResetFilters}
-                  className="text-gray-600 hover:text-red-600"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Xóa bộ lọc
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Filter Panel */}
-          {showFilters && (
-            <div className="border-t pt-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Status Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Trạng thái
-                  </label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as TransactionStatus | "")}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Tất cả trạng thái</option>
-                    <option value={TransactionStatus.PENDING}>Chờ tiếp nhận</option>
-                    <option value={TransactionStatus.APPROVED}>Đã tiếp nhận</option>
-                    <option value={TransactionStatus.REJECTED}>Từ chối</option>
-                  </select>
-                </div>
-
-                {/* From Date Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Từ ngày
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      type="date"
-                      value={fromDateFilter}
-                      onChange={(e) => setFromDateFilter(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                {/* To Date Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Đến ngày
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      type="date"
-                      value={toDateFilter}
-                      onChange={(e) => setToDateFilter(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Advanced Filter */}
+      <AdvancedFilter
+        title="Bộ lọc bàn giao tài sản"
+        filterOptions={filterOptions}
+        conditions={filterConditions}
+        conditionLogic={conditionLogic}
+        onConditionsChange={setFilterConditions}
+        onConditionLogicChange={setConditionLogic}
+        onApply={() => {
+          console.log('Applying filters:', { filterConditions, conditionLogic });
+        }}
+        onReset={handleResetFilters}
+      />
 
       {/* Filter Results Summary */}
       {hasActiveFilters && (
@@ -922,28 +1384,23 @@ export default function AssetReceivePage() {
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
                 Hiển thị {filteredTransactions.length} kết quả
+                {totalPages > 1 && ` (Trang ${currentPage}/${totalPages})`}
               </span>
               <div className="flex items-center space-x-2">
-                {statusFilter && (
-                  <Badge className="bg-blue-100 text-blue-800">
-                    Trạng thái: {statusLabels[statusFilter as keyof typeof statusLabels]}
-                  </Badge>
-                )}
-                {fromDateFilter && (
-                  <Badge className="bg-green-100 text-green-800">
-                    Từ: {new Date(fromDateFilter).toLocaleDateString("vi-VN")}
-                  </Badge>
-                )}
-                {toDateFilter && (
-                  <Badge className="bg-green-100 text-green-800">
-                    Đến: {new Date(toDateFilter).toLocaleDateString("vi-VN")}
-                  </Badge>
-                )}
-                {searchTerm && (
-                  <Badge className="bg-purple-100 text-purple-800">
-                    Tìm kiếm: "{searchTerm}"
-                  </Badge>
-                )}
+                {filterConditions.map((condition, index) => {
+                  if (!condition.value || (Array.isArray(condition.value) && condition.value.length === 0)) {
+                    return null;
+                  }
+
+                  const fieldOption = filterOptions.find(opt => opt.value === condition.field);
+                  const operatorOption = operatorOptions.find(opt => opt.value === condition.operator);
+
+                  return (
+                    <Badge key={index} className="bg-blue-100 text-blue-800">
+                      {fieldOption?.label}: {operatorOption?.label} {Array.isArray(condition.value) ? condition.value.join(', ') : condition.value}
+                    </Badge>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -982,7 +1439,7 @@ export default function AssetReceivePage() {
                 <th className="px-4 py-3 text-left">
                   <input
                     type="checkbox"
-                    checked={selectedTransactions.length === filteredTransactions.length && filteredTransactions.length > 0}
+                    checked={selectedTransactions.length === currentTransactions.length && currentTransactions.length > 0}
                     onChange={handleSelectAll}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -1005,7 +1462,7 @@ export default function AssetReceivePage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredTransactions.map((transaction) => (
+              {currentTransactions.map((transaction) => (
                 <React.Fragment key={transaction.id}>
                   <tr className="hover:bg-gray-50">
                     <td className="px-4 py-4">
@@ -1083,7 +1540,7 @@ export default function AssetReceivePage() {
             <Package2 className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">Không có bàn giao nào</h3>
             <p className="mt-1 text-sm text-gray-500">
-              {hasActiveFilters 
+              {hasActiveFilters
                 ? "Không có bàn giao nào phù hợp với các bộ lọc hiện tại. Hãy thử điều chỉnh bộ lọc."
                 : "Hiện tại không có bàn giao nào cần tiếp nhận."
               }
@@ -1099,6 +1556,44 @@ export default function AssetReceivePage() {
                 Xóa bộ lọc
               </Button>
             )}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {filteredTransactions.length > 0 && totalPages > 1 && (
+          <div className="bg-white px-6 py-4 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-sm text-gray-700">
+                <span>
+                  Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredTransactions.length)}
+                  trong tổng số {filteredTransactions.length} bàn giao
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-700">Hiển thị:</span>
+                  <select
+                    className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value={10} className="text-gray-900">
+                      10
+                    </option>
+                    <option value={20} className="text-gray-900">
+                      20
+                    </option>
+                    <option value={50} className="text-gray-900">
+                      50
+                    </option>
+                  </select>
+                </div>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                />
+              </div>
+
+            </div>
           </div>
         )}
       </div>
