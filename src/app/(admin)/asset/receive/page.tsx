@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   Eye,
@@ -25,8 +25,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import AdvancedFilter, { FilterCondition, AdvancedFilterState } from "@/components/filter/AdvancedFilter";
+import AdvancedFilter, {
+  FilterCondition,
+  AdvancedFilterState,
+} from "@/components/filter/AdvancedFilter";
 import { Pagination } from "@/components/ui/pagination";
+import { Table, TableColumn } from "@/components/ui/table";
 
 // Mock data cho demo - danh sách bàn giao từ ban kế hoạch đầu tư
 const mockAssetTransactions: AssetTransaction[] = [
@@ -47,7 +51,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "nguyen.minh",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -57,7 +61,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -70,7 +74,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0001/KT",
           fixedCode: "2141.00001",
           name: "Laptop Dell Latitude 5530",
-          specs: "Intel Core i7-1250U, 16GB DDR4 RAM, 512GB NVMe SSD, 15.6\" FHD, Windows 11 Pro",
+          specs:
+            'Intel Core i7-1250U, 16GB DDR4 RAM, 512GB NVMe SSD, 15.6" FHD, Windows 11 Pro',
           entryDate: "2025-07-20",
           unit: "Chiếc",
           quantity: 10,
@@ -83,8 +88,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "nguyen.minh",
           createdAt: "2025-07-20T08:00:00Z",
           updatedAt: "2025-08-15T09:30:00Z",
-          category: { id: "2141", name: "Máy tính xách tay", code: "2141" }
-        }
+          category: { id: "2141", name: "Máy tính xách tay", code: "2141" },
+        },
       },
       {
         id: "ITM-2025-002",
@@ -96,7 +101,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0002/KT",
           fixedCode: "2142.00001",
           name: "Máy tính để bàn HP EliteDesk 800 G9",
-          specs: "Intel Core i5-12500, 16GB DDR4, 1TB HDD + 256GB SSD, DVD-RW, có màn hình HP 24\" IPS",
+          specs:
+            'Intel Core i5-12500, 16GB DDR4, 1TB HDD + 256GB SSD, DVD-RW, có màn hình HP 24" IPS',
           entryDate: "2025-07-22",
           unit: "Bộ",
           quantity: 15,
@@ -109,8 +115,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "nguyen.minh",
           createdAt: "2025-07-22T08:00:00Z",
           updatedAt: "2025-08-15T09:30:00Z",
-          category: { id: "2142", name: "Máy tính để bàn", code: "2142" }
-        }
+          category: { id: "2142", name: "Máy tính để bàn", code: "2142" },
+        },
       },
       {
         id: "ITM-2025-003",
@@ -122,7 +128,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0003/KT",
           fixedCode: "2231.00001",
           name: "Máy in đa chức năng HP LaserJet Pro M428fdw",
-          specs: "In laser đen trắng, scan màu, copy, fax, tốc độ 38trang/phút, WiFi, duplex tự động",
+          specs:
+            "In laser đen trắng, scan màu, copy, fax, tốc độ 38trang/phút, WiFi, duplex tự động",
           entryDate: "2025-07-25",
           unit: "Chiếc",
           quantity: 5,
@@ -135,10 +142,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "nguyen.minh",
           createdAt: "2025-07-25T08:00:00Z",
           updatedAt: "2025-08-15T09:30:00Z",
-          category: { id: "2231", name: "Máy in, máy photocopy", code: "2231" }
-        }
-      }
-    ]
+          category: { id: "2231", name: "Máy in, máy photocopy", code: "2231" },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-002",
@@ -157,7 +164,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "nguyen.minh",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -167,7 +174,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -180,7 +187,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0004/KT",
           fixedCode: "3331.00001",
           name: "Bàn họp oval gỗ MFC",
-          specs: "Kích thước 240x120x75cm, mặt gỗ MFC phủ Melamine, chân inox 304, có ổ cắm điện tích hợp",
+          specs:
+            "Kích thước 240x120x75cm, mặt gỗ MFC phủ Melamine, chân inox 304, có ổ cắm điện tích hợp",
           entryDate: "2025-08-01",
           unit: "Chiếc",
           quantity: 2,
@@ -193,8 +201,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "nguyen.minh",
           createdAt: "2025-08-01T08:00:00Z",
           updatedAt: "2025-08-16T14:15:00Z",
-          category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" }
-        }
+          category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" },
+        },
       },
       {
         id: "ITM-2025-005",
@@ -206,7 +214,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0005/KT",
           fixedCode: "3331.00002",
           name: "Ghế xoay giám đốc da PU",
-          specs: "Ghế xoay chân nhôm 5 chấu, đệm da PU cao cấp, tay vịn điều chỉnh, tựa lưng ergonomic",
+          specs:
+            "Ghế xoay chân nhôm 5 chấu, đệm da PU cao cấp, tay vịn điều chỉnh, tựa lưng ergonomic",
           entryDate: "2025-08-03",
           unit: "Chiếc",
           quantity: 20,
@@ -219,8 +228,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "nguyen.minh",
           createdAt: "2025-08-03T08:00:00Z",
           updatedAt: "2025-08-16T14:15:00Z",
-          category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" }
-        }
+          category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" },
+        },
       },
       {
         id: "ITM-2025-006",
@@ -232,7 +241,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0006/KT",
           fixedCode: "3332.00001",
           name: "Tủ hồ sơ thép 4 ngăn cao cấp",
-          specs: "Tủ thép sơn tĩnh điện, 4 ngăn có khóa, kích thước 90x45x132cm, chống cháy 60 phút",
+          specs:
+            "Tủ thép sơn tĩnh điện, 4 ngăn có khóa, kích thước 90x45x132cm, chống cháy 60 phút",
           entryDate: "2025-08-05",
           unit: "Chiếc",
           quantity: 8,
@@ -245,10 +255,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "nguyen.minh",
           createdAt: "2025-08-05T08:00:00Z",
           updatedAt: "2025-08-16T14:15:00Z",
-          category: { id: "3332", name: "Tủ, kệ văn phòng", code: "3332" }
-        }
-      }
-    ]
+          category: { id: "3332", name: "Tủ, kệ văn phòng", code: "3332" },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-003",
@@ -267,7 +277,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "le.huong",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -277,7 +287,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -290,7 +300,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0007/KT",
           fixedCode: "2191.00001",
           name: "Máy chiếu laser Epson EB-L200X",
-          specs: "Laser 3LCD, 4200 lumens, độ phân giải XGA 1024x768, tuổi thọ laser 20.000h, HDMI/VGA",
+          specs:
+            "Laser 3LCD, 4200 lumens, độ phân giải XGA 1024x768, tuổi thọ laser 20.000h, HDMI/VGA",
           entryDate: "2025-08-10",
           unit: "Chiếc",
           quantity: 3,
@@ -303,8 +314,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "le.huong",
           createdAt: "2025-08-10T08:00:00Z",
           updatedAt: "2025-08-17T10:45:00Z",
-          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" }
-        }
+          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" },
+        },
       },
       {
         id: "ITM-2025-008",
@@ -316,7 +327,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0008/KT",
           fixedCode: "2191.00002",
           name: "Màn chiếu điện Dalite 120 inch",
-          specs: "Màn chiếu treo tường tự động 120\", tỷ lệ 16:9, vài sợi thủy tinh trắng, có điều khiển",
+          specs:
+            'Màn chiếu treo tường tự động 120", tỷ lệ 16:9, vài sợi thủy tinh trắng, có điều khiển',
           entryDate: "2025-08-10",
           unit: "Chiếc",
           quantity: 3,
@@ -329,8 +341,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "le.huong",
           createdAt: "2025-08-10T08:00:00Z",
           updatedAt: "2025-08-17T10:45:00Z",
-          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" }
-        }
+          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" },
+        },
       },
       {
         id: "ITM-2025-009",
@@ -342,7 +354,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0009/KT",
           fixedCode: "2191.00003",
           name: "Hệ thống âm thanh hội nghị TOA",
-          specs: "Bộ loa âm trần 6W x 6 chiếc, amply trung tâm 120W, micro không dây UHF 2 chiếc",
+          specs:
+            "Bộ loa âm trần 6W x 6 chiếc, amply trung tâm 120W, micro không dây UHF 2 chiếc",
           entryDate: "2025-08-12",
           unit: "Bộ",
           quantity: 1,
@@ -355,8 +368,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "le.huong",
           createdAt: "2025-08-12T08:00:00Z",
           updatedAt: "2025-08-17T10:45:00Z",
-          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" }
-        }
+          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" },
+        },
       },
       {
         id: "ITM-2025-010",
@@ -368,7 +381,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0010/KT",
           fixedCode: "2143.00001",
           name: "Máy chủ Dell PowerEdge R450",
-          specs: "Intel Xeon Silver 4314, 32GB DDR4 ECC RAM, 2x1TB SAS HDD RAID1, iDRAC9, 2x550W PSU",
+          specs:
+            "Intel Xeon Silver 4314, 32GB DDR4 ECC RAM, 2x1TB SAS HDD RAID1, iDRAC9, 2x550W PSU",
           entryDate: "2025-08-14",
           unit: "Chiếc",
           quantity: 1,
@@ -381,10 +395,14 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "le.huong",
           createdAt: "2025-08-14T08:00:00Z",
           updatedAt: "2025-08-17T10:45:00Z",
-          category: { id: "2143", name: "Máy chủ, thiết bị mạng", code: "2143" }
-        }
-      }
-    ]
+          category: {
+            id: "2143",
+            name: "Máy chủ, thiết bị mạng",
+            code: "2143",
+          },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-004",
@@ -403,7 +421,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "pham.tuan",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -413,7 +431,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -426,7 +444,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0011/KT",
           fixedCode: "3721.00001",
           name: "Tủ thuốc y tế inox 304 hai cánh",
-          specs: "Inox 304 dày 1.2mm, kích thước 80x40x150cm, có khóa, kệ điều chỉnh, nhiệt kế số",
+          specs:
+            "Inox 304 dày 1.2mm, kích thước 80x40x150cm, có khóa, kệ điều chỉnh, nhiệt kế số",
           entryDate: "2025-08-15",
           unit: "Chiếc",
           quantity: 2,
@@ -439,8 +458,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "pham.tuan",
           createdAt: "2025-08-15T08:00:00Z",
           updatedAt: "2025-08-18T08:00:00Z",
-          category: { id: "3721", name: "Thiết bị y tế", code: "3721" }
-        }
+          category: { id: "3721", name: "Thiết bị y tế", code: "3721" },
+        },
       },
       {
         id: "ITM-2025-012",
@@ -452,7 +471,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0012/KT",
           fixedCode: "3721.00002",
           name: "Máy đo huyết áp bán tự động Omron HBP-1100",
-          specs: "Màn hình LCD, bộ nhớ 90 lần đo, cổng USB, vòng bít 22-32cm và 32-42cm",
+          specs:
+            "Màn hình LCD, bộ nhớ 90 lần đo, cổng USB, vòng bít 22-32cm và 32-42cm",
           entryDate: "2025-08-15",
           unit: "Chiếc",
           quantity: 3,
@@ -465,10 +485,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "pham.tuan",
           createdAt: "2025-08-15T08:00:00Z",
           updatedAt: "2025-08-18T08:00:00Z",
-          category: { id: "3721", name: "Thiết bị y tế", code: "3721" }
-        }
-      }
-    ]
+          category: { id: "3721", name: "Thiết bị y tế", code: "3721" },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-005",
@@ -489,7 +509,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.mai",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -499,7 +519,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -512,7 +532,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0013/KT",
           fixedCode: "6151.00001",
           name: "Máy tiện CNC Fanuc 0i-MF",
-          specs: "Độ chính xác ±0.005mm, tốc độ trục chính 4000rpm, kẹp 3 chấu Ø250mm",
+          specs:
+            "Độ chính xác ±0.005mm, tốc độ trục chính 4000rpm, kẹp 3 chấu Ø250mm",
           entryDate: "2025-07-28",
           unit: "Chiếc",
           quantity: 1,
@@ -525,10 +546,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "tran.mai",
           createdAt: "2025-07-28T08:00:00Z",
           updatedAt: "2025-08-10T16:30:00Z",
-          category: { id: "6151", name: "Máy công cụ", code: "6151" }
-        }
-      }
-    ]
+          category: { id: "6151", name: "Máy công cụ", code: "6151" },
+        },
+      },
+    ],
   },
   // Additional mock data for testing filters
   {
@@ -548,7 +569,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "nguyen.lan",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -558,7 +579,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -584,10 +605,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "nguyen.lan",
           createdAt: "2025-08-01T08:00:00Z",
           updatedAt: "2025-08-05T10:00:00Z",
-          category: { id: "2145", name: "Thiết bị di động", code: "2145" }
-        }
-      }
-    ]
+          category: { id: "2145", name: "Thiết bị di động", code: "2145" },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-007",
@@ -608,7 +629,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "hoang.duc",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -618,7 +639,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -644,10 +665,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "hoang.duc",
           createdAt: "2025-07-25T08:00:00Z",
           updatedAt: "2025-07-30T15:45:00Z",
-          category: { id: "2192", name: "Thiết bị hội nghị", code: "2192" }
-        }
-      }
-    ]
+          category: { id: "2192", name: "Thiết bị hội nghị", code: "2192" },
+        },
+      },
+    ],
   },
   // Thêm dữ liệu để test pagination
   {
@@ -667,7 +688,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "vu.hoa",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -677,7 +698,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -690,7 +711,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0016/KT",
           fixedCode: "3722.00001",
           name: "Tủ hút khí độc hại Labconco",
-          specs: "Kích thước 120x60x75cm, quạt hút 1200m³/h, đèn UV, mặt kính an toàn",
+          specs:
+            "Kích thước 120x60x75cm, quạt hút 1200m³/h, đèn UV, mặt kính an toàn",
           entryDate: "2025-08-18",
           unit: "Chiếc",
           quantity: 3,
@@ -703,10 +725,14 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "vu.hoa",
           createdAt: "2025-08-18T08:00:00Z",
           updatedAt: "2025-08-20T11:20:00Z",
-          category: { id: "3722", name: "Thiết bị phòng thí nghiệm", code: "3722" }
-        }
-      }
-    ]
+          category: {
+            id: "3722",
+            name: "Thiết bị phòng thí nghiệm",
+            code: "3722",
+          },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-009",
@@ -725,7 +751,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "le.son",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -735,7 +761,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -748,7 +774,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0017/KT",
           fixedCode: "3723.00001",
           name: "Máy tập thể dục đa năng Life Fitness",
-          specs: "12 chức năng tập luyện, màn hình LCD, điều chỉnh độ khó điện tử",
+          specs:
+            "12 chức năng tập luyện, màn hình LCD, điều chỉnh độ khó điện tử",
           entryDate: "2025-08-19",
           unit: "Chiếc",
           quantity: 5,
@@ -761,10 +788,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "le.son",
           createdAt: "2025-08-19T08:00:00Z",
           updatedAt: "2025-08-21T14:30:00Z",
-          category: { id: "3723", name: "Thiết bị thể thao", code: "3723" }
-        }
-      }
-    ]
+          category: { id: "3723", name: "Thiết bị thể thao", code: "3723" },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-010",
@@ -785,7 +812,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "nguyen.dung",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -795,7 +822,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -808,7 +835,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0018/KT",
           fixedCode: "3724.00001",
           name: "Máy quét mã vạch Honeywell 1900",
-          specs: "Quét 1D/2D, tốc độ 100 scans/giây, kết nối USB, phần mềm quản lý",
+          specs:
+            "Quét 1D/2D, tốc độ 100 scans/giây, kết nối USB, phần mềm quản lý",
           entryDate: "2025-08-20",
           unit: "Chiếc",
           quantity: 8,
@@ -821,10 +849,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "nguyen.dung",
           createdAt: "2025-08-20T08:00:00Z",
           updatedAt: "2025-08-22T09:15:00Z",
-          category: { id: "3724", name: "Thiết bị thư viện", code: "3724" }
-        }
-      }
-    ]
+          category: { id: "3724", name: "Thiết bị thư viện", code: "3724" },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-011",
@@ -843,7 +871,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.nam",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -853,7 +881,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -879,10 +907,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "tran.nam",
           createdAt: "2025-08-22T08:00:00Z",
           updatedAt: "2025-08-24T16:45:00Z",
-          category: { id: "3725", name: "Thiết bị an ninh", code: "3725" }
-        }
-      }
-    ]
+          category: { id: "3725", name: "Thiết bị an ninh", code: "3725" },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-012",
@@ -901,7 +929,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "pham.lan",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -911,7 +939,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -937,10 +965,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "pham.lan",
           createdAt: "2025-08-23T08:00:00Z",
           updatedAt: "2025-08-25T13:20:00Z",
-          category: { id: "3726", name: "Thiết bị văn phòng", code: "3726" }
-        }
-      }
-    ]
+          category: { id: "3726", name: "Thiết bị văn phòng", code: "3726" },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-013",
@@ -959,7 +987,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "hoang.mai",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -969,7 +997,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -995,10 +1023,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "hoang.mai",
           createdAt: "2025-08-24T08:00:00Z",
           updatedAt: "2025-08-26T10:30:00Z",
-          category: { id: "3727", name: "Thiết bị nhà bếp", code: "3727" }
-        }
-      }
-    ]
+          category: { id: "3727", name: "Thiết bị nhà bếp", code: "3727" },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-014",
@@ -1017,7 +1045,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "le.hung",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -1027,7 +1055,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -1040,7 +1068,8 @@ const mockAssetTransactions: AssetTransaction[] = [
           ktCode: "25-0022/KT",
           fixedCode: "3728.00001",
           name: "Hệ thống âm thanh hội nghị Bose Professional",
-          specs: "Amply 1000W, 8 loa treo tường, 4 micro không dây, mixer 8 kênh",
+          specs:
+            "Amply 1000W, 8 loa treo tường, 4 micro không dây, mixer 8 kênh",
           entryDate: "2025-08-25",
           unit: "Bộ",
           quantity: 1,
@@ -1053,10 +1082,10 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "le.hung",
           createdAt: "2025-08-25T08:00:00Z",
           updatedAt: "2025-08-27T15:10:00Z",
-          category: { id: "3728", name: "Thiết bị hội nghị", code: "3728" }
-        }
-      }
-    ]
+          category: { id: "3728", name: "Thiết bị hội nghị", code: "3728" },
+        },
+      },
+    ],
   },
   {
     id: "TXN-2025-015",
@@ -1077,7 +1106,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "nguyen.thao",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     toUnit: {
       id: "PQT",
@@ -1087,7 +1116,7 @@ const mockAssetTransactions: AssetTransaction[] = [
       representativeId: "tran.ha",
       createdBy: "admin",
       createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
+      updatedAt: "2024-01-01T00:00:00Z",
     },
     items: [
       {
@@ -1113,11 +1142,11 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdBy: "nguyen.thao",
           createdAt: "2025-08-26T08:00:00Z",
           updatedAt: "2025-08-28T12:00:00Z",
-          category: { id: "2142", name: "Máy tính để bàn", code: "2142" }
-        }
-      }
-    ]
-  }
+          category: { id: "2142", name: "Máy tính để bàn", code: "2142" },
+        },
+      },
+    ],
+  },
 ];
 
 const typeLabels = {
@@ -1138,13 +1167,23 @@ const statusLabels = {
 };
 
 export default function AssetReceivePage() {
-  const [transactions, setTransactions] = useState<AssetTransaction[]>(mockAssetTransactions);
-  const [filteredTransactions, setFilteredTransactions] = useState<AssetTransaction[]>(mockAssetTransactions);
-  const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
+  const [transactions, setTransactions] = useState<AssetTransaction[]>(
+    mockAssetTransactions
+  );
+  const [filteredTransactions, setFilteredTransactions] = useState<
+    AssetTransaction[]
+  >(mockAssetTransactions);
+  const [selectedTransactions, setSelectedTransactions] = useState<string[]>(
+    []
+  );
 
   // Advanced Filter states
-  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
-  const [conditionLogic, setConditionLogic] = useState<'contains' | 'equals' | 'not_contains'>('contains');
+  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>(
+    []
+  );
+  const [conditionLogic, setConditionLogic] = useState<
+    "contains" | "equals" | "not_contains"
+  >("contains");
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
 
   // Pagination states
@@ -1153,18 +1192,32 @@ export default function AssetReceivePage() {
 
   // Filter options for AdvancedFilter
   const filterOptions = [
-    { value: 'note', label: 'Ghi chú', type: 'text' as const },
-    { value: 'status', label: 'Trạng thái', type: 'select' as const },
-    { value: 'createdAt', label: 'Ngày tạo', type: 'date' as const },
-    { value: 'fromUnit', label: 'Đơn vị gửi', type: 'text' as const },
-    { value: 'createdBy', label: 'Người tạo', type: 'text' as const },
+    {
+      value: "status",
+      label: "Trạng thái",
+      type: "select" as const,
+      options: Object.entries(statusLabels).map(([value, label]) => ({
+        value,
+        label,
+      })),
+    },
+    { value: "createdAt", label: "Ngày tạo", type: "date" as const },
+    {
+      value: "fromUnit",
+      label: "Đơn vị gửi",
+      type: "select" as const,
+      options: [
+        { value: "PKHDTU", label: "Phòng Kế Hoạch Đầu Tư" },
+        { value: "PQT", label: "Phòng Quản Trị" },
+      ],
+    },
   ];
 
   // Operator options for filter conditions
   const operatorOptions = [
-    { value: 'contains', label: 'Tất cả' },
-    { value: 'equals', label: 'Bất kì' },
-    { value: 'not_contains', label: 'Không' }
+    { value: "contains", label: "Tất cả" },
+    { value: "equals", label: "Bất kì" },
+    { value: "not_contains", label: "Không" },
   ];
 
   // Filter transactions based on advanced filter conditions
@@ -1172,68 +1225,74 @@ export default function AssetReceivePage() {
     let filtered = transactions;
 
     if (filterConditions.length > 0) {
-      filtered = filtered.filter(transaction => {
-        const conditionResults = filterConditions.map(condition => {
-          if (!condition.value || (Array.isArray(condition.value) && condition.value.length === 0)) {
+      filtered = filtered.filter((transaction) => {
+        const conditionResults = filterConditions.map((condition) => {
+          if (
+            !condition.value ||
+            (Array.isArray(condition.value) && condition.value.length === 0)
+          ) {
             return true; // Skip empty conditions
           }
 
-          let fieldValue: string | string[] = '';
+          let fieldValue: string | string[] = "";
 
           switch (condition.field) {
-            case 'note':
-              fieldValue = transaction.note || '';
-              break;
-            case 'status':
+            case "status":
               fieldValue = transaction.status;
               break;
-            case 'createdAt':
-              fieldValue = new Date(transaction.createdAt).toISOString().split('T')[0];
+            case "createdAt":
+              fieldValue = new Date(transaction.createdAt)
+                .toISOString()
+                .split("T")[0];
               break;
-            case 'fromUnit':
-              fieldValue = transaction.fromUnit?.name || '';
-              break;
-            case 'createdBy':
-              fieldValue = transaction.createdBy || '';
+            case "fromUnit":
+              fieldValue = transaction.fromUnit?.name || "";
               break;
             default:
               return true;
           }
 
           // Apply operator logic
-          if (condition.operator === 'contains') {
+          if (condition.operator === "contains") {
             if (Array.isArray(condition.value)) {
-              return condition.value.some(val =>
+              return condition.value.some((val) =>
                 String(fieldValue).toLowerCase().includes(val.toLowerCase())
               );
             }
-            return String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase());
-          } else if (condition.operator === 'equals') {
+            return String(fieldValue)
+              .toLowerCase()
+              .includes(String(condition.value).toLowerCase());
+          } else if (condition.operator === "equals") {
             if (Array.isArray(condition.value)) {
-              return condition.value.some(val =>
-                String(fieldValue).toLowerCase() === val.toLowerCase()
+              return condition.value.some(
+                (val) => String(fieldValue).toLowerCase() === val.toLowerCase()
               );
             }
-            return String(fieldValue).toLowerCase() === String(condition.value).toLowerCase();
-          } else if (condition.operator === 'not_contains') {
+            return (
+              String(fieldValue).toLowerCase() ===
+              String(condition.value).toLowerCase()
+            );
+          } else if (condition.operator === "not_contains") {
             if (Array.isArray(condition.value)) {
-              return !condition.value.some(val =>
+              return !condition.value.some((val) =>
                 String(fieldValue).toLowerCase().includes(val.toLowerCase())
               );
             }
-            return !String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase());
+            return !String(fieldValue)
+              .toLowerCase()
+              .includes(String(condition.value).toLowerCase());
           }
 
           return true;
         });
 
         // Apply global condition logic
-        if (conditionLogic === 'contains') {
-          return conditionResults.every(result => result);
-        } else if (conditionLogic === 'equals') {
-          return conditionResults.some(result => result);
-        } else if (conditionLogic === 'not_contains') {
-          return conditionResults.every(result => !result);
+        if (conditionLogic === "contains") {
+          return conditionResults.every((result) => result);
+        } else if (conditionLogic === "equals") {
+          return conditionResults.some((result) => result);
+        } else if (conditionLogic === "not_contains") {
+          return conditionResults.every((result) => !result);
         }
 
         return true;
@@ -1244,41 +1303,21 @@ export default function AssetReceivePage() {
   }, [transactions, filterConditions, conditionLogic]);
 
   const handleSelectTransaction = (transactionId: string) => {
-    setSelectedTransactions(prev =>
+    setSelectedTransactions((prev) =>
       prev.includes(transactionId)
-        ? prev.filter(id => id !== transactionId)
+        ? prev.filter((id) => id !== transactionId)
         : [...prev, transactionId]
     );
   };
 
-  const handleSelectAll = () => {
-    const currentPageIds = currentTransactions.map(transaction => transaction.id);
-    const allCurrentPageSelected = currentPageIds.every(id => selectedTransactions.includes(id));
-
-    if (allCurrentPageSelected) {
-      // Deselect all items on current page
-      setSelectedTransactions(prev => prev.filter(id => !currentPageIds.includes(id)));
-    } else {
-      // Select all items on current page
-      setSelectedTransactions(prev => {
-        const newSelection = [...prev];
-        currentPageIds.forEach(id => {
-          if (!newSelection.includes(id)) {
-            newSelection.push(id);
-          }
-        });
-        return newSelection;
-      });
-    }
-  };
-
   const handleResetFilters = () => {
     setFilterConditions([]);
-    setConditionLogic('contains');
+    setConditionLogic("contains");
   };
 
-  const hasActiveFilters = filterConditions.some(c =>
-    c.value && (Array.isArray(c.value) ? c.value.length > 0 : c.value !== '')
+  const hasActiveFilters = filterConditions.some(
+    (c) =>
+      c.value && (Array.isArray(c.value) ? c.value.length > 0 : c.value !== "")
   );
 
   // Pagination logic
@@ -1296,16 +1335,103 @@ export default function AssetReceivePage() {
     setCurrentPage(page);
   };
 
+  // Define table columns
+  const columns: TableColumn<AssetTransaction>[] = [
+    {
+      key: "info",
+      title: "Thông tin bàn giao",
+      render: (_, transaction) => (
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-10 w-10">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
+              <Package2 className="h-5 w-5 text-white" />
+            </div>
+          </div>
+          <div className="ml-3">
+            <div className="text-sm font-medium text-gray-900">
+              {transaction.note}
+            </div>
+            <div className="text-sm text-gray-500">
+              {transaction.id}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "itemCount",
+      title: "Số lượng tài sản",
+      render: (_, transaction) => (
+        <Badge className="bg-purple-100 text-purple-800">
+          {transaction.items?.length || 0} tài sản
+        </Badge>
+      ),
+    },
+    {
+      key: "createdAt",
+      title: "Ngày gửi",
+      render: (_, transaction) => (
+        <div className="flex items-center text-sm text-gray-500">
+          <Calendar className="h-4 w-4 mr-1" />
+          {new Date(transaction.createdAt).toLocaleDateString("vi-VN")}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      title: "Trạng thái",
+      render: (_, transaction) => (
+        <Badge
+          className={
+            statusColors[
+            transaction.status as keyof typeof statusColors
+            ]
+          }
+        >
+          {
+            statusLabels[
+            transaction.status as keyof typeof statusLabels
+            ]
+          }
+        </Badge>
+      ),
+    },
+    {
+      key: "actions",
+      title: "Thao tác",
+      render: (_, transaction) => (
+        <div className="flex items-center space-x-2">
+          <Link
+            href={`/asset/receive/${transaction.id}`}
+            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center"
+            title="Xem chi tiết"
+          >
+            <Eye className="h-4 w-4" />
+          </Link>
+          {!(transaction.status === TransactionStatus.APPROVED) && (
+            <Link
+              href={`/asset/receive/${transaction.id}`}
+              className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center"
+              title="Tiếp nhận"
+            >
+              <CheckCircle className="h-4 w-4" />
+            </Link>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   const handleReceiveTransaction = (transactionId: string) => {
     if (confirm("Bạn có chắc chắn muốn tiếp nhận bàn giao này?")) {
-      setTransactions(prev =>
-        prev.map(transaction =>
+      setTransactions((prev) =>
+        prev.map((transaction) =>
           transaction.id === transactionId
             ? {
               ...transaction,
               status: TransactionStatus.APPROVED,
               approvedAt: new Date().toISOString(),
-              approvedBy: "current_user"
+              approvedBy: "current_user",
             }
             : transaction
         )
@@ -1318,15 +1444,19 @@ export default function AssetReceivePage() {
   const handleBulkReceive = () => {
     if (selectedTransactions.length === 0) return;
 
-    if (confirm(`Bạn có chắc chắn muốn tiếp nhận ${selectedTransactions.length} bàn giao đã chọn?`)) {
-      setTransactions(prev =>
-        prev.map(transaction =>
+    if (
+      confirm(
+        `Bạn có chắc chắn muốn tiếp nhận ${selectedTransactions.length} bàn giao đã chọn?`
+      )
+    ) {
+      setTransactions((prev) =>
+        prev.map((transaction) =>
           selectedTransactions.includes(transaction.id)
             ? {
               ...transaction,
               status: TransactionStatus.APPROVED,
               approvedAt: new Date().toISOString(),
-              approvedBy: "current_user"
+              approvedBy: "current_user",
             }
             : transaction
         )
@@ -1342,41 +1472,89 @@ export default function AssetReceivePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tiếp nhận tài sản</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Tiếp nhận tài sản
+          </h1>
           <p className="text-gray-600">
             Tiếp nhận danh sách bàn giao tài sản từ ban kế hoạch đầu tư
           </p>
         </div>
       </div>
 
-      {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start">
-          <AlertCircle className="h-5 w-5 text-blue-500 mr-3 mt-0.5" />
-          <div>
-            <h3 className="text-sm font-medium text-blue-900">Lưu ý</h3>
-            <p className="text-sm text-blue-700 mt-1">
-              Đây là danh sách bàn giao do ban kế hoạch đầu tư gửi xuống.
-              Sau khi tiếp nhận, tài sản sẽ có thể được phân bổ đến các đơn vị sử dụng.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Advanced Filter */}
       <AdvancedFilter
-        title="Bộ lọc bàn giao tài sản"
+        title="Tìm kiếm nâng cao"
         filterOptions={filterOptions}
         conditions={filterConditions}
         conditionLogic={conditionLogic}
         onConditionsChange={setFilterConditions}
         onConditionLogicChange={setConditionLogic}
         onApply={() => {
-          console.log('Applying filters:', { filterConditions, conditionLogic });
+          console.log("Applying filters:", {
+            filterConditions,
+            conditionLogic,
+          });
         }}
         onReset={handleResetFilters}
       />
 
+      {/* Pagination */}
+      {filteredTransactions.length > 0 && totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
+          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700">
+                Hiển thị{" "}
+                <span className="font-medium">{startIndex + 1}</span> -{" "}
+                <span className="font-medium">
+                  {Math.min(endIndex, filteredTransactions.length)}
+                </span>{" "}
+                trong tổng số{" "}
+                <span className="font-medium">{filteredTransactions.length}</span> bàn giao
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-700">Hiển thị:</span>
+                <select className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value={10} className="text-gray-900">
+                    10
+                  </option>
+                  <option value={20} className="text-gray-900">
+                    20
+                  </option>
+                  <option value={50} className="text-gray-900">
+                    50
+                  </option>
+                </select>
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          </div>
+          <div className="flex-1 flex justify-between sm:hidden">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Trước
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Sau
+            </Button>
+          </div>
+        </div>
+      )}
       {/* Filter Results Summary */}
       {hasActiveFilters && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -1388,16 +1566,27 @@ export default function AssetReceivePage() {
               </span>
               <div className="flex items-center space-x-2">
                 {filterConditions.map((condition, index) => {
-                  if (!condition.value || (Array.isArray(condition.value) && condition.value.length === 0)) {
+                  if (
+                    !condition.value ||
+                    (Array.isArray(condition.value) &&
+                      condition.value.length === 0)
+                  ) {
                     return null;
                   }
 
-                  const fieldOption = filterOptions.find(opt => opt.value === condition.field);
-                  const operatorOption = operatorOptions.find(opt => opt.value === condition.operator);
+                  const fieldOption = filterOptions.find(
+                    (opt) => opt.value === condition.field
+                  );
+                  const operatorOption = operatorOptions.find(
+                    (opt) => opt.value === condition.operator
+                  );
 
                   return (
                     <Badge key={index} className="bg-blue-100 text-blue-800">
-                      {fieldOption?.label}: {operatorOption?.label} {Array.isArray(condition.value) ? condition.value.join(', ') : condition.value}
+                      {fieldOption?.label}: {operatorOption?.label}{" "}
+                      {Array.isArray(condition.value)
+                        ? condition.value.join(", ")
+                        : condition.value}
                     </Badge>
                   );
                 })}
@@ -1407,196 +1596,116 @@ export default function AssetReceivePage() {
         </div>
       )}
 
-      {/* Bulk Actions */}
-      {selectedTransactions.length > 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
+      {/* Transactions Table */}
+      <div className="space-y-4">
+        <Table
+          columns={columns}
+          data={currentTransactions}
+          title={
             <div className="flex items-center">
-              <span className="text-sm text-green-800">
-                Đã chọn {selectedTransactions.length} bàn giao
-              </span>
+              <Package2 className="h-6 w-6 mr-2 text-blue-600" />
+              Danh sách bàn giao cần tiếp nhận
             </div>
-            <div className="flex items-center space-x-2">
+          }
+          headerExtra={
+            selectedTransactions.length > 0 ? (
               <Button
                 onClick={handleBulkReceive}
                 size="sm"
                 className="flex items-center bg-green-500 hover:bg-green-600 text-white"
               >
                 <CheckCircle className="h-4 w-4 mr-1" />
-                Tiếp nhận hàng loạt
+                Tiếp nhận bàn giao
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
+            ) : null
+          }
+          emptyText={hasActiveFilters
+            ? "Không có bàn giao nào phù hợp với các bộ lọc hiện tại"
+            : "Hiện tại không có bàn giao nào cần tiếp nhận"
+          }
+          emptyIcon={<Package2 className="mx-auto h-12 w-12 text-gray-400" />}
+          rowKey="id"
+          rowSelection={{
+            selectedRowKeys: selectedTransactions,
+            onChange: (selectedRowKeys) => {
+              setSelectedTransactions(selectedRowKeys);
+            },
+          }}
+        />
 
-      {/* Transactions Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={selectedTransactions.length === currentTransactions.length && currentTransactions.length > 0}
-                    onChange={handleSelectAll}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thông tin bàn giao
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Số lượng tài sản
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ngày gửi
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Trạng thái
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thao tác
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentTransactions.map((transaction) => (
-                <React.Fragment key={transaction.id}>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedTransactions.includes(transaction.id)}
-                        onChange={() => handleSelectTransaction(transaction.id)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
-                            <Package2 className="h-5 w-5 text-white" />
-                          </div>
-                        </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">
-                            {transaction.note}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {transaction.id}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <Badge className="bg-purple-100 text-purple-800">
-                        {transaction.items?.length || 0} tài sản
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {new Date(transaction.createdAt).toLocaleDateString("vi-VN")}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <Badge className={statusColors[transaction.status as keyof typeof statusColors]}>
-                        {statusLabels[transaction.status as keyof typeof statusLabels]}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center space-x-2">
-                        <Link href={`/asset/receive/${transaction.id}`}>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            title="Xem"
-                            className="flex items-center"
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                          </Button>
-                        </Link>
-                        <Button
-                          onClick={() => handleReceiveTransaction(transaction.id)}
-                          size="sm"
-                          title="Tiếp nhận"
-                          className="bg-green-500 hover:bg-green-600 text-white"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredTransactions.length === 0 && (
-          <div className="text-center py-12">
-            <Package2 className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Không có bàn giao nào</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {hasActiveFilters
-                ? "Không có bàn giao nào phù hợp với các bộ lọc hiện tại. Hãy thử điều chỉnh bộ lọc."
-                : "Hiện tại không có bàn giao nào cần tiếp nhận."
-              }
-            </p>
-            {hasActiveFilters && (
-              <Button
-                onClick={handleResetFilters}
-                variant="outline"
-                size="sm"
-                className="mt-3"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Xóa bộ lọc
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {filteredTransactions.length > 0 && totalPages > 1 && (
-          <div className="bg-white px-6 py-4 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-sm text-gray-700">
-                <span>
-                  Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredTransactions.length)}
-                  trong tổng số {filteredTransactions.length} bàn giao
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-700">Hiển thị:</span>
-                  <select
-                    className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value={10} className="text-gray-900">
-                      10
-                    </option>
-                    <option value={20} className="text-gray-900">
-                      20
-                    </option>
-                    <option value={50} className="text-gray-900">
-                      50
-                    </option>
-                  </select>
-                </div>
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                />
-              </div>
-
-            </div>
+        {/* Empty state with filter reset button */}
+        {filteredTransactions.length === 0 && hasActiveFilters && (
+          <div className="text-center pb-4">
+            <Button
+              onClick={handleResetFilters}
+              variant="outline"
+              size="sm"
+              className="mt-3"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Xóa bộ lọc
+            </Button>
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredTransactions.length > 0 && totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
+          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700">
+                Hiển thị{" "}
+                <span className="font-medium">{startIndex + 1}</span> -{" "}
+                <span className="font-medium">
+                  {Math.min(endIndex, filteredTransactions.length)}
+                </span>{" "}
+                trong tổng số{" "}
+                <span className="font-medium">{filteredTransactions.length}</span> bàn giao
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-700">Hiển thị:</span>
+                <select className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value={10} className="text-gray-900">
+                    10
+                  </option>
+                  <option value={20} className="text-gray-900">
+                    20
+                  </option>
+                  <option value={50} className="text-gray-900">
+                    50
+                  </option>
+                </select>
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          </div>
+          <div className="flex-1 flex justify-between sm:hidden">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Trước
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Sau
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

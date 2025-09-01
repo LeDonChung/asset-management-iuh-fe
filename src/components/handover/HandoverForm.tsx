@@ -192,12 +192,15 @@ export default function HandoverForm({
             </div>
           </div>
           <Button
-            onClick={handleSaveHandover}
-            className="bg-white text-blue-700 hover:bg-gray-100 font-semibold"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Lưu bàn giao
-          </Button>
+              variant="outline"
+              size="sm"
+              onClick={handleSaveHandover}
+              className="mr-3 text-white border-white/30 hover:bg-white/10 hover:border-white/50 hover:text-white"
+            >
+
+              <Save className="h-4 w-4 mr-2 text-black" />
+              Tạo yêu cầu bàn giao
+            </Button>
         </div>
       </div>
 

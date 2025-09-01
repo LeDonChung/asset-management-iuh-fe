@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRole } from '@/contexts/RoleContext'
 import {
@@ -12,7 +12,8 @@ import {
   Asset,
   AssetBookFilter,
   AssetBookItemFilter,
-  UnitType
+  UnitType,
+  AssetTransaction
 } from '@/types/asset'
 import {
   CalendarDays,
@@ -47,8 +48,38 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
+import { Table, TableColumn } from '@/components/ui/table'
 import { mockUnits } from '@/lib/mockData'
 import Link from 'next/link'
+
+// Lazy load components
+const AdvancedFilter = lazy(() => import('@/components/filter/AdvancedFilter'))
+const HandoverForm = lazy(() => import('@/components/handover/HandoverForm'))
+
+// Import FilterCondition type
+import type { FilterCondition } from '@/components/filter/AdvancedFilter'
+
+// Loading skeleton components
+const SkeletonCard = () => (
+  <div className="animate-pulse">
+    <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+  </div>
+)
+
+const SkeletonTable = () => (
+  <div className="animate-pulse">
+    <div className="space-y-4">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="flex space-x-4">
+          <div className="h-12 bg-gray-200 rounded flex-1"></div>
+          <div className="h-12 bg-gray-200 rounded w-24"></div>
+          <div className="h-12 bg-gray-200 rounded w-32"></div>
+        </div>
+      ))}
+    </div>
+  </div>
+)
 
 // Mock data for demonstration
 const MOCK_ASSET_BOOKS: AssetBook[] = [
@@ -103,6 +134,57 @@ const MOCK_ASSET_BOOKS: AssetBook[] = [
     createdAt: '2025-01-01T00:00:00Z',
     status: BookStatus.OPEN,
     unit: mockUnits.find(unit => unit.id === '3')
+  },
+  // Khoa Xây dựng - 2025
+  {
+    id: '6',
+    unitId: '4',
+    year: 2025,
+    createdBy: 'user-4',
+    createdAt: '2025-01-01T00:00:00Z',
+    status: BookStatus.OPEN,
+    unit: mockUnits.find(unit => unit.id === '4')
+  },
+  // Khoa Điện - 2025
+  {
+    id: '7',
+    unitId: '5',
+    year: 2025,
+    createdBy: 'user-5',
+    createdAt: '2025-01-01T00:00:00Z',
+    status: BookStatus.OPEN,
+    unit: mockUnits.find(unit => unit.id === '5')
+  },
+  // Thêm sổ cho các năm trước
+  {
+    id: '8',
+    unitId: '3',
+    year: 2024,
+    createdBy: 'user-3',
+    createdAt: '2024-01-01T00:00:00Z',
+    lockedAt: '2024-12-31T23:59:59Z',
+    status: BookStatus.CLOSE,
+    unit: mockUnits.find(unit => unit.id === '3')
+  },
+  {
+    id: '9',
+    unitId: '4',
+    year: 2024,
+    createdBy: 'user-4',
+    createdAt: '2024-01-01T00:00:00Z',
+    lockedAt: '2024-12-31T23:59:59Z',
+    status: BookStatus.CLOSE,
+    unit: mockUnits.find(unit => unit.id === '4')
+  },
+  {
+    id: '10',
+    unitId: '5',
+    year: 2024,
+    createdBy: 'user-5',
+    createdAt: '2024-01-01T00:00:00Z',
+    lockedAt: '2024-12-31T23:59:59Z',
+    status: BookStatus.CLOSE,
+    unit: mockUnits.find(unit => unit.id === '5')
   }
 ]
 
@@ -152,14 +234,14 @@ const MOCK_ASSET_BOOK_ITEMS: AssetBookItem[] = [
   {
     id: '2',
     bookId: '1',
-    assetId: 'asset-001',
+    assetId: 'asset-002',
     roomId: 'room-2',
     assignedAt: '2025-01-20T08:00:00Z',
     quantity: 1,
     status: AssetBookItemStatus.IN_USE,
     note: 'Máy in laser phòng 302 - Khoa CNTT',
     asset: {
-      id: 'asset-001',
+      id: 'asset-002',
       ktCode: 'KT-2025/002',
       fixedCode: '2025.002',
       name: 'Máy in HP LaserJet Pro M404dn',
@@ -193,14 +275,14 @@ const MOCK_ASSET_BOOK_ITEMS: AssetBookItem[] = [
   {
     id: '3',
     bookId: '1',
-    assetId: 'asset-001',
+    assetId: 'asset-003',
     roomId: 'room-3',
     assignedAt: '2025-02-01T08:00:00Z',
     quantity: 1,
     status: AssetBookItemStatus.IN_USE,
     note: 'Máy chiếu phòng 303 - Khoa CNTT',
     asset: {
-      id: 'asset-001',
+      id: 'asset-003',
       ktCode: 'KT-2025/003',
       fixedCode: '2025.003',
       name: 'Máy chiếu Epson EB-X41',
@@ -235,14 +317,14 @@ const MOCK_ASSET_BOOK_ITEMS: AssetBookItem[] = [
   {
     id: '4',
     bookId: '2',
-    assetId: 'asset-001',
+    assetId: 'asset-004',
     roomId: 'room-1',
     assignedAt: '2024-03-15T08:00:00Z',
     quantity: 1,
     status: AssetBookItemStatus.TRANSFERRED,
     note: 'Đã chuyển sang phòng 305 - Khoa CNTT',
     asset: {
-      id: 'asset-001',
+      id: 'asset-004',
       ktCode: 'KT-2024/015',
       fixedCode: '2024.015',
       name: 'Bàn làm việc gỗ MFC',
@@ -276,14 +358,14 @@ const MOCK_ASSET_BOOK_ITEMS: AssetBookItem[] = [
   {
     id: '5',
     bookId: '2',
-    assetId: 'asset-001',
+    assetId: 'asset-005',
     roomId: 'room-4',
     assignedAt: '2024-05-20T08:00:00Z',
     quantity: 1,
     status: AssetBookItemStatus.IN_USE,
     note: 'Tủ hồ sơ phòng 304 - Khoa CNTT',
     asset: {
-      id: 'asset-001',
+      id: 'asset-005',
       ktCode: 'KT-2024/032',
       fixedCode: '2024.032',
       name: 'Tủ hồ sơ thép 4 ngăn',
@@ -317,14 +399,14 @@ const MOCK_ASSET_BOOK_ITEMS: AssetBookItem[] = [
   {
     id: '6',
     bookId: '2',
-    assetId: 'asset-001',
+    assetId: 'asset-006',
     roomId: 'room-5',
     assignedAt: '2024-08-10T08:00:00Z',
     quantity: 1,
     status: AssetBookItemStatus.MISSING,
     note: 'Thất lạc trong quá trình di chuyển - Khoa CNTT',
     asset: {
-      id: 'asset-001',
+      id: 'asset-006',
       ktCode: 'KT-2024/047',
       fixedCode: '2024.047',
       name: 'Ghế xoay văn phòng',
@@ -359,14 +441,14 @@ const MOCK_ASSET_BOOK_ITEMS: AssetBookItem[] = [
   {
     id: '7',
     bookId: '3',
-    assetId: 'asset-001',
+    assetId: 'asset-007',
     roomId: 'room-kt-1',
     assignedAt: '2025-01-10T08:00:00Z',
     quantity: 1,
     status: AssetBookItemStatus.IN_USE,
     note: 'Máy tính All-in-One phòng B201 - Khoa Kinh tế',
     asset: {
-      id: 'asset-001',
+      id: 'asset-007',
       ktCode: 'KT-2025/101',
       fixedCode: '2025.101',
       name: 'Máy tính All-in-One HP EliteOne 800 G8',
@@ -400,14 +482,14 @@ const MOCK_ASSET_BOOK_ITEMS: AssetBookItem[] = [
   {
     id: '8',
     bookId: '3',
-    assetId: 'asset-001',
+    assetId: 'asset-008',
     roomId: 'room-kt-2',
     assignedAt: '2025-01-25T08:00:00Z',
     quantity: 1,
     status: AssetBookItemStatus.IN_USE,
     note: 'Bàn giảng viên phòng B202 - Khoa Kinh tế',
     asset: {
-      id: 'asset-001',
+      id: 'asset-008',
       ktCode: 'KT-2025/102',
       fixedCode: '2025.102',
       name: 'Bàn giảng viên gỗ cao cấp',
@@ -441,14 +523,14 @@ const MOCK_ASSET_BOOK_ITEMS: AssetBookItem[] = [
   {
     id: '9',
     bookId: '3',
-    assetId: 'asset-001',
+    assetId: 'asset-009',
     roomId: 'room-kt-3',
     assignedAt: '2025-02-05T08:00:00Z',
     quantity: 1,
     status: AssetBookItemStatus.IN_USE,
     note: 'Tủ sách phòng B203 - Khoa Kinh tế',
     asset: {
-      id: 'asset-001',
+      id: 'asset-009',
       ktCode: 'KT-2025/103',
       fixedCode: '2025.103',
       name: 'Tủ sách gỗ 5 tầng',
@@ -482,14 +564,14 @@ const MOCK_ASSET_BOOK_ITEMS: AssetBookItem[] = [
   {
     id: '10',
     bookId: '1',
-    assetId: 'asset-001',
+    assetId: 'asset-010',
     roomId: 'room-1',
     assignedAt: '2025-01-12T08:00:00Z',
     quantity: 5,
     status: AssetBookItemStatus.IN_USE,
     note: 'Bộ dụng cụ sửa chữa điện tử - Khoa CNTT',
     asset: {
-      id: 'asset-001',
+      id: 'asset-010',
       ktCode: 'KT-2025/004',
       fixedCode: '2025.004',
       name: 'Bộ dụng cụ sửa chữa điện tử',
@@ -523,14 +605,14 @@ const MOCK_ASSET_BOOK_ITEMS: AssetBookItem[] = [
   {
     id: '11',
     bookId: '3',
-    assetId: 'asset-001',
+    assetId: 'asset-011',
     roomId: 'room-kt-1',
     assignedAt: '2025-01-08T08:00:00Z',
     quantity: 2,
     status: AssetBookItemStatus.IN_USE,
     note: 'Máy tính cầm tay khoa học - Khoa Kinh tế',
     asset: {
-      id: 'asset-001',
+      id: 'asset-011',
       ktCode: 'KT-2025/104',
       fixedCode: '2025.104',
       name: 'Máy tính cầm tay Casio FX-570VN Plus',
@@ -560,15 +642,285 @@ const MOCK_ASSET_BOOK_ITEMS: AssetBookItem[] = [
       status: 'ACTIVE' as any,
       unitId: '2'
     }
+  },
+  // Thêm nhiều dữ liệu mock khác
+  // Khoa Cơ khí - 2025 (bookId: '5')
+  {
+    id: '12',
+    bookId: '5',
+    assetId: 'asset-012',
+    roomId: 'room-ck-1',
+    assignedAt: '2025-01-12T08:00:00Z',
+    quantity: 1,
+    status: AssetBookItemStatus.IN_USE,
+    note: 'Máy tiện CNC phòng thực hành - Khoa Cơ khí',
+    asset: {
+      id: 'asset-012',
+      ktCode: 'KT-2025/201',
+      fixedCode: '2025.201',
+      name: 'Máy tiện CNC FANUC',
+      specs: 'Máy tiện CNC 3 trục, điều khiển FANUC 0i-MF',
+      entryDate: '2025-01-08',
+      unit: 'Chiếc',
+      quantity: 1,
+      purchasePackage: 1,
+      type: 'TSCD' as any,
+      isLocked: false,
+      isHandOver: true,
+      categoryId: 'cat-10',
+      status: 'đang_sử_dụng' as any,
+      createdBy: 'admin',
+      createdAt: '2025-01-08T00:00:00Z',
+      updatedAt: '2025-01-12T00:00:00Z',
+      assignedDate: '2025-01-12',
+      assignedTo: 'Phạm Văn K',
+      department: 'Khoa Cơ khí',
+      location: 'Phòng thực hành CNC'
+    },
+    room: {
+      id: 'room-ck-1',
+      building: 'C',
+      floor: '1',
+      roomNumber: '101',
+      status: 'ACTIVE' as any,
+      unitId: '3'
+    }
+  },
+  {
+    id: '13',
+    bookId: '5',
+    assetId: 'asset-013',
+    roomId: 'room-ck-2',
+    assignedAt: '2025-01-18T08:00:00Z',
+    quantity: 1,
+    status: AssetBookItemStatus.IN_USE,
+    note: 'Máy phay CNC phòng thực hành - Khoa Cơ khí',
+    asset: {
+      id: 'asset-013',
+      ktCode: 'KT-2025/202',
+      fixedCode: '2025.202',
+      name: 'Máy phay CNC VMC850E',
+      specs: 'Máy phay CNC 3 trục, hành trình 850x510x500mm',
+      entryDate: '2025-01-15',
+      unit: 'Chiếc',
+      quantity: 1,
+      purchasePackage: 1,
+      type: 'TSCD' as any,
+      isLocked: false,
+      isHandOver: true,
+      categoryId: 'cat-10',
+      status: 'đang_sử_dụng' as any,
+      createdBy: 'admin',
+      createdAt: '2025-01-15T00:00:00Z',
+      updatedAt: '2025-01-18T00:00:00Z',
+      assignedDate: '2025-01-18',
+      assignedTo: 'Lê Thị L',
+      department: 'Khoa Cơ khí',
+      location: 'Phòng thực hành CNC'
+    },
+    room: {
+      id: 'room-ck-2',
+      building: 'C',
+      floor: '1',
+      roomNumber: '102',
+      status: 'ACTIVE' as any,
+      unitId: '3'
+    }
+  },
+  // Khoa Xây dựng - 2025 (bookId: '6')
+  {
+    id: '14',
+    bookId: '6',
+    assetId: 'asset-014',
+    roomId: 'room-xd-1',
+    assignedAt: '2025-01-20T08:00:00Z',
+    quantity: 1,
+    status: AssetBookItemStatus.IN_USE,
+    note: 'Máy nén bê tông phòng thí nghiệm - Khoa Xây dựng',
+    asset: {
+      id: 'asset-014',
+      ktCode: 'KT-2025/301',
+      fixedCode: '2025.301',
+      name: 'Máy nén bê tông ELE ADR-3000',
+      specs: 'Máy nén bê tông tự động, lực nén 3000kN',
+      entryDate: '2025-01-18',
+      unit: 'Chiếc',
+      quantity: 1,
+      purchasePackage: 1,
+      type: 'TSCD' as any,
+      isLocked: false,
+      isHandOver: true,
+      categoryId: 'cat-11',
+      status: 'đang_sử_dụng' as any,
+      createdBy: 'admin',
+      createdAt: '2025-01-18T00:00:00Z',
+      updatedAt: '2025-01-20T00:00:00Z',
+      assignedDate: '2025-01-20',
+      assignedTo: 'Nguyễn Văn M',
+      department: 'Khoa Xây dựng',
+      location: 'Phòng thí nghiệm vật liệu'
+    },
+    room: {
+      id: 'room-xd-1',
+      building: 'D',
+      floor: '1',
+      roomNumber: '101',
+      status: 'ACTIVE' as any,
+      unitId: '4'
+    }
+  },
+  // Khoa Điện - 2025 (bookId: '7')
+  {
+    id: '15',
+    bookId: '7',
+    assetId: 'asset-015',
+    roomId: 'room-d-1',
+    assignedAt: '2025-01-22T08:00:00Z',
+    quantity: 1,
+    status: AssetBookItemStatus.IN_USE,
+    note: 'Oscilloscope kỹ thuật số - Khoa Điện',
+    asset: {
+      id: 'asset-015',
+      ktCode: 'KT-2025/401',
+      fixedCode: '2025.401',
+      name: 'Oscilloscope Tektronix MSO64',
+      specs: '4 kênh, băng thông 1GHz, tốc độ lấy mẫu 6.25GS/s',
+      entryDate: '2025-01-20',
+      unit: 'Chiếc',
+      quantity: 1,
+      purchasePackage: 1,
+      type: 'TSCD' as any,
+      isLocked: false,
+      isHandOver: true,
+      categoryId: 'cat-12',
+      status: 'đang_sử_dụng' as any,
+      createdBy: 'admin',
+      createdAt: '2025-01-20T00:00:00Z',
+      updatedAt: '2025-01-22T00:00:00Z',
+      assignedDate: '2025-01-22',
+      assignedTo: 'Trần Văn N',
+      department: 'Khoa Điện',
+      location: 'Phòng thí nghiệm điện tử'
+    },
+    room: {
+      id: 'room-d-1',
+      building: 'E',
+      floor: '2',
+      roomNumber: '201',
+      status: 'ACTIVE' as any,
+      unitId: '5'
+    }
+  },
+  // Thêm một số tài sản có trạng thái khác
+  {
+    id: '16',
+    bookId: '1',
+    assetId: 'asset-016',
+    roomId: 'room-1',
+    assignedAt: '2025-02-01T08:00:00Z',
+    quantity: 1,
+    status: AssetBookItemStatus.TRANSFERRED,
+    note: 'Đã chuyển sang phòng khác - Khoa CNTT',
+    asset: {
+      id: 'asset-016',
+      ktCode: 'KT-2025/005',
+      fixedCode: '2025.005',
+      name: 'Máy chiếu Panasonic PT-VW545N',
+      specs: 'Độ phân giải WXGA, độ sáng 5500 lumens',
+      entryDate: '2025-01-28',
+      unit: 'Chiếc',
+      quantity: 1,
+      purchasePackage: 1,
+      type: 'TSCD' as any,
+      isLocked: false,
+      isHandOver: true,
+      categoryId: 'cat-3',
+      status: 'đang_sử_dụng' as any,
+      createdBy: 'admin',
+      createdAt: '2025-01-28T00:00:00Z',
+      updatedAt: '2025-02-01T00:00:00Z',
+      assignedDate: '2025-02-01',
+      assignedTo: 'Lê Văn O',
+      department: 'Khoa CNTT',
+      location: 'Phòng 304'
+    },
+    room: {
+      id: 'room-1',
+      building: 'A',
+      floor: '3',
+      roomNumber: '301',
+      status: 'ACTIVE' as any,
+      unitId: '1'
+    }
+  },
+  {
+    id: '17',
+    bookId: '3',
+    assetId: 'asset-017',
+    roomId: 'room-kt-2',
+    assignedAt: '2025-02-10T08:00:00Z',
+    quantity: 1,
+    status: AssetBookItemStatus.MISSING,
+    note: 'Tài sản bị thất lạc trong quá trình kiểm kê - Khoa Kinh tế',
+    asset: {
+      id: 'asset-017',
+      ktCode: 'KT-2025/105',
+      fixedCode: '2025.105',
+      name: 'Laptop Dell Inspiron 15 3000',
+      specs: 'Intel i3-1115G4, 4GB RAM, 256GB SSD, 15.6" HD',
+      entryDate: '2025-02-05',
+      unit: 'Chiếc',
+      quantity: 1,
+      purchasePackage: 1,
+      type: 'TSCD' as any,
+      isLocked: false,
+      isHandOver: true,
+      categoryId: 'cat-1',
+      status: 'đang_sử_dụng' as any,
+      createdBy: 'admin',
+      createdAt: '2025-02-05T00:00:00Z',
+      updatedAt: '2025-02-10T00:00:00Z',
+      assignedDate: '2025-02-10',
+      assignedTo: 'Phạm Thị P',
+      department: 'Khoa Kinh tế',
+      location: 'Phòng B202'
+    },
+    room: {
+      id: 'room-kt-2',
+      building: 'B',
+      floor: '2',
+      roomNumber: '202',
+      status: 'ACTIVE' as any,
+      unitId: '2'
+    }
   }
 ]
 
 const MOCK_ROOMS: Room[] = [
-  { id: 'room-1', building: 'A', floor: '3', roomNumber: '301', status: 'ACTIVE' as any, unitId: 'unit-1' },
-  { id: 'room-2', building: 'A', floor: '3', roomNumber: '302', status: 'ACTIVE' as any, unitId: 'unit-1' },
-  { id: 'room-3', building: 'A', floor: '3', roomNumber: '303', status: 'ACTIVE' as any, unitId: 'unit-1' },
-  { id: 'room-4', building: 'A', floor: '3', roomNumber: '304', status: 'ACTIVE' as any, unitId: 'unit-1' },
-  { id: 'room-5', building: 'A', floor: '3', roomNumber: '305', status: 'ACTIVE' as any, unitId: 'unit-1' }
+  // Khoa CNTT
+  { id: 'room-1', building: 'A', floor: '3', roomNumber: '301', status: 'ACTIVE' as any, unitId: '1' },
+  { id: 'room-2', building: 'A', floor: '3', roomNumber: '302', status: 'ACTIVE' as any, unitId: '1' },
+  { id: 'room-3', building: 'A', floor: '3', roomNumber: '303', status: 'ACTIVE' as any, unitId: '1' },
+  { id: 'room-4', building: 'A', floor: '3', roomNumber: '304', status: 'ACTIVE' as any, unitId: '1' },
+  { id: 'room-5', building: 'A', floor: '3', roomNumber: '305', status: 'ACTIVE' as any, unitId: '1' },
+
+  // Khoa Kinh tế
+  { id: 'room-kt-1', building: 'B', floor: '2', roomNumber: '201', status: 'ACTIVE' as any, unitId: '2' },
+  { id: 'room-kt-2', building: 'B', floor: '2', roomNumber: '202', status: 'ACTIVE' as any, unitId: '2' },
+  { id: 'room-kt-3', building: 'B', floor: '2', roomNumber: '203', status: 'ACTIVE' as any, unitId: '2' },
+
+  // Khoa Cơ khí
+  { id: 'room-ck-1', building: 'C', floor: '1', roomNumber: '101', status: 'ACTIVE' as any, unitId: '3' },
+  { id: 'room-ck-2', building: 'C', floor: '1', roomNumber: '102', status: 'ACTIVE' as any, unitId: '3' },
+  { id: 'room-ck-3', building: 'C', floor: '2', roomNumber: '201', status: 'ACTIVE' as any, unitId: '3' },
+
+  // Khoa Xây dựng
+  { id: 'room-xd-1', building: 'D', floor: '1', roomNumber: '101', status: 'ACTIVE' as any, unitId: '4' },
+  { id: 'room-xd-2', building: 'D', floor: '1', roomNumber: '102', status: 'ACTIVE' as any, unitId: '4' },
+
+  // Khoa Điện
+  { id: 'room-d-1', building: 'E', floor: '2', roomNumber: '201', status: 'ACTIVE' as any, unitId: '5' },
+  { id: 'room-d-2', building: 'E', floor: '2', roomNumber: '202', status: 'ACTIVE' as any, unitId: '5' }
 ]
 
 // Modern Status Badge Component
@@ -627,9 +979,14 @@ export default function AssetBookPage() {
   const [selectedBook, setSelectedBook] = useState<AssetBook | null>(null)
   const [assetBooks, setAssetBooks] = useState<AssetBook[]>([])
   const [assetBookItems, setAssetBookItems] = useState<AssetBookItem[]>([])
+  const [filteredAssetBookItems, setFilteredAssetBookItems] = useState<AssetBookItem[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingItems, setIsLoadingItems] = useState(false)
+
+  // Advanced Filter states
+  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([])
+  const [conditionLogic, setConditionLogic] = useState<'contains' | 'equals' | 'not_contains'>('contains')
 
   // Filters
   const [bookFilter, setBookFilter] = useState<AssetBookFilter>({
@@ -638,18 +995,28 @@ export default function AssetBookPage() {
   })
 
   const [selectedUnitId, setSelectedUnitId] = useState('')
-
   const [itemFilter, setItemFilter] = useState<AssetBookItemFilter>({
     status: undefined,
     roomId: undefined
   })
-
   const [selectedAssetType, setSelectedAssetType] = useState<string>('all')
-
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+
+  // Selected items for bulk actions
+  const [selectedItems, setSelectedItems] = useState<string[]>([])
+
+  // Handover form states
+  const [showHandoverForm, setShowHandoverForm] = useState(false)
+  const [handoverAssets, setHandoverAssets] = useState<Asset[]>([])
+  const [isHandoverMode, setIsHandoverMode] = useState(false)
+
+  // Lazy loading states
+  const [hasMoreData, setHasMoreData] = useState(true)
+  const [currentOffset, setCurrentOffset] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
 
   // Load asset books on mount and when filter changes
   useEffect(() => {
@@ -660,16 +1027,101 @@ export default function AssetBookPage() {
   useEffect(() => {
     if (selectedBook) {
       setCurrentPage(1) // Reset pagination when changing filters
-      loadAssetBookItems(selectedBook.id)
+      setCurrentOffset(0) // Reset offset for lazy loading
+      loadAssetBookItems(selectedBook.id, 0, itemsPerPage, false)
     }
-  }, [selectedBook, itemFilter, searchQuery, selectedAssetType])
+  }, [selectedBook, itemFilter, selectedAssetType])
 
-  // Mock API calls
+  // Apply advanced filters
+  useEffect(() => {
+    let filtered = assetBookItems
+
+    // Apply basic search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(item =>
+        item.asset?.name.toLowerCase().includes(query) ||
+        item.asset?.ktCode.toLowerCase().includes(query) ||
+        item.asset?.fixedCode.toLowerCase().includes(query) ||
+        item.note?.toLowerCase().includes(query)
+      )
+    }
+
+    // Apply advanced filters
+    if (filterConditions.length > 0) {
+      filtered = filtered.filter((item) => {
+        const conditionResults = filterConditions.map((condition) => {
+          if (!condition.value || (Array.isArray(condition.value) && condition.value.length === 0)) {
+            return true
+          }
+
+          let fieldValue: string = ""
+
+          switch (condition.field) {
+            case "status":
+              fieldValue = item.status
+              break
+            case "assignedAt":
+              fieldValue = new Date(item.assignedAt).toISOString().split("T")[0]
+              break
+            case "roomId":
+              fieldValue = item.room?.roomNumber || ""
+              break
+            case "assetType":
+              fieldValue = item.asset?.type || ""
+              break
+            case "assetName":
+              fieldValue = item.asset?.name || ""
+              break
+            default:
+              return true
+          }
+
+          if (condition.operator === "contains") {
+            if (Array.isArray(condition.value)) {
+              return condition.value.some((val) =>
+                String(fieldValue).toLowerCase().includes(val.toLowerCase())
+              )
+            }
+            return String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase())
+          } else if (condition.operator === "equals") {
+            if (Array.isArray(condition.value)) {
+              return condition.value.some((val) => String(fieldValue).toLowerCase() === val.toLowerCase())
+            }
+            return String(fieldValue).toLowerCase() === String(condition.value).toLowerCase()
+          } else if (condition.operator === "not_contains") {
+            if (Array.isArray(condition.value)) {
+              return !condition.value.some((val) =>
+                String(fieldValue).toLowerCase().includes(val.toLowerCase())
+              )
+            }
+            return !String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase())
+          }
+
+          return true
+        })
+
+        if (conditionLogic === "contains") {
+          return conditionResults.every((result) => result)
+        } else if (conditionLogic === "equals") {
+          return conditionResults.some((result) => result)
+        } else if (conditionLogic === "not_contains") {
+          return conditionResults.every((result) => !result)
+        }
+
+        return true
+      })
+    }
+
+    setFilteredAssetBookItems(filtered)
+    setCurrentPage(1) // Reset to first page when filters change
+  }, [assetBookItems, searchQuery, filterConditions, conditionLogic])
+
   const loadAssetBooks = async () => {
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Simulate API call with delay
+      await new Promise(resolve => setTimeout(resolve, 800))
 
       let filteredBooks = MOCK_ASSET_BOOKS.filter(book => {
         // If user is a unit user, only show books for their unit
@@ -706,11 +1158,14 @@ export default function AssetBookPage() {
     }
   }
 
-  const loadAssetBookItems = async (bookId: string) => {
-    setIsLoadingItems(true)
+  const loadAssetBookItems = async (bookId: string, offset = 0, limit = itemsPerPage, append = false) => {
+    if (offset === 0) {
+      setIsLoadingItems(true)
+    }
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 300))
+      // Simulate API call with pagination
+      await new Promise(resolve => setTimeout(resolve, 500))
 
       let filteredItems = MOCK_ASSET_BOOK_ITEMS.filter(item => {
         if (item.bookId !== bookId) return false
@@ -720,18 +1175,19 @@ export default function AssetBookPage() {
         return true
       })
 
-      // Apply search filter
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase()
-        filteredItems = filteredItems.filter(item =>
-          item.asset?.name.toLowerCase().includes(query) ||
-          item.asset?.ktCode.toLowerCase().includes(query) ||
-          item.asset?.fixedCode.toLowerCase().includes(query) ||
-          item.note?.toLowerCase().includes(query)
-        )
-      }
+      // Simulate pagination
+      const totalItems = filteredItems.length
+      const paginatedItems = filteredItems.slice(offset, offset + limit)
 
-      setAssetBookItems(filteredItems)
+      setTotalCount(totalItems)
+      setHasMoreData(offset + limit < totalItems)
+      setCurrentOffset(offset + limit)
+
+      if (append) {
+        setAssetBookItems(prev => [...prev, ...paginatedItems])
+      } else {
+        setAssetBookItems(paginatedItems)
+      }
     } catch (error) {
       console.error('Error loading asset book items:', error)
     } finally {
@@ -739,26 +1195,68 @@ export default function AssetBookPage() {
     }
   }
 
+  // Load more data function for lazy loading
+  const loadMoreItems = () => {
+    if (selectedBook && hasMoreData && !isLoadingItems) {
+      loadAssetBookItems(selectedBook.id, currentOffset, itemsPerPage, true)
+    }
+  }
+
+  // Filter options for AdvancedFilter
+  const filterOptions = [
+    {
+      value: 'status',
+      label: 'Trạng thái',
+      type: 'select' as const,
+      options: [
+        { value: AssetBookItemStatus.IN_USE, label: 'Đang sử dụng' },
+        { value: AssetBookItemStatus.TRANSFERRED, label: 'Đã chuyển' },
+        { value: AssetBookItemStatus.LIQUIDATED, label: 'Đã thanh lý' },
+        { value: AssetBookItemStatus.MISSING, label: 'Thất lạc' },
+      ]
+    },
+    { value: 'assignedAt', label: 'Ngày ghi nhận', type: 'date' as const },
+    {
+      value: 'roomId',
+      label: 'Phòng',
+      type: 'select' as const,
+      options: rooms.map(room => ({
+        value: room.id,
+        label: `${room.building ? `${room.building}-` : ''}${room.floor ? `${room.floor}-` : ''}${room.roomNumber}`
+      }))
+    },
+    {
+      value: 'assetType',
+      label: 'Loại tài sản',
+      type: 'select' as const,
+      options: [
+        { value: 'TSCD', label: 'Tài sản cố định' },
+        { value: 'CCDC', label: 'Công cụ dụng cụ' },
+      ]
+    },
+    { value: 'assetName', label: 'Tên tài sản', type: 'text' as const }
+  ]
+
   // Statistics
   const statistics = useMemo(() => {
-    const total = assetBookItems.length
-    const inUse = assetBookItems.filter(item => item.status === AssetBookItemStatus.IN_USE).length
-    const transferred = assetBookItems.filter(item => item.status === AssetBookItemStatus.TRANSFERRED).length
-    const liquidated = assetBookItems.filter(item => item.status === AssetBookItemStatus.LIQUIDATED).length
-    const missing = assetBookItems.filter(item => item.status === AssetBookItemStatus.MISSING).length
-    const tscd = assetBookItems.filter(item => item.asset?.type === 'TSCD').length
-    const ccdc = assetBookItems.filter(item => item.asset?.type === 'CCDC').length
+    const total = filteredAssetBookItems.length
+    const inUse = filteredAssetBookItems.filter(item => item.status === AssetBookItemStatus.IN_USE).length
+    const transferred = filteredAssetBookItems.filter(item => item.status === AssetBookItemStatus.TRANSFERRED).length
+    const liquidated = filteredAssetBookItems.filter(item => item.status === AssetBookItemStatus.LIQUIDATED).length
+    const missing = filteredAssetBookItems.filter(item => item.status === AssetBookItemStatus.MISSING).length
+    const tscd = filteredAssetBookItems.filter(item => item.asset?.type === 'TSCD').length
+    const ccdc = filteredAssetBookItems.filter(item => item.asset?.type === 'CCDC').length
 
     return { total, inUse, transferred, liquidated, missing, tscd, ccdc }
-  }, [assetBookItems])
+  }, [filteredAssetBookItems])
 
   // Pagination
   const paginatedItems = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
-    return assetBookItems.slice(startIndex, startIndex + itemsPerPage)
-  }, [assetBookItems, currentPage, itemsPerPage])
+    return filteredAssetBookItems.slice(startIndex, startIndex + itemsPerPage)
+  }, [filteredAssetBookItems, currentPage, itemsPerPage])
 
-  const totalPages = Math.ceil(assetBookItems.length / itemsPerPage)
+  const totalPages = Math.ceil(filteredAssetBookItems.length / itemsPerPage)
 
   // Helper functions
   const getUnitName = (unitId: string) => {
@@ -796,6 +1294,164 @@ export default function AssetBookPage() {
     // Implementation for export functionality
     console.log('Exporting asset book data...')
   }
+
+  const handleResetFilters = () => {
+    setFilterConditions([])
+    setConditionLogic('contains')
+    setSearchQuery('')
+    setItemFilter({ status: undefined, roomId: undefined })
+    setSelectedAssetType('all')
+  }
+
+  // Handover functions
+  const handleBulkHandover = () => {
+    if (selectedItems.length === 0) {
+      alert('Vui lòng chọn ít nhất một tài sản để bàn giao.')
+      return
+    }
+
+    const selectedAssetBookItems = filteredAssetBookItems.filter(item =>
+      selectedItems.includes(item.id) && item.status === AssetBookItemStatus.IN_USE
+    )
+
+    if (selectedAssetBookItems.length === 0) {
+      alert('Không có tài sản nào có thể bàn giao. Chỉ có thể bàn giao tài sản đang sử dụng.')
+      return
+    }
+
+    const assetsForHandover = selectedAssetBookItems.map(item => item.asset!).filter(Boolean)
+    setHandoverAssets(assetsForHandover)
+    setIsHandoverMode(true)
+  }
+
+  const handleSingleHandover = (item: AssetBookItem) => {
+    if (!item.asset) {
+      alert('Không thể bàn giao tài sản này.')
+      return
+    }
+
+    if (item.status !== AssetBookItemStatus.IN_USE) {
+      alert('Chỉ có thể bàn giao tài sản đang sử dụng.')
+      return
+    }
+
+    setHandoverAssets([item.asset])
+    setIsHandoverMode(true)
+  }
+
+  const handleHandoverSuccess = (transaction: any) => {
+    console.log('Handover completed:', transaction)
+    alert(`Bàn giao ${transaction.items?.length || 0} tài sản thành công!`)
+
+    // Reset selection and close form
+    setSelectedItems([])
+    setIsHandoverMode(false)
+    setHandoverAssets([])
+
+    // Reload data (in real app, you would update the backend and reload)
+    loadAssetBooks()
+  }
+
+  const handleHandoverCancel = () => {
+    setIsHandoverMode(false)
+    setHandoverAssets([])
+  }
+
+  // Define table columns
+  const columns: TableColumn<AssetBookItem>[] = [
+    {
+      key: "asset",
+      title: "Tài sản",
+      render: (_, item) => (
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-10 w-10">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
+              <Package2 className="h-5 w-5 text-white" />
+            </div>
+          </div>
+          <div className="ml-4">
+            <div className="text-sm font-medium text-gray-900">
+              {item.asset?.name}
+            </div>
+            <div className="text-sm text-gray-500">
+              {item.asset?.specs}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "codes",
+      title: "Mã số",
+      render: (_, item) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">{item.asset?.ktCode}</div>
+          <div className="text-sm text-gray-500">{item.asset?.fixedCode}</div>
+        </div>
+      ),
+    },
+    {
+      key: "location",
+      title: "Vị trí",
+      render: (_, item) => (
+        <div className="flex items-center text-sm text-gray-900">
+          <MapPin className="h-4 w-4 text-gray-400 mr-1" />
+          <span>
+            {item.room?.building ? `${item.room.building}-` : ''}
+            {item.room?.floor ? `${item.room.floor}-` : ''}
+            {item.room?.roomNumber}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "assignedAt",
+      title: "Ngày ghi nhận",
+      render: (_, item) => (
+        <div className="text-sm text-gray-900">
+          {new Date(item.assignedAt).toLocaleDateString('vi-VN')}
+        </div>
+      ),
+    },
+    {
+      key: "quantity",
+      title: "Số lượng",
+      render: (_, item) => (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          {item.quantity} {item.asset?.unit}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      title: "Trạng thái",
+      render: (_, item) => <StatusBadge status={item.status} />,
+    },
+    {
+      key: "actions",
+      title: "Hành động",
+      render: (_, item) => (
+        <div className="flex items-center justify-end space-x-2">
+          <Link
+            href={`/asset/${item.asset?.id}`}
+            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center"
+            title="Xem chi tiết"
+          >
+            <Eye className="h-4 w-4" />
+          </Link>
+          {item.status === AssetBookItemStatus.IN_USE && (
+            <button
+              onClick={() => handleSingleHandover(item)}
+              className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors flex items-center justify-center"
+              title="Bàn giao tài sản"
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ]
 
   const canViewAssetBook = () => {
     if (!currentRole) return false
@@ -846,55 +1502,73 @@ export default function AssetBookPage() {
         </div>
 
         {/* Modern Statistics Dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-          {/* Total Assets Card */}
-          <div className="group relative">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
-            <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:scale-105 transition-all duration-300">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Tổng Tài Sản</p>
-                  <p className="text-3xl font-bold text-gray-900">{statistics.total}</p>
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="bg-white rounded-2xl p-6 border border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                    <div className="h-12 w-12 bg-gray-200 rounded-xl"></div>
+                  </div>
                 </div>
-                <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg">
-                  <Package className="h-6 w-6 text-white" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            {/* Total Assets Card */}
+            <div className="group relative">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
+              <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:scale-105 transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Tổng Tài Sản</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.total}</p>
+                  </div>
+                  <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg">
+                    <Package className="h-6 w-6 text-white" />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* In Use Assets Card */}
-          <div className="group relative">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
-            <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:scale-105 transition-all duration-300">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Đang Sử Dụng</p>
-                  <p className="text-3xl font-bold text-gray-900">{statistics.inUse}</p>
-                </div>
-                <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg">
-                  <CheckCircle className="h-6 w-6 text-white" />
+            {/* In Use Assets Card */}
+            <div className="group relative">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
+              <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:scale-105 transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Đang Sử Dụng</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.inUse}</p>
+                  </div>
+                  <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg">
+                    <CheckCircle className="h-6 w-6 text-white" />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Transferred Assets Card */}
-          <div className="group relative">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
-            <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:scale-105 transition-all duration-300">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Đã Chuyển</p>
-                  <p className="text-3xl font-bold text-gray-900">{statistics.transferred}</p>
-                </div>
-                <div className="p-3 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl shadow-lg">
-                  <Zap className="h-6 w-6 text-white" />
+            {/* Transferred Assets Card */}
+            <div className="group relative">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
+              <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:scale-105 transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Đã Chuyển</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.transferred}</p>
+                  </div>
+                  <div className="p-3 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl shadow-lg">
+                    <Zap className="h-6 w-6 text-white" />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Enhanced Control Panel */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
@@ -999,13 +1673,13 @@ export default function AssetBookPage() {
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-gray-600">Số lượng:</span>
                         <span className="font-medium text-orange-700">
-                          {assetBookItems.filter(item => item.asset?.type === selectedAssetType).length} tài sản
+                          {filteredAssetBookItems.filter(item => item.asset?.type === selectedAssetType).length} tài sản
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-gray-600">Đang sử dụng:</span>
                         <span className="font-medium text-green-600">
-                          {assetBookItems.filter(item => item.asset?.type === selectedAssetType && item.status === AssetBookItemStatus.IN_USE).length}
+                          {filteredAssetBookItems.filter(item => item.asset?.type === selectedAssetType && item.status === AssetBookItemStatus.IN_USE).length}
                         </span>
                       </div>
                     </div>
@@ -1057,7 +1731,7 @@ export default function AssetBookPage() {
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-emerald-700 font-medium flex items-center">
                         <Package className="h-3 w-3 mr-1" />
-                        {assetBookItems.length} tài sản
+                        {filteredAssetBookItems.length} tài sản
                       </span>
                       <span className="text-emerald-700 font-medium flex items-center">
                         <Users className="h-3 w-3 mr-1" />
@@ -1087,278 +1761,114 @@ export default function AssetBookPage() {
           </div>
         </div>
 
-        {/* Search and Filter */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
-          <div className="flex items-center space-x-4 mb-4">
-            <div className="flex-1">
-              <Input
-                type="text"
-                placeholder="Tìm kiếm tài sản, mã KT, mã TSCD..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full"
+        {/* Advanced Filter */}
+        <Suspense fallback={<SkeletonCard />}>
+          <AdvancedFilter
+            title="Tìm kiếm nâng cao"
+            filterOptions={filterOptions}
+            conditions={filterConditions}
+            conditionLogic={conditionLogic}
+            onConditionsChange={setFilterConditions}
+            onConditionLogicChange={setConditionLogic}
+            onApply={() => {
+              console.log("Applying filters:", { filterConditions, conditionLogic });
+            }}
+            onReset={handleResetFilters}
+          />
+        </Suspense>
+
+        {/* Asset Book Items Table or Handover Form */}
+        {!isHandoverMode ? (
+          <div className='my-8'>
+            {/* Asset Book Items Table using Table component */}
+            {isLoadingItems && filteredAssetBookItems.length === 0 ? (
+              <SkeletonTable />
+            ) : (
+              <Table
+                columns={columns}
+                data={paginatedItems}
+                loading={isLoadingItems}
+                title={
+                  <div className="flex items-center">
+                    Danh sách tài sản
+                  </div>
+                }
+                description={
+                  selectedBook
+                    ? `Sổ tài sản năm ${selectedBook?.year} - ${getUnitName(selectedBook?.unitId || '')}`
+                    : 'Chọn sổ tài sản để xem danh sách tài sản'
+                }
+                headerExtra={
+                  selectedItems.length > 0 ? (
+                    <Button
+                      onClick={handleBulkHandover}
+                      size="sm"
+                      className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <ArrowRightLeft className="h-4 w-4 mr-1" />
+                      Tạo yêu cầu bàn giao
+                    </Button>
+                  ) : null
+                }
+                emptyText={
+                  selectedBook
+                    ? `Sổ năm ${selectedBook?.year} của ${getUnitName(selectedBook?.unitId || '')} chưa có tài sản nào được ghi nhận.`
+                    : 'Không tìm thấy sổ tài sản cho năm được chọn.'
+                }
+                emptyIcon={<Package className="mx-auto h-12 w-12 text-gray-400" />}
+                rowKey="id"
+                rowSelection={{
+                  selectedRowKeys: selectedItems,
+                  onChange: (selectedRowKeys) => {
+                    setSelectedItems(selectedRowKeys);
+                  },
+                }}
               />
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Bộ lọc
-            </Button>
-          </div>
+            )}
 
-          {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phòng</label>
-                <select
-                  value={itemFilter.roomId || 'all'}
-                  onChange={(e) => handleRoomFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">Tất cả phòng</option>
-                  {rooms.map(room => (
-                    <option key={room.id} value={room.id}>
-                      {room.building ? `${room.building}-` : ''}{room.floor ? `${room.floor}-` : ''}{room.roomNumber}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
-                <select
-                  value={itemFilter.status || 'all'}
-                  onChange={(e) => handleStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value={AssetBookItemStatus.IN_USE}>Đang sử dụng</option>
-                  <option value={AssetBookItemStatus.TRANSFERRED}>Đã chuyển</option>
-                  <option value={AssetBookItemStatus.LIQUIDATED}>Đã thanh lý</option>
-                  <option value={AssetBookItemStatus.MISSING}>Thất lạc</option>
-                </select>
-              </div>
-              <div className="flex items-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setItemFilter({ status: undefined, roomId: undefined })
-                    setSearchQuery('')
-                    setSelectedAssetType('all')
-                  }}
-                  className="w-full"
-                >
-                  Xóa bộ lọc
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
+            {/* Pagination */}
+            {filteredAssetBookItems.length > 0 && (
+              <div className="flex flex-col items-center space-y-4 mt-6">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(filteredAssetBookItems.length / itemsPerPage)}
+                  onPageChange={setCurrentPage}
+                />
 
-        {/* Asset Book Items Table */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-medium text-gray-900">
-                  Danh sách tài sản
-                  {selectedBook && (
-                    <span className="text-sm font-normal text-gray-500 ml-2">
-                      - {getUnitName(selectedBook.unitId)} - Sổ năm {selectedBook.year}
-                    </span>
-                  )}
-                </h2>
-                {assetBookItems.length > 0 && (
-                  <p className="mt-1 text-sm text-gray-500">
-                    {assetBookItems.length} tài sản được tìm thấy
-                  </p>
+                {/* Load More Button for Lazy Loading */}
+                {hasMoreData && (
+                  <Button
+                    onClick={loadMoreItems}
+                    disabled={isLoadingItems}
+                    variant="outline"
+                    className="flex items-center space-x-2"
+                  >
+                    {isLoadingItems ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span>Đang tải...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4" />
+                        <span>Tải thêm dữ liệu ({totalCount - filteredAssetBookItems.length} còn lại)</span>
+                      </>
+                    )}
+                  </Button>
                 )}
               </div>
-            </div>
+            )}
           </div>
-
-          {isLoadingItems ? (
-            <div className="p-8">
-              <div className="animate-pulse">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-7 gap-4">
-                    {Array.from({ length: 7 }).map((_, i) => (
-                      <div key={i} className="h-4 bg-gray-200 rounded"></div>
-                    ))}
-                  </div>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="grid grid-cols-7 gap-4">
-                      {Array.from({ length: 7 }).map((_, j) => (
-                        <div key={j} className="h-10 bg-gray-100 rounded"></div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : assetBookItems.length === 0 ? (
-            <div className="text-center py-12">
-              <Package className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Không tìm thấy tài sản</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {selectedBook
-                  ? `Sổ năm ${selectedBook.year} của ${getUnitName(selectedBook.unitId)} chưa có tài sản nào được ghi nhận.`
-                  : 'Không tìm thấy sổ tài sản cho năm được chọn.'
-                }
-              </p>
-              <div className="mt-6">
-                <Button
-                  onClick={() => {
-                    setSearchQuery('')
-                    setItemFilter({ status: undefined, roomId: undefined })
-                  }}
-                >
-                  Đặt lại bộ lọc
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tài sản
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Mã số
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Vị trí
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ngày ghi nhận
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Số lượng
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Trạng thái
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Hành động
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {paginatedItems.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
-                              <Package2 className="h-5 w-5 text-white" />
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {item.asset?.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {item.asset?.specs}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{item.asset?.ktCode}</div>
-                        <div className="text-sm text-gray-500">{item.asset?.fixedCode}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <MapPin className="h-4 w-4 text-gray-400 mr-1" />
-                          <span>
-                            {item.room?.building ? `${item.room.building}-` : ''}
-                            {item.room?.floor ? `${item.room.floor}-` : ''}
-                            {item.room?.roomNumber}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(item.assignedAt).toLocaleDateString('vi-VN')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {item.quantity} {item.asset?.unit}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <StatusBadge status={item.status} />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                          <Link
-                            href={`/asset/${item.asset?.id}`}
-                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center"
-                            title="Xem chi tiết"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                          {item.status === AssetBookItemStatus.IN_USE && (
-                            <button
-                              className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors flex items-center justify-center"
-                              title="Di chuyển"
-                            >
-                              <ArrowRightLeft className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 flex justify-between sm:hidden">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                >
-                  Trước
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                >
-                  Sau
-                </Button>
-              </div>
-              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-gray-700">
-                    Hiển thị{" "}
-                    <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> đến{" "}
-                    <span className="font-medium">
-                      {Math.min(currentPage * itemsPerPage, assetBookItems.length)}
-                    </span>{" "}
-                    trong tổng số{" "}
-                    <span className="font-medium">{assetBookItems.length}</span> tài sản
-                  </p>
-                </div>
-                <div>
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                  />
-                </div>
-              </div>
-            </div>
+        ) : (
+          <div className='my-8'>
+          <Suspense fallback={<SkeletonTable />}>
+            <HandoverForm
+              assets={handoverAssets}
+              onCancel={handleHandoverCancel}
+              onSuccess={handleHandoverSuccess}
+              title="Bàn giao tài sản từ sổ tài sản"
+            />
+          </Suspense>
           </div>
         )}
       </div>

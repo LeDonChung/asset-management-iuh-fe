@@ -37,6 +37,10 @@ export interface TableProps<T = any> {
     onSelectAll?: (selected: boolean, selectedRows: T[], changeRows: T[]) => void;
     getCheckboxProps?: (record: T) => { disabled?: boolean };
   };
+  // Title and description props
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  headerExtra?: React.ReactNode;
 }
 
 export function Table<T = any>({
@@ -51,6 +55,9 @@ export function Table<T = any>({
   rowClassName,
   pagination,
   rowSelection,
+  title,
+  description,
+  headerExtra,
 }: TableProps<T>) {
   const getRowKey = (record: T, index: number): string => {
     if (typeof rowKey === "function") {
@@ -110,6 +117,17 @@ export function Table<T = any>({
   if (loading) {
     return (
       <div className={`bg-white rounded-lg shadow overflow-hidden ${className}`}>
+        {(title || description || headerExtra) && (
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                {title && <div className="text-xl font-semibold text-gray-900 mb-1">{title}</div>}
+                {description && <div className="text-sm text-gray-600">{description}</div>}
+              </div>
+              {headerExtra && <div>{headerExtra}</div>}
+            </div>
+          </div>
+        )}
         <div className="animate-pulse">
           <div className="bg-gray-50 px-4 py-3">
             <div className="flex space-x-4">
@@ -134,6 +152,17 @@ export function Table<T = any>({
 
   return (
     <div className={`bg-white rounded-lg shadow overflow-hidden ${className}`}>
+      {(title || description || headerExtra) && (
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              {title && <div className="text-xl font-semibold text-gray-900 mb-1">{title}</div>}
+              {description && <div className="text-sm text-gray-600">{description}</div>}
+            </div>
+            {headerExtra && <div>{headerExtra}</div>}
+          </div>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50">
