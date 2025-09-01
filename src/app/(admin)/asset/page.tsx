@@ -803,6 +803,23 @@ export default function AssetPage() {
               disabled: false
             })
           }}
+          title={
+            <div className="flex items-center">
+              Danh sách tài sản
+            </div>
+          }
+          headerExtra={
+            selectedAssets.length > 0 ? (
+              <Button
+                onClick={handleBulkHandover}
+                size="sm"
+                className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <ArrowRightLeft className="h-4 w-4 mr-1" />
+                Tạo yêu cầu bàn giao
+              </Button>
+            ) : null
+          }
         />
       ) : (
         <HandoverForm

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowLeft,
   Package2,
@@ -25,12 +25,13 @@ import {
 } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableColumn } from "@/components/ui/table";
 
 // Mock data - trong thực tế sẽ gọi API với transaction ID
 const mockAssetTransactions: AssetTransaction[] = [
   {
     id: "TXN-2025-001",
-    type: TransactionType.TRANSFER,
+    type: TransactionType.HANDOVER,
     fromUnitId: "PKHDTU",
     toUnitId: "PQT",
     createdBy: "Nguyễn Văn Minh",
@@ -71,7 +72,7 @@ const mockAssetTransactions: AssetTransaction[] = [
           specs: "Intel Core i7-1250U, 16GB DDR4 RAM, 512GB NVMe SSD, 15.6\" FHD, Windows 11 Pro",
           entryDate: "2025-07-20",
           unit: "Chiếc",
-          quantity: 1,
+          quantity: 10,
           purchasePackage: 1,
           type: AssetType.TSCD,
           isLocked: false,
@@ -97,7 +98,7 @@ const mockAssetTransactions: AssetTransaction[] = [
           specs: "Intel Core i5-12500, 16GB DDR4, 1TB HDD + 256GB SSD, DVD-RW, có màn hình HP 24\" IPS",
           entryDate: "2025-07-22",
           unit: "Bộ",
-          quantity: 1,
+          quantity: 15,
           purchasePackage: 1,
           type: AssetType.TSCD,
           isLocked: false,
@@ -123,7 +124,7 @@ const mockAssetTransactions: AssetTransaction[] = [
           specs: "In laser đen trắng, scan màu, copy, fax, tốc độ 38trang/phút, WiFi, duplex tự động",
           entryDate: "2025-07-25",
           unit: "Chiếc",
-          quantity: 1,
+          quantity: 5,
           purchasePackage: 1,
           type: AssetType.TSCD,
           isLocked: false,
@@ -134,446 +135,6 @@ const mockAssetTransactions: AssetTransaction[] = [
           createdAt: "2025-07-25T08:00:00Z",
           updatedAt: "2025-08-15T09:30:00Z",
           category: { id: "2231", name: "Máy in, máy photocopy", code: "2231" }
-        }
-      }
-    ]
-  },
-  {
-    id: "TXN-2025-002",
-    type: TransactionType.TRANSFER,
-    fromUnitId: "PKHDTU",
-    toUnitId: "PQT",
-    createdBy: "Nguyễn Văn Minh",
-    createdAt: "2025-08-16T14:15:00Z",
-    status: TransactionStatus.PENDING,
-    note: "Bàn giao nội thất văn phòng đợt 2 - Trang bị phòng họp mới",
-    fromUnit: {
-      id: "PKHDTU",
-      name: "Phòng Kế Hoạch Đầu Tư",
-      type: UnitType.PHONG_KE_HOACH_DAU_TU,
-      status: UnitStatus.ACTIVE,
-      representativeId: "nguyen.minh",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    toUnit: {
-      id: "PQT",
-      name: "Phòng Quản Trị",
-      type: UnitType.PHONG_QUAN_TRI,
-      status: UnitStatus.ACTIVE,
-      representativeId: "tran.ha",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    items: [
-      {
-        id: "ITM-2025-004",
-        transactionId: "TXN-2025-002",
-        assetId: "TABLE-001",
-        note: "Bàn họp oval gỗ cao cấp - Thiết kế hiện đại, có hệ thống điện tích hợp",
-        asset: {
-          id: "TABLE-001",
-          ktCode: "25-0004/KT",
-          fixedCode: "3331.00001",
-          name: "Bàn họp oval gỗ MFC",
-          specs: "Kích thước 240x120x75cm, mặt gỗ MFC phủ Melamine, chân inox 304, có ổ cắm điện tích hợp",
-          entryDate: "2025-08-01",
-          unit: "Chiếc",
-          quantity: 2,
-          purchasePackage: 2,
-          type: AssetType.CCDC,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "3331",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "nguyen.minh",
-          createdAt: "2025-08-01T08:00:00Z",
-          updatedAt: "2025-08-16T14:15:00Z",
-          category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" }
-        }
-      },
-      {
-        id: "ITM-2025-005",
-        transactionId: "TXN-2025-002",
-        assetId: "CHAIR-001",
-        note: "Ghế xoay cao cấp - Thiết kế ergonomic, đệm da PU",
-        asset: {
-          id: "CHAIR-001",
-          ktCode: "25-0005/KT",
-          fixedCode: "3331.00002",
-          name: "Ghế xoay giám đốc da PU",
-          specs: "Ghế xoay chân nhôm 5 chấu, đệm da PU cao cấp, tay vịn điều chỉnh, tựa lưng ergonomic",
-          entryDate: "2025-08-03",
-          unit: "Chiếc",
-          quantity: 20,
-          purchasePackage: 2,
-          type: AssetType.CCDC,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "3331",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "nguyen.minh",
-          createdAt: "2025-08-03T08:00:00Z",
-          updatedAt: "2025-08-16T14:15:00Z",
-          category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" }
-        }
-      },
-      {
-        id: "ITM-2025-006",
-        transactionId: "TXN-2025-002",
-        assetId: "CABINET-001",
-        note: "Tủ hồ sơ cao cấp - Khóa điện tử, chống cháy, chống ẩm",
-        asset: {
-          id: "CABINET-001",
-          ktCode: "25-0006/KT",
-          fixedCode: "3332.00001",
-          name: "Tủ hồ sơ thép 4 ngăn cao cấp",
-          specs: "Tủ thép sơn tĩnh điện, 4 ngăn có khóa, kích thước 90x45x132cm, chống cháy 60 phút",
-          entryDate: "2025-08-05",
-          unit: "Chiếc",
-          quantity: 8,
-          purchasePackage: 2,
-          type: AssetType.CCDC,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "3332",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "nguyen.minh",
-          createdAt: "2025-08-05T08:00:00Z",
-          updatedAt: "2025-08-16T14:15:00Z",
-          category: { id: "3332", name: "Tủ, kệ văn phòng", code: "3332" }
-        }
-      }
-    ]
-  },
-  {
-    id: "TXN-2025-003",
-    type: TransactionType.TRANSFER,
-    fromUnitId: "PKHDTU",
-    toUnitId: "PQT",
-    createdBy: "Lê Thị Hương",
-    createdAt: "2025-08-17T10:45:00Z",
-    status: TransactionStatus.PENDING,
-    note: "Bàn giao thiết bị phòng thí nghiệm - Khoa Công nghệ Thông tin",
-    fromUnit: {
-      id: "PKHDTU",
-      name: "Phòng Kế Hoạch Đầu Tư",
-      type: UnitType.PHONG_KE_HOACH_DAU_TU,
-      status: UnitStatus.ACTIVE,
-      representativeId: "le.huong",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    toUnit: {
-      id: "PQT",
-      name: "Phòng Quản Trị",
-      type: UnitType.PHONG_QUAN_TRI,
-      status: UnitStatus.ACTIVE,
-      representativeId: "tran.ha",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    items: [
-      {
-        id: "ITM-2025-007",
-        transactionId: "TXN-2025-003",
-        assetId: "PROJECTOR-001",
-        note: "Máy chiếu laser 4K - Độ phân giải cao, độ sáng 4000 lumens, kèm màn chiếu điện",
-        asset: {
-          id: "PROJECTOR-001",
-          ktCode: "25-0007/KT",
-          fixedCode: "2191.00001",
-          name: "Máy chiếu laser Epson EB-L200X",
-          specs: "Laser 3LCD, 4200 lumens, độ phân giải XGA 1024x768, tuổi thọ laser 20.000h, HDMI/VGA",
-          entryDate: "2025-08-10",
-          unit: "Chiếc",
-          quantity: 1,
-          purchasePackage: 3,
-          type: AssetType.TSCD,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "2191",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "le.huong",
-          createdAt: "2025-08-10T08:00:00Z",
-          updatedAt: "2025-08-17T10:45:00Z",
-          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" }
-        }
-      },
-      {
-        id: "ITM-2025-008",
-        transactionId: "TXN-2025-003",
-        assetId: "SCREEN-001",
-        note: "Màn chiếu điện tự động - Kích thước lớn 120 inch, điều khiển từ xa",
-        asset: {
-          id: "SCREEN-001",
-          ktCode: "25-0008/KT",
-          fixedCode: "2191.00002",
-          name: "Màn chiếu điện Dalite 120 inch",
-          specs: "Màn chiếu treo tường tự động 120\", tỷ lệ 16:9, vải sợi thủy tinh trắng, có điều khiển",
-          entryDate: "2025-08-10",
-          unit: "Chiếc",
-          quantity: 3,
-          purchasePackage: 3,
-          type: AssetType.CCDC,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "2191",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "le.huong",
-          createdAt: "2025-08-10T08:00:00Z",
-          updatedAt: "2025-08-17T10:45:00Z",
-          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" }
-        }
-      },
-      {
-        id: "ITM-2025-009",
-        transactionId: "TXN-2025-003",
-        assetId: "SPEAKER-001",
-        note: "Hệ thống loa hội nghị - Âm thanh chất lượng cao, micro không dây kèm theo",
-        asset: {
-          id: "SPEAKER-001",
-          ktCode: "25-0009/KT",
-          fixedCode: "2191.00003",
-          name: "Hệ thống âm thanh hội nghị TOA",
-          specs: "Bộ loa âm trần 6W x 6 chiếc, amply trung tâm 120W, micro không dây UHF 2 chiếc",
-          entryDate: "2025-08-12",
-          unit: "Bộ",
-          quantity: 1,
-          purchasePackage: 3,
-          type: AssetType.TSCD,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "2191",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "le.huong",
-          createdAt: "2025-08-12T08:00:00Z",
-          updatedAt: "2025-08-17T10:45:00Z",
-          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" }
-        }
-      },
-      {
-        id: "ITM-2025-010",
-        transactionId: "TXN-2025-003",
-        assetId: "SERVER-001",
-        note: "Server Dell PowerEdge - Cấu hình cao cho phòng thí nghiệm, đã cài sẵn hệ điều hành",
-        asset: {
-          id: "SERVER-001",
-          ktCode: "25-0010/KT",
-          fixedCode: "2143.00001",
-          name: "Máy chủ Dell PowerEdge R450",
-          specs: "Intel Xeon Silver 4314, 32GB DDR4 ECC RAM, 2x1TB SAS HDD RAID1, iDRAC9, 2x550W PSU",
-          entryDate: "2025-08-14",
-          unit: "Chiếc",
-          quantity: 1,
-          purchasePackage: 3,
-          type: AssetType.TSCD,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "2143",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "le.huong",
-          createdAt: "2025-08-14T08:00:00Z",
-          updatedAt: "2025-08-17T10:45:00Z",
-          category: { id: "2143", name: "Máy chủ, thiết bị mạng", code: "2143" }
-        }
-      }
-    ]
-  },
-  {
-    id: "TXN-2025-002",
-    type: TransactionType.TRANSFER,
-    fromUnitId: "PKHDTU",
-    toUnitId: "PQT",
-    createdBy: "Nguyễn Văn Minh",
-    createdAt: "2025-08-16T14:15:00Z",
-    status: TransactionStatus.PENDING,
-    note: "Bàn giao nội thất văn phòng đợt 2 - Trang bị phòng họp mới",
-    fromUnit: {
-      id: "PKHDTU",
-      name: "Phòng Kế Hoạch Đầu Tư",
-      type: UnitType.PHONG_KE_HOACH_DAU_TU,
-      status: UnitStatus.ACTIVE,
-      representativeId: "nguyen.minh",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    toUnit: {
-      id: "PQT",
-      name: "Phòng Quản Trị",
-      type: UnitType.PHONG_QUAN_TRI,
-      status: UnitStatus.ACTIVE,
-      representativeId: "tran.ha",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    items: [
-      {
-        id: "ITM-2025-004",
-        transactionId: "TXN-2025-002",
-        assetId: "TABLE-001",
-        note: "Bàn họp oval gỗ cao cấp - Thiết kế hiện đại, có hệ thống điện tích hợp",
-        asset: {
-          id: "TABLE-001",
-          ktCode: "25-0004/KT",
-          fixedCode: "3331.00001",
-          name: "Bàn họp oval gỗ MFC",
-          specs: "Kích thước 240x120x75cm, mặt gỗ MFC phủ Melamine, chân inox 304, có ổ cắm điện tích hợp",
-          entryDate: "2025-08-01",
-          unit: "Chiếc",
-          quantity: 2,
-          purchasePackage: 2,
-          type: AssetType.CCDC,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "3331",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "nguyen.minh",
-          createdAt: "2025-08-01T08:00:00Z",
-          updatedAt: "2025-08-16T14:15:00Z",
-          category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" }
-        }
-      },
-      {
-        id: "ITM-2025-005",
-        transactionId: "TXN-2025-002",
-        assetId: "CHAIR-001",
-        note: "Ghế xoay cao cấp - Thiết kế ergonomic, đệm da PU",
-        asset: {
-          id: "CHAIR-001",
-          ktCode: "25-0005/KT",
-          fixedCode: "3331.00002",
-          name: "Ghế xoay giám đốc da PU",
-          specs: "Ghế xoay chân nhôm 5 chấu, đệm da PU cao cấp, tay vịn điều chỉnh, tựa lưng ergonomic",
-          entryDate: "2025-08-03",
-          unit: "Chiếc",
-          quantity: 20,
-          purchasePackage: 2,
-          type: AssetType.CCDC,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "3331",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "nguyen.minh",
-          createdAt: "2025-08-03T08:00:00Z",
-          updatedAt: "2025-08-16T14:15:00Z",
-          category: { id: "3331", name: "Bàn ghế văn phòng", code: "3331" }
-        }
-      },
-      {
-        id: "ITM-2025-006",
-        transactionId: "TXN-2025-002",
-        assetId: "CABINET-001",
-        note: "Tủ hồ sơ cao cấp - Khóa điện tử, chống cháy, chống ẩm",
-        asset: {
-          id: "CABINET-001",
-          ktCode: "25-0006/KT",
-          fixedCode: "3332.00001",
-          name: "Tủ hồ sơ thép 4 ngăn cao cấp",
-          specs: "Tủ thép sơn tĩnh điện, 4 ngăn có khóa, kích thước 90x45x132cm, chống cháy 60 phút",
-          entryDate: "2025-08-05",
-          unit: "Chiếc",
-          quantity: 8,
-          purchasePackage: 2,
-          type: AssetType.CCDC,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "3332",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "nguyen.minh",
-          createdAt: "2025-08-05T08:00:00Z",
-          updatedAt: "2025-08-16T14:15:00Z",
-          category: { id: "3332", name: "Tủ, kệ văn phòng", code: "3332" }
-        }
-      }
-    ]
-  },
-  {
-    id: "TXN-2025-003",
-    type: TransactionType.TRANSFER,
-    fromUnitId: "PKHDTU",
-    toUnitId: "PQT",
-    createdBy: "Lê Thị Hương",
-    createdAt: "2025-08-17T10:45:00Z",
-    status: TransactionStatus.PENDING,
-    note: "Bàn giao thiết bị phòng thí nghiệm - Khoa Công nghệ Thông tin",
-    fromUnit: {
-      id: "PKHDTU",
-      name: "Phòng Kế Hoạch Đầu Tư",
-      type: UnitType.PHONG_KE_HOACH_DAU_TU,
-      status: UnitStatus.ACTIVE,
-      representativeId: "le.huong",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    toUnit: {
-      id: "PQT",
-      name: "Phòng Quản Trị",
-      type: UnitType.PHONG_QUAN_TRI,
-      status: UnitStatus.ACTIVE,
-      representativeId: "tran.ha",
-      createdBy: "admin",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    items: [
-      {
-        id: "ITM-2025-007",
-        transactionId: "TXN-2025-003",
-        assetId: "PROJECTOR-001",
-        note: "Máy chiếu laser 4K - Độ phân giải cao, độ sáng 4000 lumens, kèm màn chiếu điện",
-        asset: {
-          id: "PROJECTOR-001",
-          ktCode: "25-0007/KT",
-          fixedCode: "2191.00001",
-          name: "Máy chiếu laser Epson EB-L200X",
-          specs: "Laser 3LCD, 4200 lumens, độ phân giải XGA 1024x768, tuổi thọ laser 20.000h, HDMI/VGA",
-          entryDate: "2025-08-10",
-          unit: "Chiếc",
-          quantity: 1,
-          purchasePackage: 3,
-          type: AssetType.TSCD,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "2191",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "le.huong",
-          createdAt: "2025-08-10T08:00:00Z",
-          updatedAt: "2025-08-17T10:45:00Z",
-          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" }
-        }
-      },
-      {
-        id: "ITM-2025-008",
-        transactionId: "TXN-2025-003",
-        assetId: "SCREEN-001",
-        note: "Màn chiếu điện tự động - Kích thước lớn 120 inch, điều khiển từ xa",
-        asset: {
-          id: "SCREEN-001",
-          ktCode: "25-0008/KT",
-          fixedCode: "2191.00002",
-          name: "Màn chiếu điện Dalite 120 inch",
-          specs: "Màn chiếu treo tường tự động 120\", tỷ lệ 16:9, vải sợi thủy tinh trắng, có điều khiển",
-          entryDate: "2025-08-10",
-          unit: "Chiếc",
-          quantity: 3,
-          purchasePackage: 3,
-          type: AssetType.CCDC,
-          isLocked: false,
-          isHandOver: false,
-          categoryId: "2191",
-          status: AssetStatus.CHO_PHAN_BO,
-          createdBy: "le.huong",
-          createdAt: "2025-08-10T08:00:00Z",
-          updatedAt: "2025-08-17T10:45:00Z",
-          category: { id: "2191", name: "Thiết bị nghe nhìn", code: "2191" }
         }
       }
     ]
@@ -615,27 +176,8 @@ export default function TransactionDetailPage() {
     setTransaction(foundTransaction || null);
   }, [transactionId]);
 
-  const handleSelectAsset = (assetId: string) => {
-    setSelectedAssets(prev =>
-      prev.includes(assetId)
-        ? prev.filter(id => id !== assetId)
-        : [...prev, assetId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (!transaction?.items) return;
-
-    if (selectedAssets.length === transaction.items.length) {
-      setSelectedAssets([]);
-    } else {
-      setSelectedAssets(transaction.items.map(item => item.assetId));
-    }
-  };
-
   const handleReceiveTransaction = () => {
-
-      alert("Tiếp nhận bàn giao thành công! Tài sản đã sẵn sàng để phân bổ.");
+    alert("Tiếp nhận bàn giao thành công! Tài sản đã sẵn sàng để phân bổ.");
   };
 
   const handleRejectTransaction = () => {
@@ -687,6 +229,72 @@ export default function TransactionDetailPage() {
     if (specs.length <= maxLength) return specs;
     return specs.substring(0, maxLength) + '...';
   };
+
+  // Define table columns for assets
+  const columns: TableColumn[] = [
+    {
+      key: "info",
+      title: "Thông tin tài sản",
+      render: (_, item: any) => (
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-10 w-10">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
+              <Package2 className="h-5 w-5 text-white" />
+            </div>
+          </div>
+          <div className="ml-3 min-w-0 flex-1">
+            <div className="text-sm font-medium text-gray-900 break-words">
+              {item.asset?.name}
+            </div>
+            <div className="text-sm text-gray-500" title={item.asset?.specs}>
+              {truncateSpecs(item.asset?.specs || '', 50)}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "codes",
+      title: "Mã tài sản",
+      render: (_, item: any) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">
+            {item.asset?.ktCode}
+          </div>
+          <div className="text-sm text-gray-500">
+            {item.asset?.fixedCode}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "type",
+      title: "Loại",
+      render: (_, item: any) => (
+        <Badge className={typeColors[item.asset?.type as keyof typeof typeColors]}>
+          {typeLabels[item.asset?.type as keyof typeof typeLabels]}
+        </Badge>
+      ),
+    },
+    {
+      key: "quantity",
+      title: "Số lượng",
+      render: (_, item: any) => (
+        <span className="text-sm font-medium text-gray-900">
+          {item.asset?.quantity} {item.asset?.unit}
+        </span>
+      ),
+    },
+    {
+      key: "note",
+      title: "Ghi chú",
+      render: (_, item: any) => (
+        <div className="text-sm text-gray-500 truncate max-w-xs" title={item.note || "Không có ghi chú"}>
+          {item.note || "Không có ghi chú"}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-4 md:space-y-6 px-4 md:px-0">
@@ -838,7 +446,7 @@ export default function TransactionDetailPage() {
         </div>
       </div>
 
-      {/* Assets List */}
+      {/* Assets List using Table component */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-4 md:p-6 border-b border-gray-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0">
@@ -855,87 +463,21 @@ export default function TransactionDetailPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px]">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thông tin tài sản
-                </th>
-                <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Mã tài sản
-                </th>
-                <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Loại
-                </th>
-                <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Số lượng
-                </th>
-                <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ghi chú
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {transaction.items?.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-4 md:px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
-                          <Package2 className="h-5 w-5 text-white" />
-                        </div>
-                      </div>
-                      <div className="ml-3 min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-900 break-words">
-                          {item.asset?.name}
-                        </div>
-                        <div className="text-sm text-gray-500" title={item.asset?.specs}>
-                          {truncateSpecs(item.asset?.specs || '', 30)}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 md:px-6 py-4">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {item.asset?.ktCode}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {item.asset?.fixedCode}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 md:px-6 py-4">
-                    <Badge className={typeColors[item.asset?.type as keyof typeof typeColors]}>
-                      {typeLabels[item.asset?.type as keyof typeof typeLabels]}
-                    </Badge>
-                  </td>
-                  <td className="px-4 md:px-6 py-4">
-                    <span className="text-sm font-medium text-gray-900">
-                      {item.asset?.quantity} {item.asset?.unit}
-                    </span>
-                  </td>
-                  <td className="px-4 md:px-6 py-4">
-                    <div className="text-sm text-gray-500 truncate max-w-xs" title={item.note || "Không có ghi chú"}>
-                      {item.note || "Không có ghi chú"}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="p-0">
+          <Table
+            columns={columns}
+            data={transaction.items || []}
+            emptyText="Không có tài sản nào"
+            emptyIcon={<Package2 className="mx-auto h-12 w-12 text-gray-400" />}
+            rowKey="id"
+            rowSelection={{
+              selectedRowKeys: selectedAssets,
+              onChange: (selectedRowKeys) => {
+                setSelectedAssets(selectedRowKeys);
+              },
+            }}
+          />
         </div>
-
-        {(!transaction.items || transaction.items.length === 0) && (
-          <div className="text-center py-12">
-            <Package2 className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Không có tài sản</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Bàn giao này không chứa tài sản nào.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

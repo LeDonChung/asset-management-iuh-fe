@@ -5,7 +5,9 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/contexts/RoleContext";
- 
+import ChangePasswordModal from "@/components/modal/ChangePasswordModal";
+import PersonalInfoModal from "@/components/modal/PersonalInfoModal";
+import toast from "react-hot-toast";
 
 import {
   LayoutDashboard,
@@ -46,19 +48,14 @@ const getNavigationByRole = (userRole: string) => {
           roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU"],
         },
         {
-          name: "Tiếp nhận tài sản",
+          name: "Tiếp nhận bàn giao",
           href: "/asset/receive",
           roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
         },
         {
-          name: "Bàn giao tài sản",
-          href: "/asset/transfer",
+          name: "Lịch sử bàn giao",
+          href: "/asset/history-transfer",
           roles: ["SUPER_ADMIN", "ADMIN", "PHONG_KE_HOACH_DAU_TU"],
-        },
-        {
-          name: "Phân bổ tài sản",
-          href: "/asset/allocate",
-          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
         },
         {
           name: "Sổ tài sản",
@@ -390,7 +387,13 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
 });
 
 // Topbar
-function Topbar() {
+function Topbar({ 
+  onShowPersonalInfo, 
+  onShowChangePassword 
+}: { 
+  onShowPersonalInfo: () => void;
+  onShowChangePassword: () => void;
+}) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -448,13 +451,13 @@ function Topbar() {
               <div className="h-px bg-gray-100" />
               <button
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                onClick={() => { setIsMenuOpen(false); router.push('/profile'); }}
+                onClick={() => { setIsMenuOpen(false); onShowPersonalInfo(); }}
               >
                 Thông tin cá nhân
               </button>
               <button
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                onClick={() => { setIsMenuOpen(false); router.push('/change-password'); }}
+                onClick={() => { setIsMenuOpen(false); onShowChangePassword(); }}
               >
                 Đổi mật khẩu
               </button>
@@ -480,6 +483,9 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [showPersonalInfoModal, setShowPersonalInfoModal] = useState(false);
+  const [isLoadingAction, setIsLoadingAction] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -511,6 +517,45 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const handleLogout = async () => {
     logout();
+  };
+
+  // Modal handlers
+  const handleChangePassword = async (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
+    setIsLoadingAction(true);
+    try {
+      // TODO: Implement API call to change password
+      console.log('Changing password:', data);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      toast.success('Mật khẩu đã được cập nhật thành công!');
+      setShowChangePasswordModal(false);
+    } catch (error) {
+      toast.error('Có lỗi xảy ra khi cập nhật mật khẩu. Vui lòng thử lại.');
+      console.error('Change password error:', error);
+    } finally {
+      setIsLoadingAction(false);
+    }
+  };
+
+  const handleUpdatePersonalInfo = async (data: { fullName: string; email: string; phone: string; dateOfBirth: string }) => {
+    setIsLoadingAction(true);
+    try {
+      // TODO: Implement API call to update personal info
+      console.log('Updating personal info:', data);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      toast.success('Thông tin cá nhân đã được cập nhật thành công!');
+      setShowPersonalInfoModal(false);
+    } catch (error) {
+      toast.error('Có lỗi xảy ra khi cập nhật thông tin. Vui lòng thử lại.');
+      console.error('Update personal info error:', error);
+    } finally {
+      setIsLoadingAction(false);
+    }
   };
 
   useEffect(() => {
@@ -637,7 +682,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Main content */}
         <div className="flex flex-col w-0 flex-1 overflow-hidden">
           {/* Top bar */}
-          <Topbar />
+          <Topbar 
+            onShowPersonalInfo={() => setShowPersonalInfoModal(true)}
+            onShowChangePassword={() => setShowChangePasswordModal(true)}
+          />
           {/* Page content */}
           <main className="flex-1 relative overflow-y-auto focus:outline-none">
             <div className="py-8">
@@ -647,6 +695,27 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </main>
         </div>
+
+        {/* Modals */}
+        <ChangePasswordModal
+          isOpen={showChangePasswordModal}
+          onClose={() => setShowChangePasswordModal(false)}
+          onSubmit={handleChangePassword}
+          loading={isLoadingAction}
+        />
+
+        <PersonalInfoModal
+          isOpen={showPersonalInfoModal}
+          onClose={() => setShowPersonalInfoModal(false)}
+          onSubmit={handleUpdatePersonalInfo}
+          initialData={{
+            fullName: user?.fullName || "",
+            email: user?.email || "",
+            phone: user?.phoneNumber || "",
+            dateOfBirth: user?.birthDate || ""
+          }}
+          loading={isLoadingAction}
+        />
       </div>
     );
   }
