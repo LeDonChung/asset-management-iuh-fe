@@ -151,11 +151,16 @@ export enum RoomStatus {
 
 export interface Room {
   id: string;
+  name: string;
   building?: string; // Tòa
   floor: string; // Tầng
   roomNumber?: string; // Số phòng / tên phòng
+  adjacentRooms?: string[]; // Danh sách ID các phòng cạnh bên
   status: RoomStatus;
   unitId: string; // Mã đơn vị sử dụng
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
   unit?: Unit;
 }
 

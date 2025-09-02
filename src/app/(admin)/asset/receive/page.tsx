@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Filter,
   X,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -29,7 +30,6 @@ import AdvancedFilter, {
   FilterCondition,
   AdvancedFilterState,
 } from "@/components/filter/AdvancedFilter";
-import { Pagination } from "@/components/ui/pagination";
 import { Table, TableColumn } from "@/components/ui/table";
 
 // Mock data cho demo - danh sách bàn giao từ ban kế hoạch đầu tư
@@ -1177,6 +1177,9 @@ export default function AssetReceivePage() {
     []
   );
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+
   // Advanced Filter states
   const [filterConditions, setFilterConditions] = useState<FilterCondition[]>(
     []
@@ -1188,7 +1191,8 @@ export default function AssetReceivePage() {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [sortConfigs, setSortConfigs] = useState<any[]>([]);
 
   // Filter options for AdvancedFilter
   const filterOptions = [
@@ -1220,10 +1224,24 @@ export default function AssetReceivePage() {
     { value: "not_contains", label: "Không" },
   ];
 
-  // Filter transactions based on advanced filter conditions
+  // Filter transactions based on search and advanced filter conditions
   useEffect(() => {
     let filtered = transactions;
 
+    // Apply search filter first
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (transaction) =>
+          transaction.id.toLowerCase().includes(searchLower) ||
+          transaction.note?.toLowerCase().includes(searchLower) ||
+          transaction.createdBy.toLowerCase().includes(searchLower) ||
+          transaction.fromUnit?.name.toLowerCase().includes(searchLower) ||
+          transaction.toUnit?.name.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply advanced filters
     if (filterConditions.length > 0) {
       filtered = filtered.filter((transaction) => {
         const conditionResults = filterConditions.map((condition) => {
@@ -1300,22 +1318,17 @@ export default function AssetReceivePage() {
     }
 
     setFilteredTransactions(filtered);
-  }, [transactions, filterConditions, conditionLogic]);
-
-  const handleSelectTransaction = (transactionId: string) => {
-    setSelectedTransactions((prev) =>
-      prev.includes(transactionId)
-        ? prev.filter((id) => id !== transactionId)
-        : [...prev, transactionId]
-    );
-  };
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [transactions, searchQuery, filterConditions, conditionLogic]);
 
   const handleResetFilters = () => {
     setFilterConditions([]);
     setConditionLogic("contains");
+    setSearchQuery("");
+    setCurrentPage(1);
   };
 
-  const hasActiveFilters = filterConditions.some(
+  const hasActiveFilters = searchQuery || filterConditions.some(
     (c) =>
       c.value && (Array.isArray(c.value) ? c.value.length > 0 : c.value !== "")
   );
@@ -1335,51 +1348,125 @@ export default function AssetReceivePage() {
     setCurrentPage(page);
   };
 
+  // Handle sort change
+  const handleSortChange = (newSortConfigs: any[]) => {
+    console.log('Sort changed:', newSortConfigs);
+    setSortConfigs(newSortConfigs);
+  };
+
+  // Handle bulk actions
+  const handleBulkReceive = () => {
+    if (selectedTransactions.length === 0) {
+      alert("Vui lòng chọn ít nhất một bàn giao để tiếp nhận!");
+      return;
+    }
+
+    // Simulate receiving transactions
+    const updatedTransactions = transactions.map(transaction =>
+      selectedTransactions.includes(transaction.id)
+        ? { ...transaction, status: TransactionStatus.APPROVED, approvedAt: new Date().toISOString() }
+        : transaction
+    );
+
+    setTransactions(updatedTransactions);
+    setSelectedTransactions([]);
+    alert(`Đã tiếp nhận thành công ${selectedTransactions.length} bàn giao!`);
+  };
+
+  // Handle individual actions
+  const handleViewDetail = (transaction: AssetTransaction) => {
+    // Navigate to detail page or open modal
+    console.log("View detail:", transaction);
+  };
+
+  const handleApprove = (transactionId: string) => {
+    const updatedTransactions = transactions.map(transaction =>
+      transaction.id === transactionId
+        ? { ...transaction, status: TransactionStatus.APPROVED, approvedAt: new Date().toISOString() }
+        : transaction
+    );
+
+    setTransactions(updatedTransactions);
+    alert("Đã duyệt bàn giao thành công!");
+  };
+
+  const handleReject = (transactionId: string) => {
+    const reason = prompt("Lý do từ chối:");
+    if (reason) {
+      const updatedTransactions = transactions.map(transaction =>
+        transaction.id === transactionId
+          ? { ...transaction, status: TransactionStatus.REJECTED, rejectedAt: new Date().toISOString(), rejectionReason: reason }
+          : transaction
+      );
+
+      setTransactions(updatedTransactions);
+      alert("Đã từ chối bàn giao!");
+    }
+  };
+
   // Define table columns
   const columns: TableColumn<AssetTransaction>[] = [
     {
       key: "info",
       title: "Thông tin bàn giao",
+      width: "300px",
+      minWidth: 250,
+      maxWidth: 400,
       render: (_, transaction) => (
-        <div className="flex items-center">
-          <div className="flex-shrink-0 h-10 w-10">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
-              <Package2 className="h-5 w-5 text-white" />
-            </div>
-          </div>
-          <div className="ml-3">
-            <div className="text-sm font-medium text-gray-900">
-              {transaction.note}
-            </div>
-            <div className="text-sm text-gray-500">
-              {transaction.id}
-            </div>
+        <div>
+          <div className="text-sm font-medium text-gray-900">
+            {transaction.note || "Không có ghi chú"}
           </div>
         </div>
       ),
+      sortable: true,
+    },
+    {
+      key: "fromUnit",
+      title: "Đơn vị gửi",
+      width: "200px",
+      minWidth: 150,
+      maxWidth: 250,
+      render: (_, transaction) => (
+        <div className="text-sm text-gray-500">
+          {transaction.fromUnit?.name || "N/A"}
+        </div>
+      ),
+      sortable: true,
     },
     {
       key: "itemCount",
       title: "Số lượng tài sản",
+      width: "150px",
+      minWidth: 120,
+      maxWidth: 180,
       render: (_, transaction) => (
         <Badge className="bg-purple-100 text-purple-800">
           {transaction.items?.length || 0} tài sản
         </Badge>
       ),
+      sortable: true,
     },
     {
       key: "createdAt",
       title: "Ngày gửi",
+      width: "120px",
+      minWidth: 100,
+      maxWidth: 150,
       render: (_, transaction) => (
         <div className="flex items-center text-sm text-gray-500">
           <Calendar className="h-4 w-4 mr-1" />
           {new Date(transaction.createdAt).toLocaleDateString("vi-VN")}
         </div>
       ),
+      sortable: true,
     },
     {
       key: "status",
       title: "Trạng thái",
+      width: "140px",
+      minWidth: 120,
+      maxWidth: 180,
       render: (_, transaction) => (
         <Badge
           className={
@@ -1395,10 +1482,15 @@ export default function AssetReceivePage() {
           }
         </Badge>
       ),
+      sortable: true,
     },
     {
       key: "actions",
       title: "Thao tác",
+      width: "180px",
+      minWidth: 160,
+      maxWidth: 220,
+      resizable: false,
       render: (_, transaction) => (
         <div className="flex items-center space-x-2">
           <Link
@@ -1408,14 +1500,17 @@ export default function AssetReceivePage() {
           >
             <Eye className="h-4 w-4" />
           </Link>
-          {!(transaction.status === TransactionStatus.APPROVED) && (
-            <Link
-              href={`/asset/receive/${transaction.id}`}
-              className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center"
-              title="Tiếp nhận"
-            >
-              <CheckCircle className="h-4 w-4" />
-            </Link>
+          {transaction.status === TransactionStatus.PENDING && (
+            <>
+
+              <Link
+                href={`/asset/receive/${transaction.id}/approve`}
+                className="p-1.5 text-green-600 hover:bg-green-100 rounded-lg transition-colors flex items-center justify-center"
+                title="Duyệt"
+              >
+                <CheckCircle className="h-4 w-4" />
+              </Link>
+            </>
           )}
         </div>
       ),
@@ -1441,32 +1536,6 @@ export default function AssetReceivePage() {
     }
   };
 
-  const handleBulkReceive = () => {
-    if (selectedTransactions.length === 0) return;
-
-    if (
-      confirm(
-        `Bạn có chắc chắn muốn tiếp nhận ${selectedTransactions.length} bàn giao đã chọn?`
-      )
-    ) {
-      setTransactions((prev) =>
-        prev.map((transaction) =>
-          selectedTransactions.includes(transaction.id)
-            ? {
-              ...transaction,
-              status: TransactionStatus.APPROVED,
-              approvedAt: new Date().toISOString(),
-              approvedBy: "current_user",
-            }
-            : transaction
-        )
-      );
-
-      setSelectedTransactions([]);
-      alert(`Đã tiếp nhận thành công ${selectedTransactions.length} bàn giao!`);
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1478,6 +1547,28 @@ export default function AssetReceivePage() {
           <p className="text-gray-600">
             Tiếp nhận danh sách bàn giao tài sản từ ban kế hoạch đầu tư
           </p>
+        </div>
+      </div>
+
+      {/* Quick Search */}
+      <div className="bg-white p-4 rounded-xl border border-gray-200">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            type="text"
+            placeholder="Tìm kiếm theo mã bàn giao, nội dung, người tạo hoặc đơn vị gửi..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-4 py-2 w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1498,112 +1589,81 @@ export default function AssetReceivePage() {
         onReset={handleResetFilters}
       />
 
-      {/* Pagination */}
-      {filteredTransactions.length > 0 && totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Hiển thị{" "}
-                <span className="font-medium">{startIndex + 1}</span> -{" "}
-                <span className="font-medium">
-                  {Math.min(endIndex, filteredTransactions.length)}
-                </span>{" "}
-                trong tổng số{" "}
-                <span className="font-medium">{filteredTransactions.length}</span> bàn giao
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-700">Hiển thị:</span>
-                <select className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                  <option value={10} className="text-gray-900">
-                    10
-                  </option>
-                  <option value={20} className="text-gray-900">
-                    20
-                  </option>
-                  <option value={50} className="text-gray-900">
-                    50
-                  </option>
-                </select>
-              </div>
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-              />
-            </div>
-          </div>
-          <div className="flex-1 flex justify-between sm:hidden">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              Trước
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Sau
-            </Button>
-          </div>
-        </div>
-      )}
-      {/* Filter Results Summary */}
+      {/* Filter Results Info */}
       {hasActiveFilters && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                Hiển thị {filteredTransactions.length} kết quả
-                {totalPages > 1 && ` (Trang ${currentPage}/${totalPages})`}
-              </span>
-              <div className="flex items-center space-x-2">
-                {filterConditions.map((condition, index) => {
-                  if (
-                    !condition.value ||
-                    (Array.isArray(condition.value) &&
-                      condition.value.length === 0)
-                  ) {
-                    return null;
-                  }
-
-                  const fieldOption = filterOptions.find(
-                    (opt) => opt.value === condition.field
-                  );
-                  const operatorOption = operatorOptions.find(
-                    (opt) => opt.value === condition.operator
-                  );
-
-                  return (
-                    <Badge key={index} className="bg-blue-100 text-blue-800">
-                      {fieldOption?.label}: {operatorOption?.label}{" "}
-                      {Array.isArray(condition.value)
-                        ? condition.value.join(", ")
-                        : condition.value}
-                    </Badge>
-                  );
-                })}
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
+                <Filter className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">
+                  Kết quả lọc: {filteredTransactions.length} / {transactions.length} bàn giao
+                </span>
               </div>
+              {searchQuery && (
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs text-blue-700">Từ khóa:</span>
+                  <Badge variant="outline" className="text-blue-700 border-blue-300">
+                    "{searchQuery}"
+                  </Badge>
+                </div>
+              )}
+              {filterConditions.length > 0 && (
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs text-blue-700">Điều kiện:</span>
+                  <Badge variant="outline" className="text-blue-700 border-blue-300">
+                    {filterConditions.length} bộ lọc
+                  </Badge>
+                </div>
+              )}
             </div>
+            <button
+              onClick={handleResetFilters}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Xóa bộ lọc
+            </button>
           </div>
         </div>
       )}
 
       {/* Transactions Table */}
-      <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200">
         <Table
+          resizable={true}
           columns={columns}
-          data={currentTransactions}
+          multiSort={true}
+          data={filteredTransactions}
+          sortConfigs={sortConfigs}
+          onSortChange={handleSortChange}
+          emptyText={hasActiveFilters
+            ? "Không có bàn giao nào phù hợp với các bộ lọc hiện tại"
+            : "Hiện tại không có bàn giao nào cần tiếp nhận"
+          }
+          emptyIcon={<Package2 className="mx-auto h-12 w-12 text-gray-400" />}
+          rowKey="id"
+          pagination={{
+            current: currentPage,
+            pageSize: itemsPerPage,
+            total: filteredTransactions.length,
+            onChange: (page, pageSize) => {
+              setCurrentPage(page);
+              if (pageSize !== itemsPerPage) {
+                setItemsPerPage(pageSize);
+                setCurrentPage(1); // Reset to first page when page size changes
+              }
+            },
+            showSizeChanger: true,
+            pageSizeOptions: [5, 10, 20, 50, 100]
+          }}
+          rowSelection={{
+            selectedRowKeys: selectedTransactions,
+            onChange: (selectedRowKeys) => {
+              setSelectedTransactions(selectedRowKeys);
+            },
+          }}
           title={
             <div className="flex items-center">
-              <Package2 className="h-6 w-6 mr-2 text-blue-600" />
               Danh sách bàn giao cần tiếp nhận
             </div>
           }
@@ -1619,93 +1679,8 @@ export default function AssetReceivePage() {
               </Button>
             ) : null
           }
-          emptyText={hasActiveFilters
-            ? "Không có bàn giao nào phù hợp với các bộ lọc hiện tại"
-            : "Hiện tại không có bàn giao nào cần tiếp nhận"
-          }
-          emptyIcon={<Package2 className="mx-auto h-12 w-12 text-gray-400" />}
-          rowKey="id"
-          rowSelection={{
-            selectedRowKeys: selectedTransactions,
-            onChange: (selectedRowKeys) => {
-              setSelectedTransactions(selectedRowKeys);
-            },
-          }}
         />
-
-        {/* Empty state with filter reset button */}
-        {filteredTransactions.length === 0 && hasActiveFilters && (
-          <div className="text-center pb-4">
-            <Button
-              onClick={handleResetFilters}
-              variant="outline"
-              size="sm"
-              className="mt-3"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Xóa bộ lọc
-            </Button>
-          </div>
-        )}
       </div>
-
-      {/* Pagination */}
-      {filteredTransactions.length > 0 && totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Hiển thị{" "}
-                <span className="font-medium">{startIndex + 1}</span> -{" "}
-                <span className="font-medium">
-                  {Math.min(endIndex, filteredTransactions.length)}
-                </span>{" "}
-                trong tổng số{" "}
-                <span className="font-medium">{filteredTransactions.length}</span> bàn giao
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-700">Hiển thị:</span>
-                <select className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                  <option value={10} className="text-gray-900">
-                    10
-                  </option>
-                  <option value={20} className="text-gray-900">
-                    20
-                  </option>
-                  <option value={50} className="text-gray-900">
-                    50
-                  </option>
-                </select>
-              </div>
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-              />
-            </div>
-          </div>
-          <div className="flex-1 flex justify-between sm:hidden">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              Trước
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Sau
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

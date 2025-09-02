@@ -99,7 +99,7 @@ export class MockDataHelper {
   }
 
   static formatRoomLocation(room: Room): string {
-    return `${room.roomNumber} (${room.building}, ${room.floor})`;
+    return `${room.roomNumber}`;
   }
 
   // Asset Logs
