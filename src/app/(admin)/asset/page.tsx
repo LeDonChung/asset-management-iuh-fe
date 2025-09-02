@@ -32,7 +32,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Pagination } from "@/components/ui/pagination";
 import { Table, TableColumn } from "@/components/ui/table";
 import HandoverForm from "@/components/handover/HandoverForm";
 import AdvancedFilter, { FilterCondition } from "@/components/filter/AdvancedFilter";
@@ -80,6 +79,8 @@ export default function AssetPage() {
   const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
   const [conditionLogic, setConditionLogic] = useState<'contains' | 'equals' | 'not_contains'>('contains');
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [sortConfigs, setSortConfigs] = useState<any[]>([]);
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [handoverData, setHandoverData] = useState<HandoverData>({
     assetId: "",
@@ -91,13 +92,87 @@ export default function AssetPage() {
   // Bulk handover states
   const [isHandoverMode, setIsHandoverMode] = useState(false);
   const [assetsToHandover, setAssetsToHandover] = useState<Asset[]>([]);
-  const itemsPerPage = 10;
   const { getCurrentRole } = useAuth();
 
   // Kiểm tra role
   const isSuperAdmin = getCurrentRole()?.code === "SUPER_ADMIN";
   const isAdmin = getCurrentRole()?.code === "ADMIN";
   const isPhongQuanTri = getCurrentRole()?.code === "PHONG_QUAN_TRI";
+  // Helper function to sort assets
+  const sortAssets = (assets: Asset[], sortConfigs: any[]): Asset[] => {
+    if (sortConfigs.length === 0) return assets;
+
+    return [...assets].sort((a, b) => {
+      // Sort by priority (lowest first)
+      const sortedConfigs = [...sortConfigs].sort((x, y) => x.priority - y.priority);
+      
+      for (const sortConfig of sortedConfigs) {
+        let result = 0;
+        const aVal = (a as any)[sortConfig.key];
+        const bVal = (b as any)[sortConfig.key];
+
+        // Handle different data types
+        if (aVal === bVal) {
+          result = 0;
+        } else if (aVal == null) {
+          result = 1;
+        } else if (bVal == null) {
+          result = -1;
+        } else {
+          // Sort logic for different field types
+          switch (sortConfig.key) {
+            case 'info':
+            case 'name':
+              result = a.name.localeCompare(b.name, 'vi', { numeric: true });
+              break;
+            case 'codes':
+            case 'fixedCode':
+              result = a.fixedCode.localeCompare(b.fixedCode, 'vi', { numeric: true });
+              break;
+            case 'type':
+              const aTypeLabel = typeLabels[a.type as keyof typeof typeLabels];
+              const bTypeLabel = typeLabels[b.type as keyof typeof typeLabels];
+              result = aTypeLabel.localeCompare(bTypeLabel, 'vi');
+              break;
+            case 'category':
+              const aCatName = a.category?.name || '';
+              const bCatName = b.category?.name || '';
+              result = aCatName.localeCompare(bCatName, 'vi');
+              break;
+            case 'location':
+              const aLocation = a.room ? MockDataHelper.formatRoomLocation(a.room) : 
+                (mockRooms.find(r => r.id === a.currentRoomId)?.roomNumber || 'Chưa phân bổ');
+              const bLocation = b.room ? MockDataHelper.formatRoomLocation(b.room) : 
+                (mockRooms.find(r => r.id === b.currentRoomId)?.roomNumber || 'Chưa phân bổ');
+              result = aLocation.localeCompare(bLocation, 'vi');
+              break;
+            case 'entryDate':
+              result = new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime();
+              break;
+            case 'status':
+              const aStatusLabel = statusLabels[a.status as keyof typeof statusLabels];
+              const bStatusLabel = statusLabels[b.status as keyof typeof statusLabels];
+              result = aStatusLabel.localeCompare(bStatusLabel, 'vi');
+              break;
+            default:
+              // Generic string comparison
+              result = String(aVal).localeCompare(String(bVal), 'vi', { numeric: true });
+              break;
+          }
+        }
+
+        // Apply sort order
+        if (sortConfig.order === 'desc') {
+          result = -result;
+        }
+
+        if (result !== 0) return result;
+      }
+      
+      return 0;
+    });
+  };
+
   // Filter assets
   useEffect(() => {
     let filtered = mockAssets.filter((asset) => !asset.deletedAt);
@@ -137,9 +212,12 @@ export default function AssetPage() {
       filtered = filtered.filter((asset) => asset.isHandOver === filter.isHandOver);
     }
 
+    // Apply sorting
+    filtered = sortAssets(filtered, sortConfigs);
+
     setFilteredAssets(filtered);
     setCurrentPage(1); // Reset to first page when filter changes
-  }, [assets, filter, isPhongQuanTri]);
+  }, [assets, filter, isPhongQuanTri, sortConfigs]);
 
   // Update available rooms when unit changes
   useEffect(() => {
@@ -244,13 +322,6 @@ export default function AssetPage() {
     alert("Bàn giao tài sản thành công! Tài sản đã được gửi đến các đơn vị sử dụng.");
   };
 
-
-
-  // Handle page change for pagination
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
   // Filter options for AdvancedFilter
   const filterOptions = [
     {
@@ -344,8 +415,17 @@ export default function AssetPage() {
       }
     }
 
+    // Apply sorting after filtering
+    filtered = sortAssets(filtered, sortConfigs);
+
     setFilteredAssets(filtered);
     setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // Handle sort change
+  const handleSortChange = (newSortConfigs: any[]) => {
+    console.log('Sort changed:', newSortConfigs);
+    setSortConfigs(newSortConfigs);
   };
 
   // Helper function to apply single condition
@@ -494,84 +574,80 @@ export default function AssetPage() {
     setFilter({});
     setFilterConditions([]);
     setConditionLogic('contains');
+    setSortConfigs([]); // Reset sort as well
     setFilteredAssets(assets);
     setCurrentPage(1);
   };
 
-  // Auto-apply search filter
+  // Auto-apply search filter and advanced filters
   React.useEffect(() => {
     applyAdvancedFilters();
-  }, [filter.search, assets]);
+  }, [filter.search, assets, sortConfigs, filterConditions, conditionLogic]);
 
   // Get current page data
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentAssets = filteredAssets.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
-
   // Define table columns
   const columns: TableColumn<Asset>[] = [
     {
       key: "info",
-      title: "Thông tin tài sản",
+      title: "Tên tài sản",
+      width: "250px",
+      minWidth: 200,
+      maxWidth: 350,
       render: (_, asset) => (
-        <div className="flex items-center">
-          <div className="flex-shrink-0 h-10 w-10">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
-              <Package2 className="h-5 w-5 text-white" />
-            </div>
-          </div>
-          <div className="ml-3">
             <div className="text-sm font-medium text-gray-900">
               {asset.name}
-            </div>
-            <div className="text-sm text-gray-500">
-              {asset.specs}
-            </div>
           </div>
-        </div>
       ),
+      sortable: true,
     },
     {
       key: "codes",
       title: "Mã tài sản",
+      width: "100px",
+      minWidth: 120,
+      maxWidth: 200,
       render: (_, asset) => (
         <div>
-          <div className="text-sm text-gray-900">{asset.ktCode}</div>
           <div className="text-sm text-gray-500">{asset.fixedCode}</div>
         </div>
       ),
     },
     {
-      key: "category",
-      title: "Loại/Danh mục",
+      key: "type",
+      title: "Loại tài sản",
+      width: "140px",
+      minWidth: 120,
+      maxWidth: 180,
       render: (_, asset) => (
         <div>
           <div className="text-sm text-gray-900">
             {typeLabels[asset.type as keyof typeof typeLabels]}
           </div>
+        </div>
+      ),
+      sortable: true,
+    },
+    {
+      key: "category",
+      title: "Danh mục",
+      width: "150px",
+      minWidth: 120,
+      maxWidth: 200,
+      render: (_, asset) => (
+        <div>
           <div className="text-sm text-gray-500">
             {asset.category?.name}
           </div>
         </div>
       ),
-    },
-    {
-      key: "status",
-      title: "Trạng thái",
-      render: (_, asset) => (
-        <Badge
-          className={
-            statusColors[asset.status as keyof typeof statusColors]
-          }
-        >
-          {statusLabels[asset.status as keyof typeof statusLabels]}
-        </Badge>
-      ),
+      sortable: true,
     },
     {
       key: "location",
-      title: "Vị trí hiện tại",
+      title: "Vị trí",
+      width: "100px",
+      minWidth: 150,
+      maxWidth: 300,
       render: (_, asset) => (
         <div className="text-sm text-gray-900">
           {asset.currentRoomId ? (
@@ -584,19 +660,45 @@ export default function AssetPage() {
           )}
         </div>
       ),
+      sortable: true,
     },
     {
       key: "entryDate",
       title: "Ngày nhập",
+      width: "120px",
+      minWidth: 100,
+      maxWidth: 150,
       render: (_, asset) => (
         <div className="text-sm text-gray-500">
           {new Date(asset.entryDate).toLocaleDateString("vi-VN")}
         </div>
       ),
+      sortable: true,
+    },
+    {
+      key: "status",
+      title: "Trạng thái",
+      width: "140px",
+      minWidth: 120,
+      maxWidth: 180,
+      render: (_, asset) => (
+        <Badge
+          className={
+            statusColors[asset.status as keyof typeof statusColors]
+          }
+        >
+          {statusLabels[asset.status as keyof typeof statusLabels]}
+        </Badge>
+      ),
+      sortable: true,
     },
     {
       key: "actions",
       title: "Thao tác",
+      width: "180px",
+      minWidth: 160,
+      maxWidth: 220,
+      resizable: false,
       render: (_, asset) => {
         if (isAdmin || isSuperAdmin || isPhongQuanTri) {
           // Admin và Super Admin có thể thực hiện tất cả chức năng
@@ -685,6 +787,28 @@ export default function AssetPage() {
         </div>
       </div>
 
+      {/* Quick Search */}
+      <div className="bg-white p-4 rounded-xl border border-gray-200">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            type="text"
+            placeholder="Tìm kiếm theo tên, mã kế toán hoặc mã tài sản cố định..."
+            value={filter.search || ""}
+            onChange={(e) => setFilter(prev => ({ ...prev, search: e.target.value }))}
+            className="pl-10 pr-4 py-2 w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          {filter.search && (
+            <button
+              onClick={() => setFilter(prev => ({ ...prev, search: "" }))}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Advanced Filter */}
       <AdvancedFilter
         title="Tìm kiếm nâng cao"
@@ -698,102 +822,70 @@ export default function AssetPage() {
         className="mb-6"
       />
 
-
-
-      {/* Bulk Actions */}
-      {selectedAssets.length > 0 && !isHandoverMode && (
+      {/* Filter Results Info */}
+      {(filter.search || filterConditions.length > 0) && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <span className="text-sm text-blue-800">
-                Đã chọn {selectedAssets.length} tài sản
-              </span>
-            </div>
             <div className="flex items-center space-x-2">
-              {(isAdmin || isSuperAdmin) && (
-                <Button
-                  onClick={handleBulkHandover}
-                  size="sm"
-                  className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <ArrowRightLeft className="h-4 w-4 mr-1" />
-                  Bàn giao {selectedAssets.length} tài sản đã chọn
-                </Button>
+              <div className="flex items-center space-x-1">
+                <Filter className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">
+                  Kết quả lọc: {filteredAssets.length} / {assets.length} tài sản
+                </span>
+              </div>
+              {filter.search && (
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs text-blue-700">Từ khóa:</span>
+                  <Badge variant="outline" className="text-blue-700 border-blue-300">
+                    "{filter.search}"
+                  </Badge>
+                </div>
+              )}
+              {filterConditions.length > 0 && (
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs text-blue-700">Điều kiện:</span>
+                  <Badge variant="outline" className="text-blue-700 border-blue-300">
+                    {filterConditions.length} bộ lọc
+                  </Badge>
+                </div>
               )}
             </div>
+            <button
+              onClick={resetFilters}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Xóa bộ lọc
+            </button>
           </div>
         </div>
       )}
 
-      {/* Pagination - Hidden in handover mode */}
-      {!isHandoverMode && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Hiển thị{" "}
-                <span className="font-medium">{indexOfFirstItem + 1}</span> đến{" "}
-                <span className="font-medium">
-                  {Math.min(indexOfLastItem, filteredAssets.length)}
-                </span>{" "}
-                trong tổng số{" "}
-                <span className="font-medium">{filteredAssets.length}</span> tài
-                sản
-              </p>
-
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-700">Hiển thị:</span>
-                <select
-                  className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value={10} className="text-gray-900">
-                    10
-                  </option>
-                  <option value={20} className="text-gray-900">
-                    20
-                  </option>
-                  <option value={50} className="text-gray-900">
-                    50
-                  </option>
-                </select>
-              </div>
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-              />
-            </div>
-          </div>
-          <div className="flex-1 flex justify-between sm:hidden">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              Trước
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Sau
-            </Button>
-          </div>
-        </div>
-      )}
       {/* Assets Table or Handover Form */}
       {!isHandoverMode ? (
         <Table
+          resizable={true}
           columns={columns}
-          data={currentAssets}
+          multiSort={true}
+          data={filteredAssets}
+          sortConfigs={sortConfigs}
+          onSortChange={handleSortChange}
           emptyText="Không có tài sản nào"
           emptyIcon={<Package2 className="mx-auto h-12 w-12 text-gray-400" />}
           rowKey="id"
+          pagination={{
+            current: currentPage,
+            pageSize: itemsPerPage,
+            total: filteredAssets.length,
+            onChange: (page, pageSize) => {
+              setCurrentPage(page);
+              if (pageSize !== itemsPerPage) {
+                setItemsPerPage(pageSize);
+                setCurrentPage(1); // Reset to first page when page size changes
+              }
+            },
+            showSizeChanger: true,
+            pageSizeOptions: [5, 10, 20, 50, 100]
+          }}
           rowSelection={{
             selectedRowKeys: selectedAssets,
             onChange: (selectedRowKeys) => {
@@ -829,69 +921,6 @@ export default function AssetPage() {
           title="Bàn giao tài sản"
         />
       )}
-
-      {/* Pagination - Hidden in handover mode */}
-      {!isHandoverMode && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Hiển thị{" "}
-                <span className="font-medium">{indexOfFirstItem + 1}</span> đến{" "}
-                <span className="font-medium">
-                  {Math.min(indexOfLastItem, filteredAssets.length)}
-                </span>{" "}
-                trong tổng số{" "}
-                <span className="font-medium">{filteredAssets.length}</span> tài
-                sản
-              </p>
-
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-700">Hiển thị:</span>
-                <select
-                  className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value={10} className="text-gray-900">
-                    10
-                  </option>
-                  <option value={20} className="text-gray-900">
-                    20
-                  </option>
-                  <option value={50} className="text-gray-900">
-                    50
-                  </option>
-                </select>
-              </div>
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-              />
-            </div>
-          </div>
-          <div className="flex-1 flex justify-between sm:hidden">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              Trước
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Sau
-            </Button>
-          </div>
-        </div>
-      )}
-
 
     </div>
   );

@@ -169,6 +169,11 @@ export default function TransactionDetailPage() {
 
   const [transaction, setTransaction] = useState<AssetTransaction | null>(null);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+  
+  // Pagination and sorting states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [sortConfigs, setSortConfigs] = useState<any[]>([]);
 
   useEffect(() => {
     // Trong thực tế sẽ gọi API để lấy chi tiết transaction
@@ -176,28 +181,14 @@ export default function TransactionDetailPage() {
     setTransaction(foundTransaction || null);
   }, [transactionId]);
 
-  const handleReceiveTransaction = () => {
-    alert("Tiếp nhận bàn giao thành công! Tài sản đã sẵn sàng để phân bổ.");
+  // Handle sort change
+  const handleSortChange = (newSortConfigs: any[]) => {
+    console.log('Sort changed:', newSortConfigs);
+    setSortConfigs(newSortConfigs);
   };
 
-  const handleRejectTransaction = () => {
-    if (!transaction) return;
-
-    const reason = prompt("Vui lòng nhập lý do từ chối:");
-    if (!reason) return;
-
-    if (confirm("Bạn có chắc chắn muốn từ chối bàn giao này?")) {
-      // Trong thực tế sẽ gọi API để cập nhật trạng thái
-      setTransaction(prev => prev ? {
-        ...prev,
-        status: TransactionStatus.REJECTED,
-        rejectedAt: new Date().toISOString(),
-        rejectedBy: "current_user",
-        rejectionReason: reason
-      } : null);
-
-      alert("Đã từ chối bàn giao.");
-    }
+  const handleReceiveTransaction = () => {
+    alert("Tiếp nhận bàn giao thành công! Tài sản đã sẵn sàng để phân bổ.");
   };
 
   if (!transaction) {
@@ -235,64 +226,86 @@ export default function TransactionDetailPage() {
     {
       key: "info",
       title: "Thông tin tài sản",
+      width: "300px",
+      minWidth: 250,
+      maxWidth: 400,
       render: (_, item: any) => (
-        <div className="flex items-center">
-          <div className="flex-shrink-0 h-10 w-10">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
-              <Package2 className="h-5 w-5 text-white" />
-            </div>
-          </div>
-          <div className="ml-3 min-w-0 flex-1">
-            <div className="text-sm font-medium text-gray-900 break-words">
-              {item.asset?.name}
-            </div>
-            <div className="text-sm text-gray-500" title={item.asset?.specs}>
-              {truncateSpecs(item.asset?.specs || '', 50)}
-            </div>
+        <div>
+          <div className="text-sm font-medium text-gray-900 break-words">
+            {item.asset?.name}
           </div>
         </div>
       ),
+      sortable: true,
     },
     {
       key: "codes",
       title: "Mã tài sản",
+      width: "150px",
+      minWidth: 120,
+      maxWidth: 200,
       render: (_, item: any) => (
         <div>
           <div className="text-sm font-medium text-gray-900">
-            {item.asset?.ktCode}
-          </div>
-          <div className="text-sm text-gray-500">
             {item.asset?.fixedCode}
           </div>
         </div>
       ),
+      sortable: true,
     },
     {
       key: "type",
       title: "Loại",
+      width: "120px",
+      minWidth: 100,
+      maxWidth: 150,
       render: (_, item: any) => (
         <Badge className={typeColors[item.asset?.type as keyof typeof typeColors]}>
           {typeLabels[item.asset?.type as keyof typeof typeLabels]}
         </Badge>
       ),
+      sortable: true,
     },
     {
       key: "quantity",
       title: "Số lượng",
+      width: "100px",
+      minWidth: 80,
+      maxWidth: 120,
       render: (_, item: any) => (
-        <span className="text-sm font-medium text-gray-900">
-          {item.asset?.quantity} {item.asset?.unit}
-        </span>
+          <span className="text-sm font-medium text-gray-900">
+            {item.asset?.quantity} {item.asset?.unit}
+          </span>
       ),
+      sortable: true,
+    },
+    {
+      key: "specs",
+      title: "Thông số",
+      width: "280px",
+      minWidth: 220,
+      maxWidth: 350,
+      render: (_, item: any) => (
+        <div>
+          <div className="text-sm text-gray-900 mb-1" title={item.asset?.specs}>
+            {truncateSpecs(item.asset?.specs || "Không có thông số", 60)}
+          </div>
+        </div>
+      ),
+      sortable: true,
     },
     {
       key: "note",
       title: "Ghi chú",
+      width: "200px",
+      minWidth: 150,
+      maxWidth: 300,
       render: (_, item: any) => (
-        <div className="text-sm text-gray-500 truncate max-w-xs" title={item.note || "Không có ghi chú"}>
-          {item.note || "Không có ghi chú"}
+        <div className="text-sm text-gray-500 max-w-xs" title={item.note || "Không có ghi chú"}>
+          {truncateSpecs(item.note || "Không có ghi chú", 60)}
         </div>
       ),
+      sortable: true,
     },
   ];
 
@@ -403,11 +416,12 @@ export default function TransactionDetailPage() {
         <div className="space-y-3 md:space-y-4">
           <div className="bg-white rounded-lg shadow p-3 md:p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs md:text-sm text-gray-500">Tổng số loại tài sản</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs md:text-sm text-gray-500 truncate">Tổng số loại tài sản</p>
                 <p className="text-xl md:text-2xl font-bold text-gray-900">
                   {transaction.items?.length || 0}
                 </p>
+                <p className="text-xs text-gray-400 mt-1">loại khác nhau</p>
               </div>
               <div className="h-8 w-8 md:h-10 md:w-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Package2 className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
@@ -417,9 +431,10 @@ export default function TransactionDetailPage() {
 
           <div className="bg-white rounded-lg shadow p-3 md:p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs md:text-sm text-gray-500">Tổng số lượng</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs md:text-sm text-gray-500 truncate">Tổng số lượng</p>
                 <p className="text-xl md:text-2xl font-bold text-gray-900">{totalAssets}</p>
+                <p className="text-xs text-gray-400 mt-1">sản phẩm</p>
               </div>
               <div className="h-8 w-8 md:h-10 md:w-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Hash className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
@@ -429,17 +444,19 @@ export default function TransactionDetailPage() {
 
           <div className="bg-white rounded-lg shadow p-3 md:p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs md:text-sm text-gray-500">TSCD</p>
-                <p className="text-base md:text-lg font-semibold text-blue-600">
-                  {transaction.items?.filter(item => item.asset?.type === AssetType.TSCD).length || 0}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-gray-500">CCDC</p>
-                <p className="text-base md:text-lg font-semibold text-green-600">
-                  {transaction.items?.filter(item => item.asset?.type === AssetType.CCDC).length || 0}
-                </p>
+              <div className="grid grid-cols-2 gap-3 flex-1">
+                <div className="text-center">
+                  <p className="text-xs md:text-sm text-gray-500">TSCD</p>
+                  <p className="text-base md:text-lg font-semibold text-blue-600">
+                    {transaction.items?.filter(item => item.asset?.type === AssetType.TSCD).length || 0}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs md:text-sm text-gray-500">CCDC</p>
+                  <p className="text-base md:text-lg font-semibold text-green-600">
+                    {transaction.items?.filter(item => item.asset?.type === AssetType.CCDC).length || 0}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -449,15 +466,40 @@ export default function TransactionDetailPage() {
       {/* Assets List using Table component */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-4 md:p-6 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0">
-            <h3 className="text-base md:text-lg font-medium text-gray-900">
-              Danh sách tài sản ({transaction.items?.length || 0})
-            </h3>
-            {transaction.status === TransactionStatus.PENDING && (
-              <div className="flex items-center space-x-2">
-                <span className="text-xs md:text-sm text-gray-500">
-                  {selectedAssets.length > 0 && `Đã chọn ${selectedAssets.length} tài sản`}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0">
+            <div>
+              <h3 className="text-base md:text-lg font-medium text-gray-900">
+                Danh sách tài sản
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Tổng cộng: {transaction.items?.length || 0} loại tài sản, {totalAssets} sản phẩm
+              </p>
+            </div>
+            {transaction.status === TransactionStatus.PENDING && selectedAssets.length > 0 && (
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-blue-600 font-medium">
+                  Đã chọn {selectedAssets.length} tài sản
                 </span>
+                <Button
+                  onClick={() => {
+                    const selectedItems = transaction.items?.filter(item => 
+                      selectedAssets.includes(item.id)
+                    );
+                    const totalSelectedQuantity = selectedItems?.reduce((sum, item) => 
+                      sum + (item.asset?.quantity || 0), 0
+                    ) || 0;
+                    
+                    if (confirm(`Tiếp nhận ${selectedAssets.length} loại tài sản (${totalSelectedQuantity} sản phẩm)?`)) {
+                      alert("Tiếp nhận thành công các tài sản đã chọn!");
+                      setSelectedAssets([]);
+                    }
+                  }}
+                  size="sm"
+                  className="bg-green-500 hover:bg-green-600 text-white"
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Tiếp nhận đã chọn
+                </Button>
               </div>
             )}
           </div>
@@ -465,16 +507,28 @@ export default function TransactionDetailPage() {
 
         <div className="p-0">
           <Table
+            resizable={true}
             columns={columns}
+            multiSort={true}
             data={transaction.items || []}
+            sortConfigs={sortConfigs}
+            onSortChange={handleSortChange}
             emptyText="Không có tài sản nào"
             emptyIcon={<Package2 className="mx-auto h-12 w-12 text-gray-400" />}
             rowKey="id"
-            rowSelection={{
-              selectedRowKeys: selectedAssets,
-              onChange: (selectedRowKeys) => {
-                setSelectedAssets(selectedRowKeys);
+            pagination={{
+              current: currentPage,
+              pageSize: itemsPerPage,
+              total: transaction.items?.length || 0,
+              onChange: (page, pageSize) => {
+                setCurrentPage(page);
+                if (pageSize !== itemsPerPage) {
+                  setItemsPerPage(pageSize);
+                  setCurrentPage(1); // Reset to first page when page size changes
+                }
               },
+              showSizeChanger: true,
+              pageSizeOptions: [5, 10, 20, 50]
             }}
           />
         </div>
