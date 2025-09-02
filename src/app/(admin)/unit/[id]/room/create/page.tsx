@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, MapPin, Building, Users } from "lucide-react";
+import { useRouter, useParams } from "next/navigation";
+import { ArrowLeft, Save, MapPin, Building, Users, Link2 } from "lucide-react";
 import Link from "next/link";
-import { RoomStatus, Unit, UnitStatus } from "@/types/asset";
+import { RoomStatus, Unit, UnitStatus, Room } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import AdjacentRoomSelector from "@/components/room/AdjacentRoomSelector";
 
 // Mock units
 const mockUnits: Unit[] = [
@@ -48,15 +49,58 @@ const mockUnits: Unit[] = [
   }
 ];
 
+// Mock rooms để demo (trong thực tế sẽ fetch từ API)
+const mockRooms: Room[] = [
+  {
+    id: "room1",
+    name: "Phòng IT 08",
+    building: "B",
+    floor: "1", 
+    roomNumber: "B108",
+    status: RoomStatus.ACTIVE,
+    unitId: "unit2",
+    createdBy: "admin",
+    createdAt: "2024-01-10T08:00:00Z",
+    updatedAt: "2024-01-10T08:00:00Z"
+  },
+  {
+    id: "room2", 
+    name: "Phòng IT 10",
+    building: "B",
+    floor: "1",
+    roomNumber: "B110", 
+    status: RoomStatus.ACTIVE,
+    unitId: "unit2",
+    createdBy: "admin",
+    createdAt: "2024-01-10T08:00:00Z",
+    updatedAt: "2024-01-10T08:00:00Z"
+  },
+  {
+    id: "room3",
+    name: "Phòng Họp A1", 
+    building: "A",
+    floor: "1",
+    roomNumber: "A101",
+    status: RoomStatus.ACTIVE,
+    unitId: "unit1",
+    createdBy: "admin", 
+    createdAt: "2024-01-10T08:00:00Z",
+    updatedAt: "2024-01-10T08:00:00Z"
+  }
+];
+
 interface RoomFormData {
+  name: string;
   building: string;
   floor: string;
   roomNumber: string;
   unitId: string;
   status: RoomStatus;
+  adjacentRooms: string[];
 }
 
 interface FormErrors {
+  name?: string;
   building?: string;
   floor?: string;
   roomNumber?: string;
@@ -65,12 +109,17 @@ interface FormErrors {
 
 export default function CreateRoomPage() {
   const router = useRouter();
+  const params = useParams();
+  const unitId = params?.id as string;
+  
   const [formData, setFormData] = useState<RoomFormData>({
+    name: "",
     building: "",
     floor: "",
     roomNumber: "",
-    unitId: "",
-    status: RoomStatus.ACTIVE
+    unitId: unitId || "",
+    status: RoomStatus.ACTIVE,
+    adjacentRooms: []
   });
   
   const [errors, setErrors] = useState<FormErrors>({});
@@ -81,9 +130,10 @@ export default function CreateRoomPage() {
     
     // Validation
     const newErrors: FormErrors = {};
+    if (!formData.name.trim()) newErrors.name = "Tên phòng là bắt buộc";
     if (!formData.building.trim()) newErrors.building = "Tòa nhà là bắt buộc";
     if (!formData.floor.trim()) newErrors.floor = "Tầng là bắt buộc";
-    if (!formData.roomNumber.trim()) newErrors.roomNumber = "Tên phòng là bắt buộc";
+    if (!formData.roomNumber.trim()) newErrors.roomNumber = "Số phòng là bắt buộc";
     if (!formData.unitId) newErrors.unitId = "Đơn vị là bắt buộc";
 
     setErrors(newErrors);
@@ -93,8 +143,14 @@ export default function CreateRoomPage() {
       try {
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log("Creating room:", formData);
-        router.push("/room");
+        console.log("Creating room:", {
+          ...formData,
+          id: `room_${Date.now()}`,
+          createdBy: "admin",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        router.push(`/unit/${unitId}/room`);
       } catch (error) {
         console.error("Error creating room:", error);
       } finally {
@@ -103,25 +159,59 @@ export default function CreateRoomPage() {
     }
   };
 
-  const handleChange = (field: keyof RoomFormData, value: string | RoomStatus) => {
+  const handleChange = (field: keyof RoomFormData, value: string | RoomStatus | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (field in errors) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
+  const handleToggleAdjacentRoom = (roomId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      adjacentRooms: prev.adjacentRooms.includes(roomId)
+        ? prev.adjacentRooms.filter(id => id !== roomId)
+        : [...prev.adjacentRooms, roomId]
+    }));
+  };
+
+  const handleRemoveAdjacentRoom = (roomId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      adjacentRooms: prev.adjacentRooms.filter(id => id !== roomId)
+    }));
+  };
+
+  // Lọc các phòng có thể chọn làm hàng xóm (cùng tòa hoặc cùng tầng)
+  const getAvailableAdjacentRooms = () => {
+    if (!formData.building && !formData.floor) return [];
+    
+    return mockRooms.filter(room => {
+      // Loại bỏ phòng cùng unit để tránh chọn nhầm
+      if (room.unitId === formData.unitId) return false;
+      
+      // Ưu tiên phòng cùng tòa nhà
+      if (formData.building && room.building === formData.building) return true;
+      
+      // Hoặc cùng tầng (có thể khác tòa nhưng cùng tầng)
+      if (formData.floor && room.floor === formData.floor) return true;
+      
+      return false;
+    });
+  };
+
   return (
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <Link href="/room">
+        <Link href={`/unit/${unitId}/room`}>
           <Button variant="ghost" size="sm" className="p-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Thêm phòng mới</h1>
-          <p className="text-gray-600">Nhập thông tin phòng/lớp học mới</p>
+          <p className="text-gray-600">Nhập thông tin phòng và chọn các phòng cạnh bên</p>
         </div>
       </div>
 
@@ -133,42 +223,78 @@ export default function CreateRoomPage() {
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
                 <Building className="h-5 w-5" />
-                Thông tin vị trí
+                Thông tin cơ bản
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Building */}
+              <div className="space-y-4">
+                {/* Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tòa nhà *
+                    Tên phòng *
                   </label>
                   <Input
                     type="text"
-                    className={errors.building ? 'border-red-500' : ''}
-                    placeholder="Nhập tòa nhà (VD: A, B, C)"
-                    value={formData.building}
-                    onChange={(e) => handleChange('building', e.target.value)}
+                    className={errors.name ? 'border-red-500' : ''}
+                    placeholder="Nhập tên phòng (VD: Phòng IT 09, Phòng Họp A1)"
+                    value={formData.name}
+                    onChange={(e) => handleChange('name', e.target.value)}
                   />
-                  {errors.building && (
-                    <p className="text-red-500 text-sm mt-1">{errors.building}</p>
+                  {errors.name && (
+                    <p className="text-red-500 text-sm mt-1">{errors.name}</p>
                   )}
                 </div>
 
-                {/* Floor */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tầng *
-                  </label>
-                  <Input
-                    type="text"
-                    className={errors.floor ? 'border-red-500' : ''}
-                    placeholder="Nhập số tầng (VD: 1, 2, 3)"
-                    value={formData.floor}
-                    onChange={(e) => handleChange('floor', e.target.value)}
-                  />
-                  {errors.floor && (
-                    <p className="text-red-500 text-sm mt-1">{errors.floor}</p>
-                  )}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Building */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tòa nhà *
+                    </label>
+                    <Input
+                      type="text"
+                      className={errors.building ? 'border-red-500' : ''}
+                      placeholder="VD: A, B, C"
+                      value={formData.building}
+                      onChange={(e) => handleChange('building', e.target.value)}
+                    />
+                    {errors.building && (
+                      <p className="text-red-500 text-sm mt-1">{errors.building}</p>
+                    )}
+                  </div>
+
+                  {/* Floor */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tầng *
+                    </label>
+                    <Input
+                      type="text"
+                      className={errors.floor ? 'border-red-500' : ''}
+                      placeholder="VD: 1, 2, 3"
+                      value={formData.floor}
+                      onChange={(e) => handleChange('floor', e.target.value)}
+                    />
+                    {errors.floor && (
+                      <p className="text-red-500 text-sm mt-1">{errors.floor}</p>
+                    )}
+                  </div>
+
+                  {/* Room Number */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Số phòng *
+                    </label>
+                    <Input
+                      type="text"
+                      className={errors.roomNumber ? 'border-red-500' : ''}
+                      placeholder="VD: 101, B09"
+                      value={formData.roomNumber}
+                      onChange={(e) => handleChange('roomNumber', e.target.value)}
+                    />
+                    {errors.roomNumber && (
+                      <p className="text-red-500 text-sm mt-1">{errors.roomNumber}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -176,25 +302,34 @@ export default function CreateRoomPage() {
             {/* Room Information */}
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Thông tin phòng
+                <Users className="h-5 w-5" />
+                Đơn vị & Trạng thái
               </h3>
               
-              <div className="grid grid-cols-1 gap-4">
-                {/* Room Number */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Unit */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tên/Số phòng *
+                    Đơn vị quản lý *
                   </label>
-                  <Input
-                    type="text"
-                    className={errors.roomNumber ? 'border-red-500' : ''}
-                    placeholder="Nhập tên hoặc số phòng (VD: Phòng IT 09, 101, P.Meeting)"
-                    value={formData.roomNumber}
-                    onChange={(e) => handleChange('roomNumber', e.target.value)}
-                  />
-                  {errors.roomNumber && (
-                    <p className="text-red-500 text-sm mt-1">{errors.roomNumber}</p>
+                  <select
+                    className={`w-full rounded-md border bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+                      errors.unitId ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    value={formData.unitId}
+                    onChange={(e) => handleChange('unitId', e.target.value)}
+                  >
+                    <option value="">Chọn đơn vị quản lý</option>
+                    {mockUnits
+                      .filter(unit => unit.status === UnitStatus.ACTIVE)
+                      .map(unit => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </option>
+                      ))}
+                  </select>
+                  {errors.unitId && (
+                    <p className="text-red-500 text-sm mt-1">{errors.unitId}</p>
                   )}
                 </div>
 
@@ -215,64 +350,32 @@ export default function CreateRoomPage() {
               </div>
             </div>
 
-            {/* Unit Assignment */}
+            {/* Adjacent Rooms Selection */}
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Đơn vị quản lý
+                <Link2 className="h-5 w-5" />
+                Phòng cạnh bên (tùy chọn)
               </h3>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Chọn đơn vị *
-                </label>
-                <select
-                  className={`w-full rounded-md border bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
-                    errors.unitId ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  value={formData.unitId}
-                  onChange={(e) => handleChange('unitId', e.target.value)}
-                >
-                  <option value="">Chọn đơn vị quản lý</option>
-                  {mockUnits
-                    .filter(unit => unit.status === UnitStatus.ACTIVE)
-                    .map(unit => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.name}
-                      </option>
-                    ))}
-                </select>
-                {errors.unitId && (
-                  <p className="text-red-500 text-sm mt-1">{errors.unitId}</p>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <AdjacentRoomSelector
+                  availableRooms={getAvailableAdjacentRooms()}
+                  selectedRoomIds={formData.adjacentRooms}
+                  onToggleRoom={handleToggleAdjacentRoom}
+                  onRemoveRoom={handleRemoveAdjacentRoom}
+                />
+                
+                {formData.building || formData.floor ? (
+                  <p className="text-xs text-gray-600 mt-2">
+                      Hiển thị các phòng cùng tòa "{formData.building}" hoặc cùng tầng "{formData.floor}"
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Nhập thông tin tòa nhà và tầng để xem các phòng có thể chọn làm hàng xóm
+                  </p>
                 )}
-                <p className="text-xs text-gray-500 mt-1">
-                  Chỉ hiển thị các đơn vị đang hoạt động
-                </p>
               </div>
             </div>
-
-            {/* Preview */}
-            {formData.building && formData.floor && formData.roomNumber && (
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-blue-900 mb-2">Xem trước</h4>
-                <div className="text-sm text-blue-800">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    <span>
-                      {formData.roomNumber} - Tòa {formData.building}, Tầng {formData.floor}
-                    </span>
-                  </div>
-                  {formData.unitId && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <Users className="h-4 w-4" />
-                      <span>
-                        Thuộc: {mockUnits.find(u => u.id === formData.unitId)?.name}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* Action Buttons */}
             <div className="flex gap-4 pt-6 border-t">
@@ -284,7 +387,7 @@ export default function CreateRoomPage() {
                 <Save className="h-4 w-4" />
                 {isSubmitting ? "Đang lưu..." : "Lưu phòng"}
               </Button>
-              <Link href="/room" className="flex-1">
+              <Link href={`/unit/${unitId}/room`} className="flex-1">
                 <Button variant="secondary" className="w-full">
                   Hủy bỏ
                 </Button>
