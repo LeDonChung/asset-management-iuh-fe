@@ -64,6 +64,20 @@ const getNavigationByRole = (userRole: string) => {
         }
       ],
     },
+    // Kiểm kê (chỉ admin roles)
+    {
+      name: "Kiểm kê",
+      href: "/inventory",
+      icon: ClipboardList,
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
+      children: [
+        {
+          name: "Kỳ kiểm kê",
+          href: "/inventory",
+          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
+        }
+      ]
+    },
     // Quản lý đơn vị
     {
       name: "Đơn vị",
@@ -71,20 +85,6 @@ const getNavigationByRole = (userRole: string) => {
       icon: Building,
       roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
       
-    },
-    // Báo cáo
-    {
-      name: "Báo cáo",
-      href: "/reports", 
-      icon: BarChart3,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU", "DON_VI_SU_DUNG"],
-    },
-    // Kiểm kê (chỉ admin roles)
-    {
-      name: "Kiểm kê",
-      href: "/inventory",
-      icon: ClipboardList,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
     },
     // Thanh lý tài sản
     {
