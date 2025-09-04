@@ -123,6 +123,7 @@ export enum UnitStatus {
 }
 
 export enum UnitType {
+  CO_SO = "cơ_sở",
   PHONG_KE_HOACH_DAU_TU = "phòng_kế_hoạch_đầu_tư",
   PHONG_QUAN_TRI = "phòng_quản_trị", 
   DON_VI_SU_DUNG = "đơn_vị_sử_dụng"
@@ -257,78 +258,9 @@ export interface AssetBookItem {
   room?: Room;
 }
 
-// Inventory Management
-export enum InventorySessionStatus {
-  OPEN = "OPEN",
-  INPROGRESS = "INPROGRESS",
-  CLOSED = "CLOSED"
-}
 
-export interface InventorySession {
-  id: string;
-  year: number; // Năm
-  period: number; // Đợt
-  unitId?: string; // Nếu chỉ cho 1 đơn vị thì isGlobal = false và unitId != null
-  isGlobal: boolean; // true: Một kỳ cho toàn bộ các đơn vị sử dụng, false: Một kỳ cho một đơn vị sử dụng
-  startDate: string; // date
-  endDate: string; // date
-  status: InventorySessionStatus;
-  createdBy: string;
-  createdAt: string; // datetime
-  unit?: Unit;
-  committees?: InventoryCommittee[];
-  results?: InventoryResult[];
-}
 
-export interface InventoryCommittee {
-  id: string;
-  sessionId: string;
-  leaderId: string; // Trưởng phòng
-  secretaryId: string; // Thư ký
-  representativeId: string; // Đại diện đơn vị sử dụng
-  createdAt: string; // datetime
-  session?: InventorySession;
-  leader?: User;
-  secretary?: User;
-  representative?: User;
-  members?: InventoryCommitteeMember[];
-}
 
-export interface InventoryCommitteeMember {
-  id: string;
-  committeeId: string;
-  userId: string;
-  role: string; // Vai trò: Member, Auditor,…
-  committee?: InventoryCommittee;
-  user?: User;
-}
-
-export enum ScanMethod {
-  RFID = "RFID", // Bằng RFID
-  MANUAL = "MANUAL" // Bằng thủ công
-}
-
-export enum InventoryResultStatus {
-  MATCHED = "MATCHED", // Khớp
-  MISSING = "MISSING", // Thiếu
-  EXCESS = "EXCESS", // Thừa
-  BROKEN = "BROKEN", // Hỏng
-  LIQUIDATION_PROPOSED = "LIQUIDATION_PROPOSED" // Đề xuất thanh lý
-}
-
-export interface InventoryResult {
-  id: string;
-  sessionId: string;
-  assetId: string;
-  systemQuantity: number; // Số lượng trên hệ thống (default: 1)
-  countedQuantity: number; // Số lượng kiểm kê thực tế (default: 0)
-  scanMethod: ScanMethod; // Phương thức kiểm kê
-  status: InventoryResultStatus; // Trạng thái kiểm kê của tài sản
-  note?: string;
-  createdAt: string; // datetime
-  session?: InventorySession;
-  asset?: Asset;
-}
 
 // Alert Management
 export enum AlertStatus {
@@ -478,4 +410,273 @@ export interface UserPermissions {
   canCreateAssetBooks: boolean;
   canLockAssetBooks: boolean;
   allowedUnits: string[]; // Array of unit IDs the user can access
+}
+
+// ============================================================
+// INVENTORY MANAGEMENT TYPES
+// ============================================================
+
+// Inventory Session Status
+export enum InventorySessionStatus {
+  PLANNED = "PLANNED",
+  IN_PROGRESS = "IN_PROGRESS", 
+  COMPLETED = "COMPLETED",
+  CLOSED = "CLOSED"
+}
+
+export interface FileUrl {
+  id: string;
+  url: string;
+}
+// Inventory Session (Kỳ kiểm kê)
+export interface InventorySession {
+  id: string;
+  year: number; // Năm
+  name: string; // Tên kỳ kiểm kê, ví dụ: Kiểm kê cuối năm
+  period: number; // Đợt
+  isGlobal: boolean; // true: Một kỳ cho toàn bộ các đơn vị sử dụng, false: Một kì cho một đơn vị sử dụng
+  startDate: string; // date
+  endDate: string; // date
+  evidenceFiles?: FileUrl[]; // URLs của file minh chứng
+  status: InventorySessionStatus;
+  createdBy: string;
+  createdAt: string; // datetime
+  creator?: User;
+  units?: InventorySessionUnit[]; // Đơn vị tham gia
+  committees?: InventoryCommittee; // Ban kiểm kê
+}
+
+// Đơn vị tham gia kỳ kiểm kê
+export interface InventorySessionUnit {
+  id: string;
+  sessionId: string;
+  unitId: string;
+  session?: InventorySession;
+  unit?: Unit;
+}
+
+// Ban kiểm kê chính
+export interface InventoryCommittee {
+  id: string;
+  sessionId: string;
+  name: string; // Tên ban, ví dụ: Ban kiểm kê tài sản năm 2024
+  createdAt: string; // datetime
+  session?: InventorySession;
+  members?: InventoryCommitteeMember[]; // Thành viên ban kiểm kê
+  subCommittees?: InventorySubCommittee[]; // Tiểu ban
+}
+
+// Vai trò thành viên ban kiểm kê
+export enum InventoryCommitteeRole {
+  // TIỂU BAN
+  SUB_COMMITTEE_LEADER = "SUB_COMMITTEE_LEADER", // TRƯỞNG TIỂU BAN
+  VICE_SUB_COMMITTEE_LEADER = "VICE_SUB_COMMITTEE_LEADER", // PHÓ TRƯỞNG TIỂU BAN
+
+  // NHÓM
+  LEADER = "LEADER", // TRƯỞNG NHÓM
+  DEPUTY_LEADER = "DEPUTY_LEADER", // PHÓ TRƯỞNG NHÓM
+
+  // BAN CHÍNH
+  CHAIR = "CHAIR", // TRƯỞNG BAN
+  VICE_CHAIR = "VICE_CHAIR", // PHÓ TRƯỞNG BAN
+  CHIEF_SECRETARY = "CHIEF_SECRETARY", // THƯ KÝ TỔNG HỢP
+  MEMBER = "MEMBER", // ỦY VIÊN
+
+  // DÙNG CHUNG
+  SECRETARY = "SECRETARY", // THƯ KÝ
+}
+
+// Thành viên ban kiểm kê
+export interface InventoryCommitteeMember {
+  id: string;
+  committeeId: string;
+  userId?: string;
+  role: InventoryCommitteeRole;
+  responsibility?: string;
+  committee?: InventoryCommittee;
+  user?: User;
+}
+
+// Vai trò thành viên tiểu ban
+export enum InventorySubCommitteeRole {
+  LEADER = "LEADER", // Trưởng tiểu ban
+  SECRETARY = "SECRETARY", // Thư ký
+  MEMBER = "MEMBER" // Thành viên
+}
+
+// Thành viên tiểu ban
+export interface InventorySubCommitteeMember {
+  id: string;
+  subCommitteeId: string;
+  userId: string;
+  role: InventorySubCommitteeRole;
+  subCommittee?: InventorySubCommittee;
+  user?: User;
+}
+
+// Tiểu ban
+export interface InventorySubCommittee {
+  id: string;
+  committeeId: string;
+  name: string; // Tên tiểu ban, ví dụ: Tiểu ban 1 - Khối công nghệ
+  leaderId: string;
+  secretaryId: string;
+  createdAt: string; // datetime
+  committee?: InventoryCommittee;
+  leader?: User;
+  secretary?: User;
+  members?: InventorySubCommitteeMember[]; // Thành viên tiểu ban
+  groups?: InventoryGroup[]; // Nhóm trong tiểu ban
+}
+
+// Nhóm trong tiểu ban
+export interface InventoryGroup {
+  id: string;
+  subCommitteeId: string;
+  name: string; // Tên nhóm, ví dụ: Nhóm I - Khoa Cơ khí
+  leaderId: string;
+  secretaryId: string;
+  createdAt: string; // datetime
+  subCommittee?: InventorySubCommittee;
+  leader?: User;
+  secretary?: User;
+  members?: InventoryGroupMember[]; // Thành viên nhóm
+  assignments?: InventoryGroupAssignment[]; // Phân công kiểm kê
+}
+
+// Vai trò thành viên nhóm
+export enum InventoryGroupRole {
+  LEADER = "LEADER",
+  SECRETARY = "SECRETARY",
+  MEMBER = "MEMBER"
+}
+
+// Thành viên nhóm
+export interface InventoryGroupMember {
+  id: string;
+  groupId: string;
+  userId: string;
+  role: InventoryGroupRole;
+  group?: InventoryGroup;
+  user?: User;
+}
+
+// Phân công nhóm kiểm kê cho đơn vị
+export interface InventoryGroupAssignment {
+  id: string;
+  groupId: string;
+  unitId: string;
+  startDate: string; // date - Ngày bắt đầu kiểm kê tại đơn vị
+  endDate: string; // date - Ngày kết thúc kiểm kê tại đơn vị
+  note?: string;
+  group?: InventoryGroup;
+  unit?: Unit;
+  results?: InventoryResult[]; // Kết quả kiểm kê
+}
+
+// Phương thức quét
+export enum ScanMethod {
+  RFID = "RFID", // Bằng RFID
+  MANUAL = "MANUAL" // Bằng thủ công
+}
+
+// Trạng thái kết quả kiểm kê
+export enum InventoryResultStatus {
+  MATCHED = "MATCHED", // Khớp
+  MISSING = "MISSING", // Thiếu
+  EXCESS = "EXCESS", // Thừa
+  BROKEN = "BROKEN", // Hư hỏng
+  NEEDS_REPAIR = "NEEDS_REPAIR", // Cần sửa chữa
+  LIQUIDATION_PROPOSED = "LIQUIDATION_PROPOSED" // Đề xuất thanh lý
+}
+
+// Kết quả kiểm kê
+export interface InventoryResult {
+  id: string;
+  assignmentId: string; // Phân công kiểm kê
+  assetId: string;
+  systemQuantity: number; // Số lượng trên hệ thống
+  countedQuantity: number; // Số lượng thực tế kiểm kê
+  scanMethod?: ScanMethod;
+  status: InventoryResultStatus;
+  note?: string;
+  createdAt: string; // datetime
+  assignment?: InventoryGroupAssignment;
+  asset?: Asset;
+}
+
+// Filter interfaces for inventory management
+export interface InventorySessionFilter {
+  search?: string;
+  year?: number;
+  status?: InventorySessionStatus;
+  isGlobal?: boolean;
+  unitId?: string;
+  startDateFrom?: string;
+  startDateTo?: string;
+}
+
+export interface InventoryResultFilter {
+  search?: string;
+  assignmentId?: string;
+  status?: InventoryResultStatus;
+  scanMethod?: ScanMethod;
+  assetId?: string;
+  unitId?: string;
+}
+
+// Form data interfaces
+export interface InventorySessionFormData {
+  year: number;
+  name: string;
+  period: number;
+  isGlobal: boolean;
+  startDate: string;
+  endDate: string;
+  unitIds?: string[]; // For non-global sessions
+}
+
+export interface InventoryCommitteeFormData {
+  sessionId: string;
+  name: string;
+  members: {
+    userId: string;
+    role: InventoryCommitteeRole;
+  }[];
+}
+
+export interface InventorySubCommitteeFormData {
+  committeeId: string;
+  name: string;
+  leaderId: string;
+  secretaryId: string;
+}
+
+export interface InventoryGroupFormData {
+  subCommitteeId: string;
+  name: string;
+  leaderId: string;
+  secretaryId: string;
+  members: {
+    userId: string;
+    role: InventoryGroupRole;
+  }[];
+}
+
+export interface InventoryGroupAssignmentFormData {
+  groupId: string;
+  unitId: string;
+  startDate: string;
+  endDate: string;
+  note?: string;
+}
+
+export interface InventoryResultFormData {
+  assignmentId: string;
+  assetId: string;
+  systemQuantity: number;
+  countedQuantity: number;
+  scanMethod?: ScanMethod;
+  status: InventoryResultStatus;
+  note?: string;
 }
