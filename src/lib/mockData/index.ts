@@ -5,6 +5,7 @@ export { mockUsers, mockRoles } from './users';
 export { mockCategories } from './categories';
 export { mockAssets } from './assets';
 export { mockAssetLogs } from './assetLogs';
+export { mockAlerts, mockAlertResolutions, AlertHelpers } from './alerts';
 export { 
   mockLiquidationProposals, 
   mockLiquidationProposalItems,
