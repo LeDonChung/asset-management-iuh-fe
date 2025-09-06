@@ -5,8 +5,8 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/contexts/RoleContext";
-import ChangePasswordModal from "@/components/modal/ChangePasswordModal";
-import PersonalInfoModal from "@/components/modal/PersonalInfoModal";
+import ChangePasswordModalNew from "@/components/modal/ChangePasswordModalNew";
+import PersonalInfoModalNew from "@/components/modal/PersonalInfoModalNew";
 import toast from "react-hot-toast";
 
 import {
@@ -22,6 +22,7 @@ import {
   BarChart3,
   ClipboardList,
   Trash2,
+  User,
 } from "lucide-react";
  
 
@@ -75,16 +76,13 @@ const getNavigationByRole = (userRole: string) => {
           name: "Kỳ kiểm kê",
           href: "/inventory",
           roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
+        },
+        {
+          name: "Thực hiện kiểm kê",
+          href: "/inventory/perform",
+          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
         }
       ]
-    },
-    // Quản lý đơn vị
-    {
-      name: "Đơn vị",
-      href: "/unit",
-      icon: Building,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
-      
     },
     // Thanh lý tài sản
     {
@@ -103,6 +101,28 @@ const getNavigationByRole = (userRole: string) => {
         },
       ],
     },
+    // Quản lý đơn vị
+    {
+      name: "Đơn vị",
+      href: "/unit",
+      icon: Building,
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
+      
+    },
+    // User
+    {
+      name: "Người dùng",
+      href: "/user",
+      icon: User,
+      roles: ["SUPER_ADMIN", "ADMIN"],
+    },
+    // Role
+    {
+      name: "Vai trò",
+      href: "/role",
+      icon: BarChart3,
+      roles: ["SUPER_ADMIN", "ADMIN"],
+    }
   ];
   return baseNavigation.filter((item) => item.roles.includes(userRole));
 };
@@ -250,6 +270,11 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
     // Special case for "/asset" - only active when exactly "/asset"
     if (childHref === "/asset") {
       return currentPath === "/asset";
+    }
+    
+    // Special case for "/inventory" - only active when exactly "/inventory"
+    if (childHref === "/inventory") {
+      return currentPath === "/inventory";
     }
     
     // For other paths, check if current path starts with child href + "/"
@@ -697,14 +722,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
 
         {/* Modals */}
-        <ChangePasswordModal
+        <ChangePasswordModalNew
           isOpen={showChangePasswordModal}
           onClose={() => setShowChangePasswordModal(false)}
           onSubmit={handleChangePassword}
           loading={isLoadingAction}
         />
 
-        <PersonalInfoModal
+        <PersonalInfoModalNew
           isOpen={showPersonalInfoModal}
           onClose={() => setShowPersonalInfoModal(false)}
           onSubmit={handleUpdatePersonalInfo}

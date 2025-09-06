@@ -84,13 +84,22 @@ export interface AssetTransaction {
 // User and Role Management
 export enum UserStatus {
   ACTIVE = "ACTIVE",
-  INACTIVE = "INACTIVE"
+  INACTIVE = "INACTIVE",
+  LOCKED = "LOCKED",
+  DELETED = "DELETED"
 }
 
 export interface Role {
   id: string;
   name: string;
   code: string;
+  permissions?: Permission[];
+}
+
+export interface ManagerPermission {
+  id: string;
+  name: string;
+  permissions?: Permission[];
 }
 
 export interface Permission {
@@ -577,7 +586,7 @@ export interface InventoryGroupAssignment {
 // Phương thức quét
 export enum ScanMethod {
   RFID = "RFID", // Bằng RFID
-  MANUAL = "MANUAL" // Bằng thủ công
+  MANUAL = "MANUAL", // Bằng thủ công
 }
 
 // Trạng thái kết quả kiểm kê

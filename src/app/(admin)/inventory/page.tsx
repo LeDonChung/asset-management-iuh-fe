@@ -637,6 +637,15 @@ export default function InventoryPage() {
               <Eye className="h-4 w-4" />
             </Link>
 
+            {/* View Results */}
+            <Link
+              href={`/inventory/${session.id}/results`}
+              className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors"
+              title="Xem kết quả kiểm kê"
+            >
+              <FileText className="h-4 w-4" />
+            </Link>
+
             {/* Edit (only if PLANNED) */}
             {canEdit && (isAdmin || isSuperAdmin) && (
               <Link
@@ -658,61 +667,11 @@ export default function InventoryPage() {
                 <Trash2 className="h-4 w-4" />
               </button>
             )}
-
-            {/* Status Management */}
-            {canChangeStatus && (isAdmin || isSuperAdmin) && (
-              <div className="relative group">
-                <button className="p-1.5 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors">
-                  <Settings className="h-4 w-4" />
-                </button>
-                
-                {/* Status Change Dropdown - You can implement this as a proper dropdown */}
-                <div className="hidden group-hover:block absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[150px]">
-                  {session.status === InventorySessionStatus.PLANNED && (
-                    <button
-                      onClick={() => handleStatusChange(session.id, InventorySessionStatus.IN_PROGRESS)}
-                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                    >
-                      <PlayCircle className="h-3 w-3 mr-2" />
-                      Bắt đầu
-                    </button>
-                  )}
-                  {session.status === InventorySessionStatus.IN_PROGRESS && (
-                    <button
-                      onClick={() => handleStatusChange(session.id, InventorySessionStatus.COMPLETED)}
-                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                    >
-                      <CheckCircle className="h-3 w-3 mr-2" />
-                      Hoàn thành
-                    </button>
-                  )}
-                  {session.status === InventorySessionStatus.COMPLETED && (
-                    <button
-                      onClick={() => handleStatusChange(session.id, InventorySessionStatus.CLOSED)}
-                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                    >
-                      <XCircle className="h-3 w-3 mr-2" />
-                      Đóng kỳ
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Committee Management */}
-            <Link
-              href={`/inventory/${session.id}/committees`}
-              className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors"
-              title="Quản lý ban kiểm kê"
-            >
-              <Users className="h-4 w-4" />
-            </Link>
           </div>
         );
       },
     },
   ];
-
   return (
     <div className="space-y-6">
       {/* Header */}

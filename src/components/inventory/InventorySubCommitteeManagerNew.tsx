@@ -588,7 +588,6 @@ export default function InventorySubCommitteeManagerNew({ committee }: Inventory
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Quản lý tiểu ban và nhóm</h2>
-          <p className="text-gray-600">Tổ chức và phân chia nhóm kiểm kê theo từng tiểu ban</p>
         </div>
         <Button 
           onClick={handleAddSubCommittee}

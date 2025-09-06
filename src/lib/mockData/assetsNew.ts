@@ -1,10 +1,8 @@
 import { Asset, AssetType, AssetStatus } from '@/types/asset';
-import { mockRooms } from './rooms';
-import { mockCategories } from './categories';
 import { mockRfidTags } from './rfidTags';
 
 export const mockAssets: Asset[] = [
-  // Tài sản tại phòng room-1 (1H2.01)
+  // Tài sản tại phòng room-1 (101)
   {
     id: 'asset-001',
     ktCode: '01-2024/001',
@@ -29,7 +27,6 @@ export const mockAssets: Asset[] = [
     assignedTo: 'Nguyễn Văn A',
     department: 'Khoa Công nghệ thông tin',
     location: 'Phòng 101',
-    category: mockCategories.find(c => c.id === '4'),
     rfidTag: mockRfidTags.find(r => r.assetId === 'asset-001')
   },
   {
@@ -56,7 +53,6 @@ export const mockAssets: Asset[] = [
     assignedTo: 'Trần Văn B',
     department: 'Khoa Công nghệ thông tin',
     location: 'Phòng 101',
-    category: mockCategories.find(c => c.id === '5'),
     rfidTag: mockRfidTags.find(r => r.assetId === 'asset-002')
   },
   {
@@ -82,11 +78,10 @@ export const mockAssets: Asset[] = [
     assignedDate: '2024-01-25',
     assignedTo: 'Lê Thị C',
     department: 'Khoa Công nghệ thông tin',
-    location: 'Phòng 101',
-    category: mockCategories.find(c => c.id === '3')
+    location: 'Phòng 101'
   },
 
-  // Tài sản tại phòng room-2 (1H2.02)
+  // Tài sản tại phòng room-2 (102)
   {
     id: 'asset-004',
     ktCode: '02-2024/001',
@@ -111,7 +106,6 @@ export const mockAssets: Asset[] = [
     assignedTo: 'Trần Thị B',
     department: 'Khoa Công nghệ thông tin',
     location: 'Phòng 102',
-    category: mockCategories.find(c => c.id === '6'),
     rfidTag: mockRfidTags.find(r => r.assetId === 'asset-004')
   },
   {
@@ -137,8 +131,7 @@ export const mockAssets: Asset[] = [
     assignedDate: '2024-02-05',
     assignedTo: 'Trần Thị B',
     department: 'Khoa Công nghệ thông tin',
-    location: 'Phòng 102',
-    category: mockCategories.find(c => c.id === '7')
+    location: 'Phòng 102'
   },
 
   // Tài sản tại phòng room-3 (201)
@@ -166,7 +159,6 @@ export const mockAssets: Asset[] = [
     assignedTo: 'Lê Văn C',
     department: 'Khoa Cơ khí',
     location: 'Phòng 201',
-    category: mockCategories.find(c => c.id === '9'),
     rfidTag: mockRfidTags.find(r => r.assetId === 'asset-006')
   },
   {
@@ -192,8 +184,7 @@ export const mockAssets: Asset[] = [
     assignedDate: '2024-03-10',
     assignedTo: 'Lê Văn C',
     department: 'Khoa Cơ khí',
-    location: 'Phòng 201',
-    category: mockCategories.find(c => c.id === '7')
+    location: 'Phòng 201'
   },
 
   // Tài sản tại phòng room-4 (202)
@@ -221,7 +212,6 @@ export const mockAssets: Asset[] = [
     assignedTo: 'Nguyễn Thị D',
     department: 'Khoa Cơ khí',
     location: 'Phòng 202',
-    category: mockCategories.find(c => c.id === '4'),
     rfidTag: mockRfidTags.find(r => r.assetId === 'asset-008')
   }
 ];
