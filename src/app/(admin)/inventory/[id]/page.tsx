@@ -155,7 +155,7 @@ const mockAssetPreview = {
         specs: "Intel i5-11500, 8GB RAM, 256GB SSD",
         location: "A-3-301",
         entryDate: "15/1/2025",
-        quantity: 15, 
+        quantity: 1, 
         unit: "Chiếc",
         status: "Đầy đủ" 
       },
@@ -167,7 +167,7 @@ const mockAssetPreview = {
         specs: "Full HD, VA Panel, 75Hz",
         location: "A-3-302",
         entryDate: "16/1/2025",
-        quantity: 22, 
+        quantity: 1, 
         unit: "Chiếc",
         status: "Hư hỏng 3" 
       },
@@ -179,7 +179,7 @@ const mockAssetPreview = {
         specs: "Gỗ công nghiệp, màu nâu",
         location: "A-3-304",
         entryDate: "18/1/2025",
-        quantity: 20, 
+        quantity: 1, 
         unit: "Bộ",
         status: "Đầy đủ" 
       },
@@ -221,7 +221,7 @@ const mockAssetPreview = {
         specs: "3 trục, 762x406x508mm",
         location: "B-1-201",
         entryDate: "22/1/2025",
-        quantity: 3, 
+        quantity: 1, 
         unit: "Chiếc",
         status: "Đầy đủ" 
       },
@@ -233,7 +233,7 @@ const mockAssetPreview = {
         specs: "1.5HP, Inverter, R32",
         location: "B-1-202",
         entryDate: "23/1/2025",
-        quantity: 8, 
+        quantity: 1, 
         unit: "Chiếc",
         status: "Đầy đủ" 
       },
