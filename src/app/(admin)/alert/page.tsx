@@ -709,7 +709,7 @@ export default function AlertPage() {
           showSizeChanger: true,
           pageSizeOptions: [5, 10, 20, 50]
         }}
-        title="📋 Danh sách cảnh báo"
+        title="Danh sách cảnh báo"
       />
 
       {/* Urgent Alert Modal */}

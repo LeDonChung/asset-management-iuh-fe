@@ -233,7 +233,7 @@ export default function RoleFormModal({
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                {role ? "Chỉnh sửa Role" : "Tạo Role mới"}
+                {role ? "Chỉnh sửa vai trò" : "Tạo vai trò mới"}
               </h2>
               <p className="text-sm text-gray-600">
                 {role ? "Cập nhật thông tin và quyền hạn" : "Thiết lập thông tin và quyền hạn"}
@@ -250,7 +250,7 @@ export default function RoleFormModal({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tên Role <span className="text-red-500">*</span>
+                    Tên vai trò <span className="text-red-500">*</span>
                   </label>
                   <Input
                     value={formData.name}
