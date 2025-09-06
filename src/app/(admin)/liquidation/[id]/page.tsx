@@ -431,7 +431,7 @@ export default function LiquidationProposalDetailPage() {
                                         {new Date(proposal.createdAt).toLocaleString("vi-VN")}
                                     </p>
                                     {/* <p className="text-xs text-gray-500">bởi {proposer?.fullName}</p> */}
-                                    <p className="text-xs text-gray-500">bởi 'Tên đơn vị sử dụng'</p>
+                                    <p className="text-xs text-gray-500">bởi {proposer?.fullName} - {unit?.name}</p>
                                 </div>
                             </div>
 
