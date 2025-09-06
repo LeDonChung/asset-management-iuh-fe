@@ -403,6 +403,7 @@ export interface LiquidationProposal {
   id: string;
   proposerId: string; // Người đề xuất
   unitId: string; // Đơn vị sử dụng
+  typeAsset: AssetType; // Loại tài sản trong danh sách thanh lý
   reason: string; // text
   status: LiquidationStatus; // Trạng thái đề xuất
   createdAt: string; // datetime

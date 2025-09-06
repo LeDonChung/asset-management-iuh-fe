@@ -12,7 +12,8 @@ import {
     FileText,
     AlertTriangle,
     Eye,
-    Download
+    Download,
+    Package2
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -23,7 +24,8 @@ import {
     LiquidationProposalItemCondition,
     User as UserType,
     Unit,
-    Asset
+    Asset,
+    AssetType
 } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +38,7 @@ import {
     mockAssets,
     getLiquidationItemsByProposal
 } from "@/lib/mockData";
+import Table, { TableColumn } from "@/components/ui/table";
 
 const statusColors = {
     [LiquidationStatus.PROPOSED]: "bg-yellow-100 text-yellow-800",
@@ -65,6 +68,20 @@ const conditionColors = {
     [LiquidationProposalItemCondition.UNUSABLE]: "bg-orange-100 text-orange-800",
 };
 
+type SortField = 'id' | 'assetType' | 'unit' | 'reason' | 'status' | 'createdAt';
+type SortDirection = 'asc' | 'desc';
+
+interface SortConfig {
+    field: SortField;
+    direction: SortDirection;
+    priority: number; // Thứ tự ưu tiên (1 = cao nhất)
+}
+
+const assetTypeLabels = {
+    [AssetType.TSCD]: "Tài sản cố định",
+    [AssetType.CCDC]: "Công cụ dụng cụ",
+};
+
 export default function LiquidationProposalDetailPage() {
     const { user } = useAuth();
     const params = useParams();
@@ -75,9 +92,121 @@ export default function LiquidationProposalDetailPage() {
     const [proposer, setProposer] = useState<UserType | null>(null);
     const [unit, setUnit] = useState<Unit | null>(null);
     const [loading, setLoading] = useState(true);
-    const [showApprovalModal, setShowApprovalModal] = useState(false);
     const [approvalAction, setApprovalAction] = useState<'approve' | 'reject'>('approve');
     const [approvalNote, setApprovalNote] = useState("");
+
+    //table 
+    const [sortConfigs, setSortConfigs] = useState<any[]>([]);
+    const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [sortConfig, setSortConfig] = useState<SortConfig[]>([{ field: 'createdAt', direction: 'desc', priority: 1 }]);
+
+    const columns: TableColumn<LiquidationProposalItem>[] = [
+        {
+            key: "code",
+            title: "Mã TSCD/CCDC",
+            sortable: true,
+            render: (_, item) => (
+                <div className="text-sm font-medium text-gray-900">
+                    {item.asset?.fixedCode}
+                </div>
+            ),
+            width: "100px",
+            minWidth: 100,
+            maxWidth: 150,
+        },
+        {
+            key: "ktCode",
+            title: "Mã KT",
+            sortable: true,
+            render: (_, item) => (
+                <div className="text-sm font-medium text-gray-900">
+                    {item.asset?.ktCode}
+                </div>
+            ),
+            width: "100px",
+            minWidth: 100,
+            maxWidth: 150,
+        },
+        {
+            key: "name",
+            title: "Tên TSCD/CCDC",
+            sortable: true,
+            render: (_, item) => (
+                <div className="text-sm font-medium text-gray-900">
+                    {item.asset?.name}
+                </div>
+            ),
+            width: "200",
+            minWidth: 150,
+            maxWidth: 300,
+        },
+        {
+            key: "specs", //thông số kỹ thuật
+            title: "Thông số kỹ thuật",
+            sortable: false,
+            render: (_, item) => (
+                <div className="text-sm text-gray-500">
+                    {item.asset?.specs}
+                </div>
+            ),
+        },
+        {
+            key: "location", //vị trí
+            title: "Mã vị trí",
+            sortable: false,
+            render: (_, item) => (
+                <div className="text-sm text-gray-500">
+                    {item.asset?.location}
+                </div>
+            ),
+        },
+        {
+            key: "reason", // lí do
+            title: "Lý do thanh lý",
+            sortable: false,
+            render: (_, item) => (
+                <div className="text-sm text-gray-500">
+                    {item.reason}
+                </div>
+            ),
+        },
+        {
+            key: "action", // hành động
+            title: "Hành động",
+            sortable: false,
+            render: (_, item) => (
+                <div className="flex items-center gap-2">
+                    {item.mediaUrl && (
+                        <>
+                            <button
+                                className="px-2 py-2 hover:bg-blue-100 rounded text-blue-600 hover:text-blue-800"
+                                title="Xem ảnh"
+                            >
+                                <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                                className="px-2 py-2 hover:bg-gray-200 rounded text-gray-600 hover:text-gray-800"
+                                title="Tải xuống"                            
+                            >
+                                <Download className="h-4 w-4" />
+                            </button>
+                            
+                        </>
+                    )
+                    }
+                </div>
+            ),
+            width: "100px",
+            minWidth: 100,
+            maxWidth: 150,
+        }
+    ];
+
+    const handleSortChange = (newSortConfigs: any[]) => {
+        console.log('Sort changed:', newSortConfigs);
+        setSortConfigs(newSortConfigs);
+    };
 
     useEffect(() => {
         const loadData = () => {
@@ -89,7 +218,7 @@ export default function LiquidationProposalDetailPage() {
             }
 
             // Get related data
-            const proposalItems = getLiquidationItemsByProposal(proposalId).map(item => ({
+            const lstProposalItem = getLiquidationItemsByProposal(proposalId).map(item => ({
                 ...item,
                 asset: mockAssets.find((asset: Asset) => asset.id === item.assetId)
             }));
@@ -98,7 +227,7 @@ export default function LiquidationProposalDetailPage() {
             const proposalUnit = mockUnits.find((unit: Unit) => unit.id === foundProposal.unitId);
 
             setProposal(foundProposal);
-            setItems(proposalItems);
+            setItems(lstProposalItem);
             setProposer(proposerUser || null);
             setUnit(proposalUnit || null);
             setLoading(false);
@@ -108,12 +237,11 @@ export default function LiquidationProposalDetailPage() {
     }, [proposalId]);
 
     const canApproveProposal = user?.roles?.some(role =>
-        ['ADMIN', 'PHONG_QUAN_TRI'].includes(role.code)
+        ['ADMIN', 'PHONG_QUAN_TRI', 'SUPER_ADMIN'].includes(role.code)
     );
 
     const handleApproval = (action: 'approve' | 'reject') => {
         setApprovalAction(action);
-        setShowApprovalModal(true);
     };
 
     const confirmApproval = async () => {
@@ -130,8 +258,6 @@ export default function LiquidationProposalDetailPage() {
                 status: newStatus,
                 updatedAt: new Date().toISOString()
             } : null);
-
-            setShowApprovalModal(false);
             setApprovalNote("");
 
             // Here you would typically call your API to update the proposal status
@@ -202,8 +328,7 @@ export default function LiquidationProposalDetailPage() {
                         </Button>
                         <Button
                             onClick={() => handleApproval('reject')}
-                            variant="outline"
-                            className="border-red-300 text-red-600 hover:bg-red-50 flex items-center gap-2"
+                            className="bg-red-600 text-white hover:bg-red-700 flex items-center gap-2"
                         >
                             <XCircle className="h-4 w-4" />
                             Từ chối
@@ -217,8 +342,8 @@ export default function LiquidationProposalDetailPage() {
                 {/* Main Info */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Basic Info */}
-                    <div className="bg-white p-6 rounded-lg shadow border">
-                        <h2 className="text-xl font-semibold mb-4">Thông tin đề xuất</h2>
+                    <div className="bg-white p-6 rounded-lg shadow">
+                        <h2 className="text-xl font-semibold mb-4">Thông tin đề xuất thanh lý {assetTypeLabels[proposal.typeAsset]}</h2>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-4">
@@ -288,66 +413,12 @@ export default function LiquidationProposalDetailPage() {
                             <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">{proposal.reason}</p>
                         </div>
                     </div>
-
-                    {/* Asset List */}
-                    <div className="bg-white p-6 rounded-lg shadow border">
-                        <h2 className="text-xl font-semibold mb-4">Danh sách tài sản ({items.length})</h2>
-
-                        {items.length === 0 ? (
-                            <div className="text-center py-8">
-                                <AlertTriangle className="mx-auto h-8 w-8 text-gray-400" />
-                                <p className="mt-2 text-sm text-gray-600">Không có tài sản nào</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {items.map((item, index) => (
-                                    <div key={item.id} className="border rounded-lg p-4">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div className="flex-1">
-                                                <h4 className="font-medium text-gray-900">{item.asset?.name}</h4>
-                                                <div className="text-sm text-gray-600 space-y-1">
-                                                    <p>Mã KT: {item.asset?.ktCode}</p>
-                                                    <p>Mã TSCD: {item.asset?.fixedCode}</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <Badge className={conditionColors[item.condition]}>
-                                                    {conditionLabels[item.condition]}
-                                                </Badge>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-gray-50 p-3 rounded-lg">
-                                            <h5 className="font-medium text-sm text-gray-700 mb-1">Lý do cụ thể:</h5>
-                                            <p className="text-sm text-gray-600">{item.reason}</p>
-                                        </div>
-
-                                        {item.mediaUrl && (
-                                            <div className="mt-3">
-                                                <h5 className="font-medium text-sm text-gray-700 mb-2">Ảnh minh chứng:</h5>
-                                                <div className="flex items-center gap-2">
-                                                    <Button variant="outline" size="sm" className="flex items-center gap-1">
-                                                        <Eye className="h-3 w-3" />
-                                                        Xem ảnh
-                                                    </Button>
-                                                    <Button variant="outline" size="sm" className="flex items-center gap-1">
-                                                        <Download className="h-3 w-3" />
-                                                        Tải xuống
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
                 </div>
 
                 {/* Sidebar */}
                 <div className="space-y-6">
                     {/* Timeline */}
-                    <div className="bg-white p-6 rounded-lg shadow border">
+                    <div className="bg-white p-6 rounded-lg shadow">
                         <h3 className="font-semibold mb-4">Lịch sử xử lý</h3>
                         <div className="space-y-4">
                             <div className="flex items-start gap-3">
@@ -390,7 +461,7 @@ export default function LiquidationProposalDetailPage() {
 
                     {/* Actions */}
                     {proposal.status === LiquidationStatus.APPROVED && (
-                        <div className="bg-white p-6 rounded-lg shadow border">
+                        <div className="bg-white p-6 rounded-lg shadow">
                             <h3 className="font-semibold mb-4">Tài liệu liên quan</h3>
                             <div className="space-y-2">
                                 <Button variant="outline" className="w-full justify-start">
@@ -406,55 +477,32 @@ export default function LiquidationProposalDetailPage() {
                     )}
                 </div>
             </div>
-
-            {/* Approval Modal */}
-            {showApprovalModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full m-4">
-                        <div className="p-6">
-                            <h3 className="text-lg font-semibold mb-4">
-                                {approvalAction === 'approve' ? 'Phê duyệt đề xuất' : 'Từ chối đề xuất'}
-                            </h3>
-
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Ghi chú {approvalAction === 'approve' ? '(tùy chọn)' : '*'}
-                                </label>
-                                <textarea
-                                    value={approvalNote}
-                                    onChange={(e) => setApprovalNote(e.target.value)}
-                                    rows={4}
-                                    placeholder={
-                                        approvalAction === 'approve'
-                                            ? "Nhập ghi chú phê duyệt..."
-                                            : "Nhập lý do từ chối..."
-                                    }
-                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setShowApprovalModal(false)}
-                                >
-                                    Hủy
-                                </Button>
-                                <Button
-                                    onClick={confirmApproval}
-                                    className={
-                                        approvalAction === 'approve'
-                                            ? "bg-green-600 hover:bg-green-700"
-                                            : "bg-red-600 hover:bg-red-700"
-                                    }
-                                >
-                                    {approvalAction === 'approve' ? 'Phê duyệt' : 'Từ chối'}
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <Table
+                title={`Danh sách tài sản (${items.length} -  ${assetTypeLabels[proposal.typeAsset]})`}
+                resizable={true}
+                columns={columns}
+                multiSort={true}
+                data={items}
+                sortConfigs={sortConfigs}
+                onSortChange={handleSortChange}
+                emptyText="Không có tài sản nào"
+                emptyIcon={<Package2 className="mx-auto h-12 w-12 text-gray-400" />}
+                rowKey="id"
+                pagination={{
+                    current: currentPage,
+                    pageSize: itemsPerPage,
+                    total: items.length,
+                    onChange: (page, pageSize) => {
+                        setCurrentPage(page);
+                        if (pageSize !== itemsPerPage) {
+                            setItemsPerPage(pageSize);
+                            setCurrentPage(1);
+                        }
+                    },
+                    showSizeChanger: true,
+                    pageSizeOptions: [5, 10, 20, 50, 100]
+                }}
+            />
         </div>
     );
 }

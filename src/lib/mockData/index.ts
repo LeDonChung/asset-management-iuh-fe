@@ -9,12 +9,7 @@ export {
   mockLiquidationProposals, 
   mockLiquidationProposalItems,
   getLiquidationItemsByProposal,
-  getLiquidationProposalWithItems,
   getLiquidationStats,
-  getLiquidationProposalsByUnit,
-  getLiquidationProposalsByProposer,
-  getLiquidationProposalsByStatus,
-  getLiquidationProposalsByDateRange,
   searchLiquidationProposals
 } from './liquidation';
 
