@@ -23,6 +23,7 @@ import {
   ClipboardList,
   Trash2,
   User,
+  AlertTriangle,
 } from "lucide-react";
  
 
@@ -100,7 +101,13 @@ const getNavigationByRole = (userRole: string) => {
           href: "/liquidation/create",
         },
       ],
-    },
+    }, // Quản lý cảnh báo
+    {
+      name: "Cảnh báo",
+      href: "/alert",
+      icon: AlertTriangle,
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "DON_VI_SU_DUNG"],
+    }, 
     // Quản lý đơn vị
     {
       name: "Đơn vị",
