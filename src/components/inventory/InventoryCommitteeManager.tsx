@@ -504,7 +504,6 @@ export default function InventoryCommitteeManager({ session }: InventoryCommitte
         data={committeeMembers}
         rowKey="id"
         title="Ban kiểm kê chính"
-        description={`Quản lý danh sách thành viên ban kiểm kê cho kỳ ${session.name} - Tổng số ${committeeMembers.length} thành viên`}
         headerExtra={
           <Button 
             onClick={() => setShowAddMemberModal(true)}

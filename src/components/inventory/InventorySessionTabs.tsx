@@ -32,11 +32,6 @@ export default function InventorySessionTabs({ session }: InventorySessionTabsPr
       label: "Tiểu ban & Nhóm", 
       icon: Users
     },
-    {
-      id: "progress",
-      label: "Tiến độ & Báo cáo",
-      icon: FileText
-    }
   ];
 
   const renderTabContent = () => {
