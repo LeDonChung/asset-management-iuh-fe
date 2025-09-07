@@ -567,7 +567,7 @@ export default function LiquidationPage() {
                     </p>
                 </div>
                 {canCreateProposal && (
-                    <Link href="/admin/liquidation/create">
+                    <Link href="/liquidation/create">
                         <Button className="flex items-center gap-2">
                             <Plus className="h-4 w-4" />
                             Tạo đề xuất thanh lý
