@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo, useCallback, Suspense } from "reac
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRole } from "@/contexts/RoleContext";
 import ChangePasswordModal from "@/components/modal/ChangePasswordModal";
 import PersonalInfoModal from "@/components/modal/PersonalInfoModal";
 import toast from "react-hot-toast";
@@ -25,42 +24,42 @@ import {
 } from "lucide-react";
  
 
-// Helper: Navigation by role
-const getNavigationByRole = (userRole: string) => {
+// Helper: Navigation by permissions
+const getNavigationByPermissions = (userPermissions: string[], userRoles: string[]) => {
   const baseNavigation = [
-    // Dashboard cho admin roles
+    // Dashboard cho tất cả authenticated users
     {
       name: "Dashboard",
       href: "/admin",
       icon: LayoutDashboard,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU", "DON_VI_SU_DUNG"],
+      permissions: [], // Không yêu cầu permission đặc biệt
     },
     // Quản lý tài sản
     {
       name: "Tài sản",
       href: "/asset",
       icon: Package2,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU", "DON_VI_SU_DUNG"],
+      permissions: ["PERM_VIEW_ASSET"],
       children: [
         {
           name: "Danh sách tài sản",
           href: "/asset",
-          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU"],
+          permissions: ["PERM_VIEW_ASSET"],
         },
         {
           name: "Tiếp nhận bàn giao",
           href: "/asset/receive",
-          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
+          permissions: ["PERM_UPDATE_ASSET"],
         },
         {
           name: "Lịch sử bàn giao",
           href: "/asset/history-transfer",
-          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_KE_HOACH_DAU_TU"],
+          permissions: ["PERM_VIEW_ASSET"],
         },
         {
           name: "Sổ tài sản",
           href: "/asset/asset-book",
-          roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "DON_VI_SU_DUNG"],
+          permissions: ["PERM_VIEW_ASSET"],
         }
       ],
     },
@@ -69,42 +68,54 @@ const getNavigationByRole = (userRole: string) => {
       name: "Đơn vị",
       href: "/unit",
       icon: Building,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
-      
+      permissions: ["PERM_VIEW_UNIT"],
     },
     // Báo cáo
     {
       name: "Báo cáo",
       href: "/reports", 
       icon: BarChart3,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "PHONG_KE_HOACH_DAU_TU", "DON_VI_SU_DUNG"],
+      permissions: [], // Tất cả user có thể xem báo cáo
     },
-    // Kiểm kê (chỉ admin roles)
+    // Kiểm kê
     {
       name: "Kiểm kê",
       href: "/inventory",
       icon: ClipboardList,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
+      permissions: ["PERM_VIEW_INVENTORY"],
     },
     // Thanh lý tài sản
     {
       name: "Thanh lý",
       href: "/liquidation",
       icon: Trash2,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "DON_VI_SU_DUNG"],
+      permissions: ["PERM_VIEW_ASSET"], // Cần xem asset để thanh lý
       children: [
         {
           name: "Danh sách đề xuất",
           href: "/liquidation",
+          permissions: ["PERM_VIEW_ASSET"],
         },
         {
           name: "Tạo đề xuất thanh lý",
           href: "/liquidation/create",
+          permissions: ["PERM_UPDATE_ASSET"],
         },
       ],
     },
   ];
-  return baseNavigation.filter((item) => item.roles.includes(userRole));
+
+  // Filter navigation dựa trên permissions
+  return baseNavigation.filter((item) => {
+    if (item.permissions.length === 0) return true; // Không yêu cầu permission
+    return item.permissions.some(permission => userPermissions.includes(permission));
+  }).map(item => ({
+    ...item,
+    children: item.children?.filter(child => {
+      if (!child.permissions || child.permissions.length === 0) return true;
+      return child.permissions.some(permission => userPermissions.includes(permission));
+    })
+  }));
 };
 
 // Helper: Greeting
@@ -180,7 +191,6 @@ export const SidebarUserSection = React.memo(function SidebarUserSection({
   handleLogout: () => void;
 }) {
   const { user } = useAuth();
-  const { currentRole } = useRole();
 
   if (!user) return null;
 
@@ -195,7 +205,7 @@ export const SidebarUserSection = React.memo(function SidebarUserSection({
           </div>
           <div>
             <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
-            <p className="text-xs text-gray-500">{currentRole?.name || 'No Role'}</p>
+            <p className="text-xs text-gray-500">{user.roles?.[0] || 'No Role'}</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -217,11 +227,11 @@ interface NavigationItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  roles: string[];
+  permissions: string[];
   children?: {
     name: string;
     href: string;
-    roles?: string[];
+    permissions?: string[];
     icon?: React.ComponentType<{ className?: string }>;
   }[];
 }
@@ -231,14 +241,14 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
   handleNavigation,
   isMobile,
   setIsMobileSidebarOpen,
-  currentRole,
+  userPermissions,
 }: {
   navigation: NavigationItem[];
   pathname: string;
   handleNavigation: () => void;
   isMobile?: boolean;
   setIsMobileSidebarOpen?: (v: boolean) => void;
-  currentRole?: { code: string; name: string } | null;
+  userPermissions: string[];
 }) {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
 
@@ -281,7 +291,8 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
     navigation.forEach(item => {
       if (item.children) {
         const filteredChildren = item.children.filter(child => 
-          child.roles?.includes(currentRole?.code || '') || !child.roles
+          !child.permissions || child.permissions.length === 0 || 
+          child.permissions.some(permission => userPermissions.includes(permission))
         );
         const hasActiveChild = filteredChildren.some(child => 
           isChildItemActive(child.href, pathname)
@@ -294,7 +305,7 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
         }
       }
     });
-  }, [pathname, navigation, expandedItems, isChildItemActive, currentRole?.code]);
+  }, [pathname, navigation, expandedItems, isChildItemActive, userPermissions]);
 
   return (
     <nav className="flex-1 px-4 py-6 space-y-1">
@@ -302,7 +313,8 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
         const isExpanded = expandedItems[item.name];
         const isActive = pathname === item.href || (pathname.startsWith(item.href + "/") && item.href !== "/");
         const filteredChildren = item.children?.filter(child => 
-          child.roles?.includes(currentRole?.code || '') || !child.roles
+          !child.permissions || child.permissions.length === 0 || 
+          child.permissions.some(permission => userPermissions.includes(permission))
         );
         const hasActiveChild = filteredChildren?.some(child => 
           isChildItemActive(child.href, pathname)
@@ -490,8 +502,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
 
   // Use real auth context
-  const { user, isLoading, logout, isAuthenticated } = useAuth();
-  const { currentRole } = useRole();
+  const { user, isLoading, isAuthenticated, getUserPermissions } = useAuth();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -502,9 +513,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [isAuthenticated, isLoading, router]);
 
   // Memoize navigation to avoid re-creating on every render
+  const userPermissions = getUserPermissions();
+  const userRoles = user?.roles || [];
   const navigation = useMemo(
-    () => (currentRole ? getNavigationByRole(currentRole.code) : []),
-    [currentRole?.code]
+    () => getNavigationByPermissions(userPermissions, userRoles),
+    [userPermissions, userRoles]
   );
 
   // Memoize handleNavigation to avoid re-creating function
@@ -515,6 +528,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [isNavigating]);
 
+  const { logout } = useAuth();
+  
   const handleLogout = async () => {
     logout();
   };
@@ -645,7 +660,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               handleNavigation={handleNavigation}
               isMobile
               setIsMobileSidebarOpen={setIsMobileSidebarOpen}
-              currentRole={currentRole}
+              userPermissions={userPermissions}
             />
           </Suspense>
         </div>
@@ -673,7 +688,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 navigation={navigation}
                 pathname={pathname}
                 handleNavigation={handleNavigation}
-                currentRole={currentRole}
+                userPermissions={userPermissions}
               />
             </div>
           </div>

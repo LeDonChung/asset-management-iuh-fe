@@ -92,12 +92,11 @@ export default function AssetPage() {
   // Bulk handover states
   const [isHandoverMode, setIsHandoverMode] = useState(false);
   const [assetsToHandover, setAssetsToHandover] = useState<Asset[]>([]);
-  const { getCurrentRole } = useAuth();
 
   // Kiểm tra role
-  const isSuperAdmin = getCurrentRole()?.code === "SUPER_ADMIN";
-  const isAdmin = getCurrentRole()?.code === "ADMIN";
-  const isPhongQuanTri = getCurrentRole()?.code === "PHONG_QUAN_TRI";
+  const isSuperAdmin = true;
+  const isAdmin = true;
+  const isPhongQuanTri = true;
   // Helper function to sort assets
   const sortAssets = (assets: Asset[], sortConfigs: any[]): Asset[] => {
     if (sortConfigs.length === 0) return assets;

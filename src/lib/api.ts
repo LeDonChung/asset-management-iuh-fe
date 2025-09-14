@@ -2,7 +2,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import { env } from './env'
 
-export const api = axios.create({
+export const axiosInstance = axios.create({
   baseURL: env.API_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -11,7 +11,7 @@ export const api = axios.create({
 })
 
 // Request interceptor to add auth token
-api.interceptors.request.use(
+axiosInstance.interceptors.request.use(
   (config) => {
     // Try to get token from localStorage first, then from cookie
     let token = null
@@ -43,7 +43,7 @@ api.interceptors.request.use(
 )
 
 // Response interceptor to handle auth errors and network errors
-api.interceptors.response.use(
+axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     // Network error
@@ -94,35 +94,35 @@ api.interceptors.response.use(
   }
 )
 
-export default api
+export default axiosInstance
 
 // Asset Book API functions
 export const assetBookApi = {
   // Get asset books for a unit
-  getAssetBooks: (filter: any) => api.get('/asset-books', { params: filter }),
+  getAssetBooks: (filter: any) => axiosInstance.get('/asset-books', { params: filter }),
   
   // Get specific asset book
-  getAssetBook: (id: string) => api.get(`/asset-books/${id}`),
+  getAssetBook: (id: string) => axiosInstance.get(`/asset-books/${id}`),
   
   // Get asset book items
   getAssetBookItems: (bookId: string, filter?: any) => 
-    api.get(`/asset-books/${bookId}/items`, { params: filter }),
+    axiosInstance.get(`/asset-books/${bookId}/items`, { params: filter }),
   
   // Create asset book
-  createAssetBook: (data: any) => api.post('/asset-books', data),
+  createAssetBook: (data: any) => axiosInstance.post('/asset-books', data),
   
   // Lock/unlock asset book
-  lockAssetBook: (id: string) => api.patch(`/asset-books/${id}/lock`),
-  unlockAssetBook: (id: string) => api.patch(`/asset-books/${id}/unlock`),
+  lockAssetBook: (id: string) => axiosInstance.patch(`/asset-books/${id}/lock`),
+  unlockAssetBook: (id: string) => axiosInstance.patch(`/asset-books/${id}/unlock`),
   
   // Export asset book
-  exportAssetBook: (id: string) => api.get(`/asset-books/${id}/export`, { responseType: 'blob' }),
+  exportAssetBook: (id: string) => axiosInstance.get(`/asset-books/${id}/export`, { responseType: 'blob' }),
 }
 
 export const roomApi = {
   // Get rooms for a unit
-  getRoomsByUnit: (unitId: string) => api.get(`/units/${unitId}/rooms`),
+  getRoomsByUnit: (unitId: string) => axiosInstance.get(`/units/${unitId}/rooms`),
   
   // Get all rooms
-  getRooms: (filter?: any) => api.get('/rooms', { params: filter }),
+  getRooms: (filter?: any) => axiosInstance.get('/rooms', { params: filter }),
 }
