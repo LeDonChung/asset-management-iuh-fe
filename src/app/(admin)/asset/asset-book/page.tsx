@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useRole } from '@/contexts/RoleContext'
 import {
   AssetBook,
   AssetBookItem,
@@ -972,7 +971,6 @@ const StatusBadge: React.FC<{ status: AssetBookItemStatus }> = ({ status }) => {
 
 export default function AssetBookPage() {
   const { user } = useAuth()
-  const { currentRole } = useRole()
   const currentYear = new Date().getFullYear()
 
   // State
@@ -1125,7 +1123,7 @@ export default function AssetBookPage() {
 
       let filteredBooks = MOCK_ASSET_BOOKS.filter(book => {
         // If user is a unit user, only show books for their unit
-        if (currentRole?.code === 'DON_VI_SU_DUNG' && user?.unitId) {
+        if (user?.unitId) {
           if (book.unitId !== user.unitId) return false
         }
 
@@ -1147,7 +1145,7 @@ export default function AssetBookPage() {
 
       // Load rooms - filter by user's unit if they're a unit user
       let availableRooms = MOCK_ROOMS
-      if (currentRole?.code === 'DON_VI_SU_DUNG' && user?.unitId) {
+      if (user?.unitId) {
         availableRooms = MOCK_ROOMS.filter(room => room.unitId === user.unitId)
       }
       setRooms(availableRooms)
@@ -1454,10 +1452,7 @@ export default function AssetBookPage() {
   ]
 
   const canViewAssetBook = () => {
-    if (!currentRole) return false
-    // Check if user has permission to view asset books
-    return currentRole.code === 'DON_VI_SU_DUNG' ||
-      ['SUPER_ADMIN', 'ADMIN', 'PHONG_QUAN_TRI', 'PHONG_KE_HOACH_DAU_TU'].includes(currentRole.code)
+    return true;
   }
 
   if (!canViewAssetBook()) {
@@ -1599,9 +1594,9 @@ export default function AssetBookPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Unit selector - show for admin roles and PHONG_QUAN_TRI */}
-            {(currentRole?.code === 'SUPER_ADMIN' ||
-              currentRole?.code === 'ADMIN' ||
-              currentRole?.code === 'PHONG_QUAN_TRI') && (
+            {(user?.role === 'SUPER_ADMIN' ||
+              user?.role === 'ADMIN' ||
+              user?.role === 'PHONG_QUAN_TRI') && (
                 <div className="lg:col-span-1">
                   <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
                     <div className="flex items-center mb-3">

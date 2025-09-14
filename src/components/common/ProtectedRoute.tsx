@@ -3,7 +3,6 @@
 import { useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { useRole } from '@/contexts/RoleContext'
 import { Loader2, AlertCircle } from 'lucide-react'
 
 interface ProtectedRouteProps {
@@ -21,8 +20,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   fallbackPath = '/login',
   showLoading = true
 }) => {
-  const { isAuthenticated, isLoading } = useAuth()
-  const { currentRole, hasPermission, hasAnyPermission } = useRole()
+  const { isAuthenticated, isLoading, hasPermission, hasAnyPermission } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -36,8 +34,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
 
     // Check role requirements
-    if (requiredRoles.length > 0 && currentRole) {
-      const hasRequiredRole = requiredRoles.includes(currentRole.code)
+    if (requiredRoles.length > 0) {
+      const hasRequiredRole = hasPermission(requiredRoles)
       if (!hasRequiredRole) {
         router.push('/unauthorized')
         return
@@ -55,11 +53,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }, [
     isAuthenticated,
     isLoading,
-    currentRole,
     requiredRoles,
     requiredPermissions,
     router,
     fallbackPath,
+    hasPermission,
     hasAnyPermission
   ])
 
@@ -81,8 +79,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // Check role access
-  if (requiredRoles.length > 0 && currentRole) {
-    const hasRequiredRole = requiredRoles.includes(currentRole.code)
+  if (requiredRoles.length > 0) {
+    const hasRequiredRole = hasPermission(requiredRoles)
     if (!hasRequiredRole) {
       return (
         <div className="flex items-center justify-center min-h-screen bg-gray-50">

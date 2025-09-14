@@ -756,13 +756,11 @@ export default function AssetHistoryTransferPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     
-    // Auth context for role-based access
-    const { getCurrentRole } = useAuth();
     
     // Kiểm tra role
-    const isSuperAdmin = getCurrentRole()?.code === "SUPER_ADMIN";
-    const isAdmin = getCurrentRole()?.code === "ADMIN";
-    const isPhongQuanTri = getCurrentRole()?.code === "PHONG_QUAN_TRI";
+    const isSuperAdmin = true;
+    const isAdmin = true;
+    const isPhongQuanTri = true;
 
     // Filter options for AdvancedFilter
     const filterOptions = [
@@ -880,7 +878,7 @@ export default function AssetHistoryTransferPage() {
 
         setFilteredHistory(filtered);
         setCurrentPage(1); // Reset to first page when filters change
-    }, [transferHistory, filterConditions, conditionLogic, isSuperAdmin, isAdmin, isPhongQuanTri, getCurrentRole]);
+    }, [transferHistory, filterConditions, conditionLogic, isSuperAdmin, isAdmin, isPhongQuanTri]);
 
     const handleResetFilters = () => {
         setFilterConditions([]);

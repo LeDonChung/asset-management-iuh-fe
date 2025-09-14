@@ -1,219 +1,144 @@
-'use client'
-
-import { useRole } from '@/contexts/RoleContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { PermissionConstants, Permission } from '@/lib/constants/permissions'
 
-/**
- * Custom hook for role-based permissions and utilities
- */
 export const usePermissions = () => {
-  const { user, isAuthenticated } = useAuth()
-  const {
-    currentRole,
-    availableRoles,
-    hasPermission,
-    hasAnyPermission,
-    hasAllPermissions,
-    canAccessRoute,
-    canPerformAction
-  } = useRole()
+  const { hasAnyPermission, hasAllPermissions, getUserPermissions } = useAuth()
 
-  /**
-   * Check if user is Super Admin
-   */
-  const isSuperAdmin = () => {
-    return currentRole?.code === 'SUPER_ADMIN'
-  }
+  // Helper functions for specific permission checks
+  const canManageUsers = () => hasAnyPermission([
+    PermissionConstants.PERM_CREATE_USER,
+    PermissionConstants.PERM_UPDATE_USER,
+    PermissionConstants.PERM_REMOVE_USER,
+  ])
 
-  /**
-   * Check if user is Admin (includes Super Admin)
-   */
-  const isAdmin = () => {
-    return currentRole?.code === 'SUPER_ADMIN' || currentRole?.code === 'ADMIN'
-  }
+  const canViewUsers = () => hasAnyPermission([
+    PermissionConstants.PERM_VIEW_USER,
+  ])
 
-  /**
-   * Check if user is Phòng Quản Trị
-   */
-  const isPhongQuanTri = () => {
-    return currentRole?.code === 'PHONG_QUAN_TRI'
-  }
+  const canManageRoles = () => hasAnyPermission([
+    PermissionConstants.PERM_CREATE_ROLE,
+    PermissionConstants.PERM_UPDATE_ROLE,
+    PermissionConstants.PERM_REMOVE_ROLE,
+  ])
 
-  /**
-   * Check if user is Phòng Kế Hoạch Đầu Tư
-   */
-  const isPhongKeHoachDauTu = () => {
-    return currentRole?.code === 'PHONG_KE_HOACH_DAU_TU'
-  }
+  const canViewRoles = () => hasAnyPermission([
+    PermissionConstants.PERM_VIEW_ROLE,
+  ])
 
-  /**
-   * Check if user is Đơn Vị Sử Dụng
-   */
-  const isDonViSuDung = () => {
-    return currentRole?.code === 'DON_VI_SU_DUNG'
-  }
+  const canManageCategories = () => hasAnyPermission([
+    PermissionConstants.PERM_CREATE_CATEGORY,
+    PermissionConstants.PERM_UPDATE_CATEGORY,
+    PermissionConstants.PERM_REMOVE_CATEGORY,
+  ])
 
-  /**
-   * Check if user has any admin privileges
-   */
-  const hasAdminAccess = () => {
-    return ['SUPER_ADMIN', 'ADMIN', 'PHONG_QUAN_TRI', 'PHONG_KE_HOACH_DAU_TU'].includes(currentRole?.code || '')
-  }
+  const canViewCategories = () => hasAnyPermission([
+    PermissionConstants.PERM_VIEW_CATEGORY,
+  ])
 
-  /**
-   * Check if user can manage administrative functions
-   */
-  const hasManagementAccess = () => {
-    return ['SUPER_ADMIN', 'ADMIN', 'PHONG_QUAN_TRI'].includes(currentRole?.code || '')
-  }
+  const canManageUnits = () => hasAnyPermission([
+    PermissionConstants.PERM_CREATE_UNIT,
+    PermissionConstants.PERM_UPDATE_UNIT,
+    PermissionConstants.PERM_REMOVE_UNIT,
+  ])
 
-  /**
-   * Check if user can manage assets
-   */
-  const canManageAssets = () => {
-    return hasAnyPermission([
-      'asset.create',
-      'asset.edit',
-      'asset.delete',
-      'asset.allocate',
-      'asset.move'
-    ])
-  }
+  const canViewUnits = () => hasAnyPermission([
+    PermissionConstants.PERM_VIEW_UNIT,
+  ])
 
-  /**
-   * Check if user can manage units
-   */
-  const canManageUnits = () => {
-    return hasAnyPermission([
-      'unit.create',
-      'unit.edit',
-      'unit.delete'
-    ])
-  }
+  const canManageRooms = () => hasAnyPermission([
+    PermissionConstants.PERM_CREATE_ROOM,
+    PermissionConstants.PERM_UPDATE_ROOM,
+    PermissionConstants.PERM_REMOVE_ROOM,
+  ])
 
-  /**
-   * Check if user can view reports
-   */
-  const canViewReports = () => {
-    return hasPermission('report.view')
-  }
+  const canViewRooms = () => hasAnyPermission([
+    PermissionConstants.PERM_VIEW_ROOM,
+  ])
 
-  /**
-   * Check if user can generate reports
-   */
-  const canGenerateReports = () => {
-    return hasPermission('report.generate')
-  }
+  const canManageAssets = () => hasAnyPermission([
+    PermissionConstants.PERM_UPDATE_ASSET,
+    PermissionConstants.PERM_REMOVE_ASSET,
+    PermissionConstants.PERM_IDENTIFY_ASSET,
+    PermissionConstants.PERM_IMPORT_ASSET,
+  ])
 
-  /**
-   * Get user's display name
-   */
-  const getDisplayName = () => {
-    return user?.fullName || 'Unknown User'
-  }
+  const canViewAssets = () => hasAnyPermission([
+    PermissionConstants.PERM_VIEW_ASSET,
+  ])
 
-  /**
-   * Get current role display name
-   */
-  const getRoleDisplayName = () => {
-    return currentRole?.name || 'No Role'
-  }
+  const canManageRFID = () => hasAnyPermission([
+    PermissionConstants.PERM_UPDATE_RFID,
+    PermissionConstants.PERM_REMOVE_RFID,
+  ])
 
-  /**
-   * Check if user can switch between multiple roles
-   */
-  const canSwitchRoles = () => {
-    return availableRoles.length > 1
-  }
+  const canManageInventory = () => hasAnyPermission([
+    PermissionConstants.PERM_CREATE_INVENTORY,
+    PermissionConstants.PERM_UPDATE_INVENTORY,
+    PermissionConstants.PERM_REMOVE_INVENTORY,
+  ])
 
-  /**
-   * Get breadcrumb permissions for route access
-   */
-  const getRouteAccess = (routes: string[]) => {
-    return routes.map(route => ({
-      route,
-      canAccess: canAccessRoute(route)
-    }))
-  }
+  const canViewInventory = () => hasAnyPermission([
+    PermissionConstants.PERM_VIEW_INVENTORY,
+  ])
 
-  /**
-   * Get asset action permissions
-   */
-  const getAssetPermissions = () => {
-    return {
-      canView: hasPermission('asset.view'),
-      canCreate: hasPermission('asset.create'),
-      canEdit: hasPermission('asset.edit'),
-      canDelete: hasPermission('asset.delete'),
-      canAllocate: hasPermission('asset.allocate'),
-      canMove: hasPermission('asset.move'),
-      canReceive: hasPermission('asset.receive'),
-      canViewLedger: hasPermission('asset.ledger.view')
-    }
-  }
+  const canManageInventoryGroups = () => hasAnyPermission([
+    PermissionConstants.PERM_CREATE_INVENTORY_GROUP,
+    PermissionConstants.PERM_UPDATE_INVENTORY_GROUP,
+    PermissionConstants.PERM_REMOVE_INVENTORY_GROUP,
+    PermissionConstants.PERM_ASSIGN_INVENTORY_GROUP,
+    PermissionConstants.PERM_MANAGE_GROUP_MEMBERS,
+  ])
 
-  /**
-   * Get unit management permissions
-   */
-  const getUnitPermissions = () => {
-    return {
-      canView: hasPermission('unit.view'),
-      canCreate: hasPermission('unit.create'),
-      canEdit: hasPermission('unit.edit'),
-      canDelete: hasPermission('unit.delete')
-    }
-  }
+  const canViewInventoryGroups = () => hasAnyPermission([
+    PermissionConstants.PERM_VIEW_INVENTORY_GROUP,
+  ])
 
-  /**
-   * Get room management permissions  
-   */
-  const getRoomPermissions = () => {
-    return {
-      canView: hasPermission('room.view'),
-      canCreate: hasPermission('room.create'),
-      canEdit: hasPermission('room.edit'),
-      canDelete: hasPermission('room.delete')
-    }
-  }
+  const canManageInventorySubs = () => hasAnyPermission([
+    PermissionConstants.PERM_CREATE_INVENTORY_SUB,
+    PermissionConstants.PERM_UPDATE_INVENTORY_SUB,
+    PermissionConstants.PERM_REMOVE_INVENTORY_SUB,
+    PermissionConstants.PERM_MANAGE_SUB_MEMBERS,
+  ])
+
+  const canViewInventorySubs = () => hasAnyPermission([
+    PermissionConstants.PERM_VIEW_INVENTORY_SUB,
+  ])
+
+  const canManageInventoryCommittee = () => hasAnyPermission([
+    PermissionConstants.PERM_APPROVE_INVENTORY_RESULT,
+    PermissionConstants.PERM_REVIEW_INVENTORY_REPORT,
+    PermissionConstants.PERM_FINALIZE_INVENTORY,
+  ])
 
   return {
-    // Basic info
-    user,
-    currentRole,
-    availableRoles,
-    isAuthenticated,
-    
-    // Role checks
-    isSuperAdmin,
-    isAdmin,
-    isPhongQuanTri,
-    isPhongKeHoachDauTu,
-    isDonViSuDung,
-    hasAdminAccess,
-    hasManagementAccess,
-    
-    // Permission checks
-    hasPermission,
+    // Core permission functions
     hasAnyPermission,
     hasAllPermissions,
-    canAccessRoute,
-    canPerformAction,
-    
-    // Specific permission groups
-    canManageAssets,
+    getUserPermissions,
+
+    // Specific permission checks
+    canManageUsers,
+    canViewUsers,
+    canManageRoles,
+    canViewRoles,
+    canManageCategories,
+    canViewCategories,
     canManageUnits,
-    canViewReports,
-    canGenerateReports,
-    
-    // Utilities
-    getDisplayName,
-    getRoleDisplayName,
-    canSwitchRoles,
-    getRouteAccess,
-    getAssetPermissions,
-    getUnitPermissions,
-    getRoomPermissions
+    canViewUnits,
+    canManageRooms,
+    canViewRooms,
+    canManageAssets,
+    canViewAssets,
+    canManageRFID,
+    canManageInventory,
+    canViewInventory,
+    canManageInventoryGroups,
+    canViewInventoryGroups,
+    canManageInventorySubs,
+    canViewInventorySubs,
+    canManageInventoryCommittee,
   }
 }
 
-export default usePermissions
+export { PermissionConstants } from '@/lib/constants/permissions'
+export type { Permission } from '@/lib/constants/permissions'

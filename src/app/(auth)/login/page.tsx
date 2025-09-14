@@ -1,15 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff, User, Lock, Building, Info, ArrowLeft } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { Eye, EyeOff, User, Lock, Building, Info, ArrowLeft, AlertCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { useAppDispatch, useAppSelector } from '@/lib/store/hooks'
+import { login, clearError, clearLoginSuccess } from '@/lib/store/slices/authSlice'
+import { AuthDebug } from '@/components/debug/AuthDebug'
 
 const schema = yup.object({
   username: yup.string().required('Tài khoản là bắt buộc'),
@@ -23,10 +25,9 @@ interface LoginForm {
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const { login } = useAuth()
-
+  const dispatch = useAppDispatch()
+  const { userLogin, loading, error, loginSuccess } = useAppSelector((state) => state.auth)
   const {
     register,
     handleSubmit,
@@ -35,21 +36,28 @@ export default function LoginPage() {
     resolver: yupResolver(schema),
   })
 
+  // Handle login success
+  useEffect(() => {
+    if (loginSuccess && userLogin) {
+      toast.success('Đăng nhập thành công!')
+      dispatch(clearLoginSuccess())
+      router.push('/admin')
+    }
+  }, [loginSuccess, userLogin, dispatch, router])
+
+  // Handle login error
+  useEffect(() => {
+    if (error) {
+      toast.error(error)
+      dispatch(clearError())
+    }
+  }, [error, dispatch])
+
   const onSubmit = async (data: LoginForm) => {
-    setIsLoading(true)
     try {
-      const success = await login(data.username, data.password)
-      if (success) {
-        toast.success('Đăng nhập thành công!')
-        router.push('/admin')
-      } else {
-        toast.error('Tài khoản hoặc mật khẩu không chính xác!')
-      }
+      await dispatch(login(data)).unwrap()
     } catch (error) {
       console.error('Login error:', error)
-      toast.error('Đã xảy ra lỗi khi đăng nhập!')
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -140,10 +148,6 @@ export default function LoginPage() {
                     ĐĂNG NHẬP HỆ THỐNG
                   </h2>
                 </div>
-              </div>
-
-              {/* Card Body */}
-              <div className="px-4 sm:px-8 py-6 sm:py-8">
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                   {/* Username Field */}
                   <div>
@@ -158,7 +162,7 @@ export default function LoginPage() {
                         autoComplete="username"
                         className="w-full pl-10 pr-4 py-6 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                         placeholder="Nhập tên đăng nhập"
-                        defaultValue="superadmin"
+                        defaultValue="admin"
                       />
                     </div>
                     {errors.username && (
@@ -179,7 +183,7 @@ export default function LoginPage() {
                         autoComplete="current-password"
                         className="w-full pl-10 pr-12 py-6 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                         placeholder="Nhập mật khẩu"
-                        defaultValue="superadmin123"
+                        defaultValue="Admin@123"
                       />
                       <Button
                         type="button"
@@ -202,10 +206,10 @@ export default function LoginPage() {
                   {/* Login Button */}
                   <Button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={loading}
                     className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02]"
                   >
-                    {isLoading ? (
+                    {loading ? (
                       <div className="flex items-center justify-center">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                         Đang đăng nhập...
