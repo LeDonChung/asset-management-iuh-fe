@@ -24,6 +24,8 @@ import {
   User,
   AlertTriangle,
 } from "lucide-react";
+import { permission } from "process";
+import { PermissionConstants } from "@/hooks/usePermissions";
  
 
 // Helper: Navigation by permissions
@@ -34,7 +36,7 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
       name: "Dashboard",
       href: "/admin",
       icon: LayoutDashboard,
-      permissions: [], // Không yêu cầu permission đặc biệt
+      permissions: [],
     },
     // Quản lý tài sản
     {
@@ -64,13 +66,6 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
           permissions: ["PERM_VIEW_ASSET"],
         }
       ],
-    },
-    // Quản lý đơn vị
-    {
-      name: "Đơn vị",
-      href: "/unit",
-      icon: Building,
-      permissions: ["PERM_VIEW_UNIT"],
     },
     // Báo cáo
     {
@@ -121,29 +116,28 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
       name: "Cảnh báo",
       href: "/alert",
       icon: AlertTriangle,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "DON_VI_SU_DUNG"],
+      permissions: []
     }, 
     // Quản lý đơn vị
     {
       name: "Đơn vị",
       href: "/unit",
       icon: Building,
-      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
-      
+      permissions: []
     },
     // User
     {
       name: "Người dùng",
       href: "/user",
       icon: User,
-      roles: ["SUPER_ADMIN", "ADMIN"],
+      permissions: [PermissionConstants.PERM_VIEW_USER]
     },
     // Role
     {
       name: "Vai trò",
       href: "/role",
       icon: BarChart3,
-      roles: ["SUPER_ADMIN", "ADMIN"],
+      permissions: [PermissionConstants.PERM_VIEW_ROLE]
     }
   ];
 
@@ -574,12 +568,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       setTimeout(() => setIsNavigating(false), 500);
     }
   }, [isNavigating]);
-
-  const { logout } = useAuth();
-  
-  const handleLogout = async () => {
-    logout();
-  };
 
   // Modal handlers
   const handleChangePassword = async (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
