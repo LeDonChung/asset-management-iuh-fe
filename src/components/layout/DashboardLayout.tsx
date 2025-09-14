@@ -4,8 +4,8 @@ import React, { useState, useEffect, useMemo, useCallback, Suspense } from "reac
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import ChangePasswordModal from "@/components/modal/ChangePasswordModal";
-import PersonalInfoModal from "@/components/modal/PersonalInfoModal";
+import ChangePasswordModalNew from "@/components/modal/ChangePasswordModalNew";
+import PersonalInfoModalNew from "@/components/modal/PersonalInfoModalNew";
 import toast from "react-hot-toast";
 
 import {
@@ -21,6 +21,8 @@ import {
   BarChart3,
   ClipboardList,
   Trash2,
+  User,
+  AlertTriangle,
 } from "lucide-react";
  
 
@@ -83,6 +85,18 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
       href: "/inventory",
       icon: ClipboardList,
       permissions: ["PERM_VIEW_INVENTORY"],
+      children: [
+        {
+          name: "Kỳ kiểm kê",
+          href: "/inventory",
+          permissions: ["PERM_VIEW_INVENTORY"],
+        },
+        {
+          name: "Thực hiện kiểm kê",
+          href: "/inventory/perform",
+          permissions: ["PERM_UPDATE_INVENTORY"],
+        }
+      ]
     },
     // Thanh lý tài sản
     {
@@ -102,18 +116,46 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
           permissions: ["PERM_UPDATE_ASSET"],
         },
       ],
+    }, // Quản lý cảnh báo
+    {
+      name: "Cảnh báo",
+      href: "/alert",
+      icon: AlertTriangle,
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI", "DON_VI_SU_DUNG"],
+    }, 
+    // Quản lý đơn vị
+    {
+      name: "Đơn vị",
+      href: "/unit",
+      icon: Building,
+      roles: ["SUPER_ADMIN", "ADMIN", "PHONG_QUAN_TRI"],
+      
     },
+    // User
+    {
+      name: "Người dùng",
+      href: "/user",
+      icon: User,
+      roles: ["SUPER_ADMIN", "ADMIN"],
+    },
+    // Role
+    {
+      name: "Vai trò",
+      href: "/role",
+      icon: BarChart3,
+      roles: ["SUPER_ADMIN", "ADMIN"],
+    }
   ];
 
   // Filter navigation dựa trên permissions
   return baseNavigation.filter((item) => {
-    if (item.permissions.length === 0) return true; // Không yêu cầu permission
-    return item.permissions.some(permission => userPermissions.includes(permission));
+    if (item.permissions?.length === 0) return true; // Không yêu cầu permission
+    return item.permissions?.some(permission => userPermissions.includes(permission));
   }).map(item => ({
     ...item,
     children: item.children?.filter(child => {
       if (!child.permissions || child.permissions.length === 0) return true;
-      return child.permissions.some(permission => userPermissions.includes(permission));
+      return child.permissions?.some(permission => userPermissions.includes(permission));
     })
   }));
 };
@@ -260,6 +302,11 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
     // Special case for "/asset" - only active when exactly "/asset"
     if (childHref === "/asset") {
       return currentPath === "/asset";
+    }
+    
+    // Special case for "/inventory" - only active when exactly "/inventory"
+    if (childHref === "/inventory") {
+      return currentPath === "/inventory";
     }
     
     // For other paths, check if current path starts with child href + "/"
@@ -712,14 +759,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
 
         {/* Modals */}
-        <ChangePasswordModal
+        <ChangePasswordModalNew
           isOpen={showChangePasswordModal}
           onClose={() => setShowChangePasswordModal(false)}
           onSubmit={handleChangePassword}
           loading={isLoadingAction}
         />
 
-        <PersonalInfoModal
+        <PersonalInfoModalNew
           isOpen={showPersonalInfoModal}
           onClose={() => setShowPersonalInfoModal(false)}
           onSubmit={handleUpdatePersonalInfo}

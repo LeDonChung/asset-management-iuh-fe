@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Shield, User, Users, Building, Home, Package, ClipboardList } from 'lucide-react'
 
 export function PermissionExample() {
-  const { user, isAuthenticated, getCurrentRole } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const {
     getUserPermissions,
     canManageUsers,
