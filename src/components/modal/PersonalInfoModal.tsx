@@ -256,7 +256,6 @@ export default function PersonalInfoModal({
           </div>
         </form>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }

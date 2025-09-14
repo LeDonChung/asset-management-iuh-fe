@@ -180,6 +180,7 @@ export default function CreateUnitPage() {
                       <option value={UnitType.PHONG_KE_HOACH_DAU_TU}>Phòng kế hoạch đầu tư</option>
                       <option value={UnitType.PHONG_QUAN_TRI}>Phòng quản trị</option>
                       <option value={UnitType.DON_VI_SU_DUNG}>Đơn vị sử dụng</option>
+                      <option value={UnitType.CO_SO}>Cơ sở</option>
                     </select>
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
                       <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -227,7 +228,7 @@ export default function CreateUnitPage() {
                 {/* Phone */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Số điện thoại *
+                    Số điện thoại
                   </label>
                   <Input
                     type="tel"
@@ -244,7 +245,7 @@ export default function CreateUnitPage() {
                 {/* Email */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
+                    Email
                   </label>
                   <Input
                     type="email"
@@ -298,14 +299,6 @@ export default function CreateUnitPage() {
 
             {/* Action Buttons */}
             <div className="flex gap-4 pt-6 border-t">
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {isSubmitting ? "Đang lưu..." : "Lưu đơn vị"}
-              </Button>
               <Link href="/admin/unit" className="flex-1">
                 <Button 
                   type="button" 
@@ -315,6 +308,15 @@ export default function CreateUnitPage() {
                   Hủy bỏ
                 </Button>
               </Link>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isSubmitting ? "Đang lưu..." : "Lưu đơn vị"}
+              </Button>
+              
             </div>
           </form>
         </div>
