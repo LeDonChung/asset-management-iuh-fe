@@ -8,9 +8,12 @@ import {
   ChevronDown,
   UserPlus,
   Trash2,
-  Edit
+  Edit,
+  Loader2
 } from "lucide-react";
-import { InventorySubCommittee, InventorySubCommitteeMember, InventorySubCommitteeRole, User } from "@/types/asset";
+import { InventorySubCommittee, InventorySubCommitteeMember, InventorySubCommitteeRole, User, InventorySessionUnit } from "@/types/asset";
+import { useAppSelector } from "@/lib/store/hooks";
+import { AlertCircle } from "lucide-react";
 
 interface SubCommitteeModalProps {
   isOpen: boolean;
@@ -18,6 +21,7 @@ interface SubCommitteeModalProps {
   subCommittee?: InventorySubCommittee | null;
   onSave: (data: any) => void;
   availableUsers: User[];
+  availableSessionUnits?: InventorySessionUnit[];
 }
 
 export default function SubCommitteeModal({ 
@@ -25,12 +29,21 @@ export default function SubCommitteeModal({
   onClose, 
   subCommittee, 
   onSave,
-  availableUsers 
+  availableUsers,
+  availableSessionUnits = []
 }: SubCommitteeModalProps) {
+  const { 
+    createSubCommitteeLoading, 
+    createSubCommitteeError, 
+    updateSubCommitteeLoading, 
+    updateSubCommitteeError 
+  } = useAppSelector(state => state.inventory);
+
   const [formData, setFormData] = useState({
     name: subCommittee?.name || "",
-    leaderId: subCommittee?.leaderId || "",
-    secretaryId: subCommittee?.secretaryId || ""
+    inventorySessionUnitId: subCommittee?.inventorySessionUnitId || "",
+    leaderId: subCommittee?.members?.find(m => m.role === "LEADER")?.userId || "",
+    secretaryId: subCommittee?.members?.find(m => m.role === "SECRETARY")?.userId || ""
   });
 
   const [members, setMembers] = useState<InventorySubCommitteeMember[]>(
@@ -42,9 +55,18 @@ export default function SubCommitteeModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Extract member IDs by role
+    const memberIds = members
+      .filter(m => m.role === "MEMBER")
+      .map(m => m.userId);
+    
     onSave({
-      ...formData,
-      members: members
+      name: formData.name,
+      inventorySessionUnitId: formData.inventorySessionUnitId,
+      leaderId: formData.leaderId,
+      secretaryId: formData.secretaryId,
+      memberIds: memberIds
     });
     onClose();
   };
@@ -59,9 +81,11 @@ export default function SubCommitteeModal({
   const handleAddMember = (userData: { userId: string; role: InventorySubCommitteeRole }) => {
     const newMember: InventorySubCommitteeMember = {
       id: `m${Date.now()}`,
-      subCommitteeId: subCommittee?.id || "",
+      subInventoryId: subCommittee?.id || "",
       userId: userData.userId,
-      role: userData.role,
+      role: userData.role as string,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       user: availableUsers.find(u => u.id === userData.userId)
     };
 
@@ -112,6 +136,18 @@ export default function SubCommitteeModal({
 
         <form onSubmit={handleSubmit}>
           <ModalBody>
+            {/* Error Display */}
+            {(createSubCommitteeError || updateSubCommitteeError) && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-red-800">Có lỗi xảy ra</h4>
+                  <p className="text-sm text-red-700 mt-1">
+                    {createSubCommitteeError || updateSubCommitteeError}
+                  </p>
+                </div>
+              </div>
+            )}
             {/* Basic Information */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -126,6 +162,31 @@ export default function SubCommitteeModal({
                 required
               />
             </div>
+
+            {/* Session Unit Selection */}
+            {!subCommittee && availableSessionUnits.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cơ sở tham gia
+                </label>
+                <div className="relative">
+                  <select 
+                    value={formData.inventorySessionUnitId}
+                    onChange={(e) => handleChange("inventorySessionUnitId", e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors appearance-none"
+                    required
+                  >
+                    <option value="">-- Chọn cơ sở tham gia --</option>
+                    {availableSessionUnits.map(unit => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.unit?.name || `Đơn vị ${unit.unitId}`}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -254,8 +315,19 @@ export default function SubCommitteeModal({
             <Button type="button" variant="outline" onClick={onClose}>
               Hủy
             </Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-              {subCommittee ? "Cập nhật" : "Tạo tiểu ban"}
+            <Button 
+              type="submit" 
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={createSubCommitteeLoading || updateSubCommitteeLoading}
+            >
+              {(createSubCommitteeLoading || updateSubCommitteeLoading) ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {subCommittee ? "Đang cập nhật..." : "Đang tạo..."}
+                </>
+              ) : (
+                subCommittee ? "Cập nhật" : "Tạo tiểu ban"
+              )}
             </Button>
           </ModalFooter>
         </form>
