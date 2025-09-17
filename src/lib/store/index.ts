@@ -1,10 +1,21 @@
 import { configureStore } from '@reduxjs/toolkit'
 import assetSlice from './slices/assetSlice'
 import authSlice from './slices/authSlice'
+import unitSlice from './slices/unitSlice'
+import fileSlice from './slices/fileSlice'
+import inventorySlice from './slices/inventorySlice'
+import userSlice from './slices/userSlice'
+import roleSlice from './slices/roleSlice'
+
 export const store = configureStore({
   reducer: {
     asset: assetSlice,
     auth: authSlice,
+    unit: unitSlice,
+    file: fileSlice,
+    inventory: inventorySlice,
+    user: userSlice,
+    role: roleSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

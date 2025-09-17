@@ -35,7 +35,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Load user từ storage
   const loadUserFromStorage = () => {
     try {
-      const token = Cookies.get('token')
+      const token = localStorage.getItem('token')
       const userStorage = localStorage.getItem('user')
 
       if (token && userStorage) {
@@ -52,7 +52,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           roles: userData.roles,
           permissions: userData.permissions
         }
-
+        console.log(legacyUser)
         setUser(legacyUser)
 
         setUserPermissions(userData.permissions || [])

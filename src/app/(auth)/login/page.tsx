@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks'
 import { login, clearError, clearLoginSuccess } from '@/lib/store/slices/authSlice'
-import { AuthDebug } from '@/components/debug/AuthDebug'
 
 const schema = yup.object({
   username: yup.string().required('Tài khoản là bắt buộc'),

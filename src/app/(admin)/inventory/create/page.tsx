@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useForm, Controller } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
 import {
   ArrowLeft,
   Save,
@@ -11,147 +14,161 @@ import {
   Building2,
   Users,
   Globe,
-  MapPin,
   AlertCircle,
-  CheckSquare,
   Upload,
   File,
-  X
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import {
   InventorySessionFormData,
   InventorySessionStatus,
-  Unit,
   UnitStatus,
-  UnitType
 } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import MultiSelect from "@/components/ui/multi-select";
-import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { getUnitCampus } from "@/lib/store/slices/unitSlice";
+import { uploadFileDocument } from "@/lib/store/slices/fileSlice";
+import {
+  createInventorySession,
+  clearCreateSessionError,
+  CreateInventorySession,
+} from "@/lib/store/slices/inventorySlice";
+import toast from "react-hot-toast";
 
-// Mock data for units
-const mockUnits: Unit[] = [
-  { 
-    id: "unit-1", 
-    name: "Cơ sở gò vấp", 
-    type: UnitType.CO_SO, 
-    status: UnitStatus.ACTIVE,
-    representativeId: "user-1",
-    createdBy: "admin",
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  { 
-    id: "unit-2", 
-    name: "Cơ sở thanh hóa", 
-    type: UnitType.CO_SO, 
-    status: UnitStatus.ACTIVE,
-    representativeId: "user-2", 
-    createdBy: "admin",
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  { 
-    id: "unit-3", 
-    name: "Phân hiệu quảng ngãi", 
-    type: UnitType.CO_SO, 
-    status: UnitStatus.ACTIVE,
-    representativeId: "user-3",
-    createdBy: "admin",
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  { 
-    id: "unit-4", 
-    name: "Phòng Quản trị", 
-    type: UnitType.PHONG_QUAN_TRI, 
-    status: UnitStatus.ACTIVE,
-    representativeId: "user-4",
-    createdBy: "admin",
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  { 
-    id: "unit-5", 
-    name: "Phòng Kế hoạch Đầu tư", 
-    type: UnitType.PHONG_KE_HOACH_DAU_TU, 
-    status: UnitStatus.ACTIVE,
-    representativeId: "user-5",
-    createdBy: "admin",
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-];
+// Validation schema
+const validationSchema: yup.ObjectSchema<InventorySessionFormData> = yup
+  .object()
+  .shape({
+    year: yup
+      .number()
+      .required("Năm là bắt buộc")
+      .min(2020, "Năm phải từ 2020 trở lên")
+      .max(2030, "Năm không được quá 2030"),
+    period: yup
+      .number()
+      .required("Đợt là bắt buộc")
+      .min(1, "Đợt phải từ 1 trở lên")
+      .max(12, "Đợt không được quá 12"),
+    name: yup.string().required("Tên kỳ kiểm kê là bắt buộc"),
+    isGlobal: yup.boolean().required(),
+    startDate: yup.string().required("Ngày bắt đầu là bắt buộc"),
+    endDate: yup
+      .string()
+      .required("Ngày kết thúc là bắt buộc")
+      .test(
+        "is-after-start",
+        "Ngày kết thúc phải sau ngày bắt đầu",
+        function (value) {
+          const { startDate } = this.parent;
+          if (!startDate || !value) return true;
+          return new Date(value) > new Date(startDate);
+        }
+      ),
+    status: yup.mixed<InventorySessionStatus>().required(),
+    unitIds: yup
+      .array()
+      .of(yup.string().required())
+      .when("isGlobal", {
+        is: false,
+        then: (schema) =>
+          schema.min(1, "Vui lòng chọn ít nhất một cơ sở/đơn vị"),
+        otherwise: (schema) => schema,
+      }),
+    fileUrls: yup.array().of(yup.string().required()).optional(),
+  });
 
 export default function CreateInventorySessionPage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const [formData, setFormData] = useState<InventorySessionFormData>({
-    year: new Date().getFullYear(),
-    name: "",
-    period: 1,
-    isGlobal: true,
-    startDate: "",
-    endDate: "",
-    unitIds: [],
-  });
+  const dispatch = useAppDispatch();
 
-  const [description, setDescription] = useState("");
-  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
+  const {
+    campuses,
+    loading: unitsLoading,
+    error: unitsError,
+  } = useAppSelector((state) => state.unit);
 
-  // Check user permissions
-  const isSuperAdmin = true;
-  const isAdmin = true;
+  const { loading: fileLoading, error: fileError } = useAppSelector(
+    (state) => state.file
+  );
+
+  const { createSessionLoading, createSessionError } = useAppSelector(
+    (state) => state.inventory
+  );
+  const { canCreateInventorySession } = usePermissions();
+  const [evidenceFiles, setEvidenceFiles] = useState<
+    { name: string; url: string; size: number }[]
+  >([]);
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
 
   // Redirect if not authorized
   useEffect(() => {
-    if (!isAdmin && !isSuperAdmin) {
-      router.push("/inventory");
+    if (!canCreateInventorySession) {
+      router.push("/unauthorized");
       return;
     }
-  }, [isAdmin, isSuperAdmin, router]);
+  }, [canCreateInventorySession, router]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' 
-        ? (e.target as HTMLInputElement).checked
-        : name === 'year' || name === 'period'
-          ? Number(value)
-          : name === 'isGlobal'
-            ? value === 'true'
-            : value
-    }));
-  };
+  // Initialize form with useForm
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors, isValid },
+    reset,
+  } = useForm<InventorySessionFormData>({
+    resolver: yupResolver(validationSchema),
+    defaultValues: {
+      year: new Date().getFullYear(),
+      name: `Kiểm kê tài sản - Đợt ${1}/${new Date().getFullYear()}`,
+      period: 1,
+      isGlobal: true,
+      startDate: "",
+      endDate: "",
+      unitIds: [],
+      status: InventorySessionStatus.PLANNED,
+      fileUrls: [],
+    },
+    mode: "onChange",
+  });
 
-  const handleUnitIdsChange = (unitIds: string[]) => {
-    setFormData(prev => ({
-      ...prev,
-      unitIds
-    }));
-  };
+  // Watch form values for dynamic updates
+  const watchedValues = watch();
+  const { year, period, isGlobal, startDate, endDate } = watchedValues;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fetch units when component mounts
+  useEffect(() => {
+    dispatch(getUnitCampus());
+  }, [dispatch]);
+
+  // Handle inventory creation errors with toast
+  useEffect(() => {
+    if (createSessionError) {
+      toast.error(createSessionError);
+      dispatch(clearCreateSessionError());
+    }
+  }, [createSessionError, dispatch]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
+
     // Validate file types (only PDF)
-    const validFiles = files.filter(file => {
-      if (file.type !== 'application/pdf') {
+    const validFiles = files.filter((file) => {
+      if (file.type !== "application/pdf") {
         alert(`File "${file.name}" không phải là PDF. Chỉ chấp nhận file PDF.`);
         return false;
       }
-      
+
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         alert(`File "${file.name}" quá lớn. Kích thước tối đa là 10MB.`);
         return false;
       }
-      
+
       return true;
     });
 
@@ -161,117 +178,114 @@ export default function CreateInventorySessionPage() {
       return;
     }
 
-    setEvidenceFiles(prev => [...prev, ...validFiles]);
-    
+    // Upload each file
+    for (const file of validFiles) {
+      try {
+        // Add to uploading set
+        setUploadingFiles((prev) => new Set(prev).add(file.name));
+
+        // Upload file
+        const result = await dispatch(uploadFileDocument(file)).unwrap();
+
+        // Add uploaded file info to evidenceFiles
+        setEvidenceFiles((prev) => [
+          ...prev,
+          {
+            name: file.name,
+            url: result.url,
+            size: file.size,
+          },
+        ]);
+
+        // Remove from uploading set
+        setUploadingFiles((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(file.name);
+          return newSet;
+        });
+      } catch (error) {
+        console.error(`Error uploading file ${file.name}:`, error);
+        toast.error(`Lỗi khi upload file "${file.name}". Vui lòng thử lại.`);
+
+        // Remove from uploading set
+        setUploadingFiles((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(file.name);
+          return newSet;
+        });
+      }
+    }
+
     // Reset input
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const removeFile = (index: number) => {
-    setEvidenceFiles(prev => prev.filter((_, i) => i !== index));
+    setEvidenceFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  // Auto-generate name based on form data
+  // Select all units if global is selected
   useEffect(() => {
-    if (formData.year && formData.period) {
-      const scopeText = formData.isGlobal ? "toàn bộ cơ sở" : "cơ sở cụ thể";
-      const generatedName = `Kiểm kê tài sản ${scopeText} - Đợt ${formData.period}/${formData.year}`;
-      
-      if (!formData.name || formData.name.includes("Kiểm kê tài sản")) {
-        setFormData(prev => ({
-          ...prev,
-          name: generatedName
-        }));
-      }
+    if (isGlobal) {
+      setValue(
+        "unitIds",
+        campuses.map((unit) => unit.id),
+        { shouldValidate: true }
+      );
     }
-  }, [formData.year, formData.period, formData.isGlobal]);
+  }, [isGlobal, setValue, campuses]);
 
-  // Clear unit selection when switching to global
-  useEffect(() => {
-    if (formData.isGlobal) {
-      setFormData(prev => ({
-        ...prev,
-        unitIds: []
-      }));
-    }
-  }, [formData.isGlobal]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
+  const onSubmit = async (data: InventorySessionFormData) => {
     try {
-      // Validate dates
-      if (new Date(formData.startDate) >= new Date(formData.endDate)) {
-        alert("Ngày kết thúc phải sau ngày bắt đầu");
+      if (!isValid) {
+        toast.error("Vui lòng điền đầy đủ và đúng thông tin trong form.");
         return;
       }
-
-      // Validate units for non-global sessions
-      if (!formData.isGlobal && formData.unitIds?.length === 0) {
-        alert("Vui lòng chọn ít nhất một cơ sở/đơn vị cho kỳ kiểm kê cơ sở cụ thể");
-        return;
-      }
-
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Create new inventory session object
-      const newSession = {
-        id: `inv-session-${Date.now()}`,
-        ...formData,
-        status: InventorySessionStatus.PLANNED,
-        createdBy: isSuperAdmin ? "SUPER_ADMIN" : isAdmin ? "ADMIN" : "PHONG_QUAN_TRI",
-        createdAt: new Date().toISOString(),
-        evidenceFiles: evidenceFiles.map(file => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          uploadedAt: new Date().toISOString()
-        })),
-        creator: {
-          id: "current-user",
-          username: "current.user",
-          fullName: "Current User",
-          email: "user@iuh.edu.vn",
-          status: "ACTIVE" as const,
-          createdAt: "2024-01-01T00:00:00Z",
-          updatedAt: "2024-01-01T00:00:00Z",
-        },
-        units: [],
-        committees: [],
+      const newSession: CreateInventorySession = {
+        year: data.year,
+        period: data.period,
+        name: data.name,
+        isGlobal: data.isGlobal,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        fileUrls: evidenceFiles.map((file) => file.url),
+        unitIds: data.unitIds ?? [],
       };
 
-      console.log("New Inventory Session Created:", newSession);
-      console.log("Evidence Files:", evidenceFiles);
-      alert("Tạo kỳ kiểm kê thành công!");
+      // Dispatch the action and wait for result
+      const result = await dispatch(
+        createInventorySession(newSession)
+      ).unwrap();
+
+      // Show success toast and redirect
+      toast.success("Tạo kỳ kiểm kê thành công!");
       router.push("/inventory");
     } catch (error) {
+      // Error will be handled by the useEffect hook above
       console.error("Error creating inventory session:", error);
-      alert("Có lỗi xảy ra khi tạo kỳ kiểm kê. Vui lòng thử lại.");
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // Get unit options for multi-select
-  const unitOptions = mockUnits
-    .filter(unit => unit.status === UnitStatus.ACTIVE)
-    .map(unit => ({
+  const unitOptions = campuses
+    .filter((unit) => unit.status === UnitStatus.ACTIVE)
+    .map((unit) => ({
       value: unit.id,
-      label: unit.name
+      label: unit.name,
     }));
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto w-full space-y-8">
       {/* Header */}
       <div className="flex items-center space-x-4">
         <Link href="/inventory">
@@ -281,20 +295,30 @@ export default function CreateInventorySessionPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tạo kỳ kiểm kê mới</h1>
-          <p className="text-gray-600">Tạo kỳ kiểm kê tài sản cho trường hoặc đơn vị cụ thể</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Tạo kỳ kiểm kê mới
+          </h1>
+          <p className="text-gray-600">
+            Tạo kỳ kiểm kê tài sản cho trường hoặc đơn vị cụ thể
+          </p>
         </div>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Basic Information */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center space-x-2 mb-6">
-            <FileText className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Thông tin cơ bản</h2>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center space-x-2">
+            <FileText className="h-6 w-6 text-blue-600" />
+            <h2 className="text-xl font-semibold text-gray-900">
+              Thông tin kỳ kiểm kê
+            </h2>
           </div>
+          <p className="mt-1 text-sm text-gray-600">
+            Điền đầy đủ thông tin để tạo kỳ kiểm kê mới
+          </p>
+        </div>
 
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6">
           <div className="space-y-6">
             {/* Năm và Đợt */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -303,37 +327,56 @@ export default function CreateInventorySessionPage() {
                   Năm <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <Input
-                    type="number"
+                  <Controller
                     name="year"
-                    value={formData.year}
-                    onChange={handleInputChange}
-                    required
-                    min="2020"
-                    max="2030"
-                    placeholder="2024"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        type="number"
+                        min="2020"
+                        max="2030"
+                        placeholder="2024"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    )}
                   />
                   <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
+                {errors.year && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.year.message}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Đợt <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <Input
-                    type="number"
+                  <Controller
                     name="period"
-                    value={formData.period}
-                    onChange={handleInputChange}
-                    required
-                    min="1"
-                    max="12"
-                    placeholder="1"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        type="number"
+                        min="1"
+                        max="12"
+                        placeholder="1"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    )}
                   />
                   <Hash className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Đợt kiểm kê trong năm (1-12)</p>
+                {errors.period && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.period.message}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -342,16 +385,23 @@ export default function CreateInventorySessionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Tên kỳ kiểm kê <span className="text-red-500">*</span>
               </label>
-              <Input
-                type="text"
+              <Controller
                 name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-                placeholder="VD: Kiểm kê tài sản cuối năm 2024"
-                className="w-full"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    type="text"
+                    placeholder="VD: Kiểm kê tài sản cuối năm 2024"
+                    className="w-full"
+                    {...field}
+                  />
+                )}
               />
-              <p className="mt-1 text-xs text-gray-500">Tên sẽ tự động tạo dựa trên năm, đợt và phạm vi</p>
+              {errors.name && (
+                <p className="mt-1 text-xs text-red-600">
+                  {errors.name.message}
+                </p>
+              )}
             </div>
 
             {/* Phạm vi kiểm kê */}
@@ -359,160 +409,155 @@ export default function CreateInventorySessionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Phạm vi kiểm kê <span className="text-red-500">*</span>
               </label>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="radio"
-                    id="global"
-                    name="isGlobal"
-                    value="true"
-                    checked={formData.isGlobal}
-                    onChange={handleInputChange}
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <label htmlFor="global" className="flex items-center space-x-2 text-sm text-gray-700">
-                    <Globe className="h-4 w-4 text-blue-600" />
-                    <div>
-                      <span className="font-medium">Toàn bộ cơ sở</span>
-                      <p className="text-xs text-gray-500">Áp dụng cho tất cả cơ sở và đơn vị trực thuộc</p>
+              <Controller
+                name="isGlobal"
+                control={control}
+                render={({ field }) => (
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        id="global"
+                        value="true"
+                        checked={field.value === true}
+                        onChange={() => field.onChange(true)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <label
+                        htmlFor="global"
+                        className="flex items-center space-x-3 text-sm text-gray-700 cursor-pointer flex-1"
+                      >
+                        <Globe className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <span className="font-medium">Toàn bộ cơ sở</span>
+                        </div>
+                      </label>
                     </div>
-                  </label>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="radio"
-                    id="unit-specific"
-                    name="isGlobal"
-                    value="false"
-                    checked={!formData.isGlobal}
-                    onChange={handleInputChange}
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <label htmlFor="unit-specific" className="flex items-center space-x-2 text-sm text-gray-700">
-                    <Building2 className="h-4 w-4 text-green-600" />
-                    <div>
-                      <span className="font-medium">Cơ sở cụ thể</span>
-                      <p className="text-xs text-gray-500">Chọn một hoặc nhiều cơ sở/đơn vị cần kiểm kê</p>
+                    <div className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        id="unit-specific"
+                        value="false"
+                        checked={field.value === false}
+                        onChange={() => field.onChange(false)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <label
+                        htmlFor="unit-specific"
+                        className="flex items-center space-x-3 text-sm text-gray-700 cursor-pointer flex-1"
+                      >
+                        <Building2 className="h-5 w-5 text-green-600" />
+                        <div>
+                          <span className="font-medium">Cơ sở cụ thể</span>
+                        </div>
+                      </label>
                     </div>
-                  </label>
-                </div>
-              </div>
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start space-x-2">
-                  <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-xs text-blue-800">
-                    <p className="font-medium mb-1">Lưu ý về phạm vi kiểm kê:</p>
-                    <ul className="space-y-1">
-                      <li>• <strong>Toàn bộ cơ sở:</strong> Bao gồm tất cả cơ sở (Gò Vấp, Thanh Hóa, Phân hiệu Quảng Ngãi) và các phòng ban</li>
-                      <li>• <strong>Cơ sở cụ thể:</strong> Chỉ áp dụng cho các cơ sở/đơn vị được chọn</li>
-                    </ul>
                   </div>
-                </div>
-              </div>
+                )}
+              />
             </div>
 
             {/* Cơ sở/Đơn vị tham gia (chỉ hiện khi không phải global) */}
-            {!formData.isGlobal && (
+            {!isGlobal && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Cơ sở/Đơn vị tham gia <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <MultiSelect
-                    options={unitOptions}
-                    value={formData.unitIds || []}
-                    onChange={handleUnitIdsChange}
-                    placeholder="Chọn các cơ sở/đơn vị tham gia kiểm kê..."
-                    className="w-full"
-                  />
-                  <Users className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-0" />
+                  {unitsLoading ? (
+                    <div className="flex items-center justify-center p-4 border border-gray-300 rounded-lg bg-gray-50">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
+                      <span className="text-sm text-gray-600">
+                        Đang tải danh sách cơ sở...
+                      </span>
+                    </div>
+                  ) : unitsError ? (
+                    <div className="p-4 border border-red-300 rounded-lg bg-red-50">
+                      <div className="flex items-center space-x-2">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <span className="text-sm text-red-800">
+                          Lỗi khi tải danh sách cơ sở: {unitsError}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => dispatch(getUnitCampus())}
+                        className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+                      >
+                        Thử lại
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <Controller
+                        name="unitIds"
+                        control={control}
+                        render={({ field }) => (
+                          <MultiSelect
+                            options={unitOptions}
+                            value={field.value || []}
+                            onChange={field.onChange}
+                            placeholder="Chọn các cơ sở"
+                            className="w-full"
+                          />
+                        )}
+                      />
+                      <Users className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-0" />
+                    </>
+                  )}
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Chọn một hoặc nhiều cơ sở/đơn vị sẽ tham gia vào kỳ kiểm kê này
-                </p>
+                {errors.unitIds && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.unitIds.message}
+                  </p>
+                )}
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Time Period */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center space-x-2 mb-6">
-            <Calendar className="h-5 w-5 text-green-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Thời gian thực hiện</h2>
-          </div>
-
-          <div className="space-y-6">
             {/* Ngày bắt đầu và kết thúc */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Ngày bắt đầu <span className="text-red-500">*</span>
                 </label>
-                <Input
-                  type="date"
+                <Controller
                   name="startDate"
-                  value={formData.startDate}
-                  onChange={handleInputChange}
-                  required
-                  min={new Date().toISOString().split('T')[0]}
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      type="date"
+                      min={new Date().toISOString().split("T")[0]}
+                      {...field}
+                    />
+                  )}
                 />
+                {errors.startDate && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.startDate.message}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Ngày kết thúc <span className="text-red-500">*</span>
                 </label>
-                <Input
-                  type="date"
+                <Controller
                   name="endDate"
-                  value={formData.endDate}
-                  onChange={handleInputChange}
-                  required
-                  min={formData.startDate || new Date().toISOString().split('T')[0]}
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      type="date"
+                      min={startDate || new Date().toISOString().split("T")[0]}
+                      {...field}
+                    />
+                  )}
                 />
+                {errors.endDate && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.endDate.message}
+                  </p>
+                )}
               </div>
-            </div>
-
-            {/* Duration display */}
-            {formData.startDate && formData.endDate && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2">
-                  <AlertCircle className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-900">
-                    Thời gian thực hiện: {
-                      Math.ceil((new Date(formData.endDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24))
-                    } ngày
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Additional Information */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center space-x-2 mb-6">
-            <FileText className="h-5 w-5 text-purple-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Thông tin bổ sung</h2>
-          </div>
-
-          <div className="space-y-6">
-            {/* Mô tả */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mô tả / Ghi chú
-              </label>
-              <textarea
-                name="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Mô tả chi tiết về mục đích, yêu cầu đặc biệt của kỳ kiểm kê..."
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Thông tin này sẽ giúp các thành viên hiểu rõ mục đích và yêu cầu của kỳ kiểm kê
-              </p>
             </div>
 
             {/* File minh chứng */}
@@ -520,7 +565,7 @@ export default function CreateInventorySessionPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 File minh chứng (PDF)
               </label>
-              
+
               {/* Upload Area */}
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
                 <input
@@ -549,15 +594,37 @@ export default function CreateInventorySessionPage() {
               </div>
 
               {/* File List */}
-              {evidenceFiles.length > 0 && (
+              {(evidenceFiles.length > 0 || uploadingFiles.size > 0) && (
                 <div className="mt-4 space-y-2">
                   <h4 className="text-sm font-medium text-gray-700">
                     File đã chọn ({evidenceFiles.length}/5):
                   </h4>
+
+                  {/* Uploading files */}
+                  {Array.from(uploadingFiles).map((fileName) => (
+                    <div
+                      key={`uploading-${fileName}`}
+                      className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {fileName}
+                          </p>
+                          <p className="text-xs text-blue-600">
+                            Đang upload...
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Uploaded files */}
                   {evidenceFiles.map((file, index) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
                     >
                       <div className="flex items-center space-x-3">
                         <File className="h-5 w-5 text-red-600" />
@@ -566,113 +633,70 @@ export default function CreateInventorySessionPage() {
                             {file.name}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {formatFileSize(file.size)} • PDF
+                            {formatFileSize(file.size)} • PDF •
+                            <span className="text-green-600 ml-1">
+                              Đã upload
+                            </span>
                           </p>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(index)}
-                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                        title="Xóa file"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-xs underline"
+                        >
+                          Xem
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(index)}
+                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Xóa file"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
 
               <p className="mt-2 text-xs text-gray-500">
-                File minh chứng có thể bao gồm: Quyết định thành lập ban kiểm kê, Kế hoạch chi tiết, 
-                Văn bản hướng dẫn, Biểu mẫu kiểm kê...
+                File minh chứng có thể bao gồm: Quyết định thành lập ban kiểm
+                kê, Kế hoạch chi tiết, Văn bản hướng dẫn, Biểu mẫu kiểm kê...
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Preview Information */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6">
-          <h4 className="text-sm font-medium text-blue-900 mb-4 flex items-center">
-            <CheckSquare className="h-4 w-4 mr-2" />
-            Thông tin kỳ kiểm kê sẽ được tạo:
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Năm/Đợt:</span>
-                <span className="font-medium text-gray-900">{formData.year} / Đợt {formData.period}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Phạm vi:</span>
-                <span className="font-medium text-gray-900">
-                  {formData.isGlobal ? "Toàn bộ cơ sở" : "Cơ sở cụ thể"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Trạng thái:</span>
-                <span className="font-medium text-blue-800">Kế hoạch</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {formData.startDate && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Ngày bắt đầu:</span>
-                  <span className="font-medium text-gray-900">
-                    {new Date(formData.startDate).toLocaleDateString('vi-VN')}
-                  </span>
+          {/* Form Actions */}
+          <div className="flex items-center justify-end space-x-4 pt-8 mt-8 border-t border-gray-200">
+            <Link href="/inventory">
+              <Button variant="outline" disabled={createSessionLoading}>
+                Hủy
+              </Button>
+            </Link>
+            <Button
+              type="submit"
+              disabled={createSessionLoading}
+              className="min-w-[140px]"
+            >
+              {createSessionLoading ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Đang tạo...
                 </div>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Tạo kỳ kiểm kê
+                </>
               )}
-              {formData.endDate && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Ngày kết thúc:</span>
-                  <span className="font-medium text-gray-900">
-                    {new Date(formData.endDate).toLocaleDateString('vi-VN')}
-                  </span>
-                </div>
-              )}
-              {!formData.isGlobal && formData.unitIds && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Số cơ sở/đơn vị:</span>
-                  <span className="font-medium text-gray-900">{formData.unitIds.length} đơn vị</span>
-                </div>
-              )}
-              {evidenceFiles.length > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">File minh chứng:</span>
-                  <span className="font-medium text-gray-900">{evidenceFiles.length} file</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Form Actions */}
-        <div className="flex items-center justify-end space-x-4 pt-6">
-          <Link href="/inventory">
-            <Button variant="outline" disabled={isLoading}>
-              Hủy
             </Button>
-          </Link>
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="min-w-[140px]"
-          >
-            {isLoading ? (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Đang tạo...
-              </div>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Tạo kỳ kiểm kê
-              </>
-            )}
-          </Button>
-        </div>
-      </form>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

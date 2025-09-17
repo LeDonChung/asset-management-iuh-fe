@@ -50,6 +50,7 @@ export interface TableProps<T = any> {
     pageSizeOptions?: number[];
     showQuickJumper?: boolean;
     showTotal?: (total: number, range: [number, number]) => React.ReactNode;
+    serverSide?: boolean; // If true, skip client-side pagination slicing
   } | false;
   // Selection props
   rowSelection?: {
@@ -289,7 +290,7 @@ export function Table<T = any>({
 
   // Pagination data
   const paginatedData = useMemo(() => {
-    if (!pagination) return sortedData;
+    if (!pagination || pagination.serverSide) return sortedData;
     
     const { current, pageSize } = pagination;
     const startIndex = (current - 1) * pageSize;
@@ -299,7 +300,7 @@ export function Table<T = any>({
   }, [sortedData, pagination]);
 
   const displayData = pagination ? paginatedData : sortedData;
-
+  
   const getSortIcon = (columnKey: string) => {
     const sortConfig = currentSortConfigs.find(config => config.key === columnKey);
     const priority = multiSort && currentSortConfigs.length > 1 ? 
@@ -428,7 +429,7 @@ export function Table<T = any>({
       </div>
     );
   }
-
+  
   return (
     <div className={`bg-white rounded-lg shadow overflow-hidden ${className}`}>
       {(title || description || headerExtra) && (
