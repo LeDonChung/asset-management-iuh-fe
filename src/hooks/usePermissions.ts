@@ -3,6 +3,13 @@ import { PermissionConstants, Permission } from '@/lib/constants/permissions'
 
 export const usePermissions = () => {
   const { hasAnyPermission, hasAllPermissions, getUserPermissions } = useAuth()
+  const canCreateInventorySession = () => hasAnyPermission([
+    PermissionConstants.PERM_CREATE_INVENTORY,
+  ])
+
+  const canUpdateInventorySession = () => hasAnyPermission([
+    PermissionConstants.PERM_UPDATE_INVENTORY,
+  ])
 
   // Helper functions for specific permission checks
   const canManageUsers = () => hasAnyPermission([
@@ -137,6 +144,8 @@ export const usePermissions = () => {
     canManageInventorySubs,
     canViewInventorySubs,
     canManageInventoryCommittee,
+    canCreateInventorySession,
+    canUpdateInventorySession
   }
 }
 

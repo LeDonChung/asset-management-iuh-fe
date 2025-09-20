@@ -8,9 +8,13 @@ import {
   ChevronDown,
   UserPlus,
   Trash2,
-  Edit
+  Edit,
+  Loader2
 } from "lucide-react";
-import { InventorySubCommittee, InventorySubCommitteeMember, InventorySubCommitteeRole, User } from "@/types/asset";
+import { InventorySubCommittee, InventorySubCommitteeMember, InventorySubCommitteeRole, User, InventorySessionUnit } from "@/types/asset";
+import { useAppSelector } from "@/lib/store/hooks";
+import { AlertCircle } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface SubCommitteeModalProps {
   isOpen: boolean;
@@ -18,6 +22,8 @@ interface SubCommitteeModalProps {
   subCommittee?: InventorySubCommittee | null;
   onSave: (data: any) => void;
   availableUsers: User[];
+  availableSessionUnits?: InventorySessionUnit[];
+  onUserAssignmentCheck?: (userId: string) => { isAssigned: boolean; assignedTo?: string };
 }
 
 export default function SubCommitteeModal({ 
@@ -25,12 +31,20 @@ export default function SubCommitteeModal({
   onClose, 
   subCommittee, 
   onSave,
-  availableUsers 
+  availableUsers,
+  availableSessionUnits = [],
+  onUserAssignmentCheck
 }: SubCommitteeModalProps) {
+  const { 
+    createSubCommitteeLoading, 
+    updateSubCommitteeLoading
+  } = useAppSelector(state => state.inventory);
+
   const [formData, setFormData] = useState({
     name: subCommittee?.name || "",
-    leaderId: subCommittee?.leaderId || "",
-    secretaryId: subCommittee?.secretaryId || ""
+    inventorySessionUnitId: subCommittee?.inventorySessionUnitId || "",
+    leaderId: subCommittee?.members?.find(m => m.role === "LEADER")?.userId || "",
+    secretaryId: subCommittee?.members?.find(m => m.role === "SECRETARY")?.userId || ""
   });
 
   const [members, setMembers] = useState<InventorySubCommitteeMember[]>(
@@ -42,9 +56,45 @@ export default function SubCommitteeModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate leader assignment
+    if (formData.leaderId) {
+      const leaderValidation = validateUserAssignment(formData.leaderId, 'LEADER');
+      if (leaderValidation) {
+        toast.error(leaderValidation);
+        return;
+      }
+    }
+    
+    // Validate secretary assignment
+    if (formData.secretaryId) {
+      const secretaryValidation = validateUserAssignment(formData.secretaryId, 'SECRETARY');
+      if (secretaryValidation) {
+        toast.error(secretaryValidation);
+        return;
+      }
+    }
+    
+    // Validate member assignments
+    for (const member of members.filter(m => m.role === "MEMBER")) {
+      const memberValidation = validateUserAssignment(member.userId, 'MEMBER');
+      if (memberValidation) {
+        toast.error(memberValidation);
+        return;
+      }
+    }
+    
+    // Extract member IDs by role
+    const memberIds = members
+      .filter(m => m.role === "MEMBER")
+      .map(m => m.userId);
+    
     onSave({
-      ...formData,
-      members: members
+      name: formData.name,
+      inventorySessionUnitId: formData.inventorySessionUnitId,
+      leaderId: formData.leaderId,
+      secretaryId: formData.secretaryId,
+      memberIds: memberIds
     });
     onClose();
   };
@@ -57,11 +107,20 @@ export default function SubCommitteeModal({
   };
 
   const handleAddMember = (userData: { userId: string; role: InventorySubCommitteeRole }) => {
+    // Validate user assignment
+    const validationError = validateUserAssignment(userData.userId, userData.role);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     const newMember: InventorySubCommitteeMember = {
       id: `m${Date.now()}`,
-      subCommitteeId: subCommittee?.id || "",
+      subInventoryId: subCommittee?.id || "",
       userId: userData.userId,
-      role: userData.role,
+      role: userData.role as string,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       user: availableUsers.find(u => u.id === userData.userId)
     };
 
@@ -89,6 +148,18 @@ export default function SubCommitteeModal({
     ].filter(Boolean);
     
     return availableUsers.filter(user => !usedUserIds.includes(user.id));
+  };
+
+  // Validation function to check if user can be assigned
+  const validateUserAssignment = (userId: string, role: string): string | null => {
+    if (!onUserAssignmentCheck) return null;
+    
+    const assignmentCheck = onUserAssignmentCheck(userId);
+    if (assignmentCheck.isAssigned) {
+      return `Người dùng này đã được phân công cho ${assignmentCheck.assignedTo}. Vui lòng chọn người khác.`;
+    }
+    
+    return null;
   };
 
   return (
@@ -127,6 +198,31 @@ export default function SubCommitteeModal({
               />
             </div>
 
+            {/* Session Unit Selection */}
+            {!subCommittee && availableSessionUnits.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cơ sở tham gia
+                </label>
+                <div className="relative">
+                  <select 
+                    value={formData.inventorySessionUnitId}
+                    onChange={(e) => handleChange("inventorySessionUnitId", e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors appearance-none"
+                    required
+                  >
+                    <option value="">-- Chọn cơ sở tham gia --</option>
+                    {availableSessionUnits.map(unit => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.unit?.name || `Đơn vị ${unit.unitId}`}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -140,11 +236,15 @@ export default function SubCommitteeModal({
                     required
                   >
                     <option value="">-- Chọn trưởng tiểu ban --</option>
-                    {availableUsers.map(user => (
-                      <option key={user.id} value={user.id}>
-                        {user.fullName}
-                      </option>
-                    ))}
+                    {availableUsers.map(user => {
+                      const assignmentCheck = onUserAssignmentCheck?.(user.id);
+                      const isAssigned = assignmentCheck?.isAssigned && user.id !== formData.leaderId;
+                      return (
+                        <option key={user.id} value={user.id} disabled={isAssigned}>
+                          {user.fullName}{isAssigned ? ` (Đã phân công cho ${assignmentCheck?.assignedTo})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                   <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
@@ -162,11 +262,15 @@ export default function SubCommitteeModal({
                     required
                   >
                     <option value="">-- Chọn thư ký --</option>
-                    {availableUsers.map(user => (
-                      <option key={user.id} value={user.id}>
-                        {user.fullName}
-                      </option>
-                    ))}
+                    {availableUsers.map(user => {
+                      const assignmentCheck = onUserAssignmentCheck?.(user.id);
+                      const isAssigned = assignmentCheck?.isAssigned && user.id !== formData.secretaryId;
+                      return (
+                        <option key={user.id} value={user.id} disabled={isAssigned}>
+                          {user.fullName}{isAssigned ? ` (Đã phân công cho ${assignmentCheck?.assignedTo})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                   <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
@@ -176,7 +280,12 @@ export default function SubCommitteeModal({
             {/* Members Section */}
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">Thành viên tiểu ban</h3>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Thành viên tiểu ban</h3>
+                  <p className="text-xs text-gray-500">
+                    {getAvailableUsers().length} người có thể thêm mới
+                  </p>
+                </div>
                 <Button 
                   type="button"
                   onClick={() => setShowMemberForm(true)} 
@@ -254,8 +363,19 @@ export default function SubCommitteeModal({
             <Button type="button" variant="outline" onClick={onClose}>
               Hủy
             </Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-              {subCommittee ? "Cập nhật" : "Tạo tiểu ban"}
+            <Button 
+              type="submit" 
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={createSubCommitteeLoading || updateSubCommitteeLoading}
+            >
+              {(createSubCommitteeLoading || updateSubCommitteeLoading) ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {subCommittee ? "Đang cập nhật..." : "Đang tạo..."}
+                </>
+              ) : (
+                subCommittee ? "Cập nhật" : "Tạo tiểu ban"
+              )}
             </Button>
           </ModalFooter>
         </form>
@@ -276,11 +396,15 @@ export default function SubCommitteeModal({
               <label className="block text-sm font-medium mb-2">Chọn thành viên</label>
               <select name="userId" className="w-full p-3 border rounded-lg" required>
                 <option value="">-- Chọn thành viên --</option>
-                {getAvailableUsers().map(user => (
-                  <option key={user.id} value={user.id}>
-                    {user.fullName} - {user.email}
-                  </option>
-                ))}
+                {getAvailableUsers().map(user => {
+                  const assignmentCheck = onUserAssignmentCheck?.(user.id);
+                  const isAssigned = assignmentCheck?.isAssigned;
+                  return (
+                    <option key={user.id} value={user.id} disabled={isAssigned}>
+                      {user.fullName} - {user.email}{isAssigned ? ` (Đã phân công cho ${assignmentCheck?.assignedTo})` : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div>

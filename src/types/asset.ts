@@ -85,8 +85,6 @@ export interface AssetTransaction {
 export enum UserStatus {
   ACTIVE = "ACTIVE",
   INACTIVE = "INACTIVE",
-  LOCKED = "LOCKED",
-  DELETED = "DELETED"
 }
 
 export interface Role {
@@ -438,6 +436,16 @@ export interface FileUrl {
   id: string;
   url: string;
 }
+
+export interface InventorySessionMember {
+  id: string;
+  sessionId: string;
+  userId: string;
+  role: string;
+  user?: User;
+  session?: InventorySession;
+}
+
 // Inventory Session (Kỳ kiểm kê)
 export interface InventorySession {
   id: string;
@@ -454,6 +462,8 @@ export interface InventorySession {
   creator?: User;
   units?: InventorySessionUnit[]; // Đơn vị tham gia
   committees?: InventoryCommittee; // Ban kiểm kê
+  inventorySessionUnits?: InventorySessionUnit[]; // Đơn vị tham gia
+  members?: InventorySessionMember[]; // Thành viên ban kiểm kê
 }
 
 // Đơn vị tham gia kỳ kiểm kê
@@ -461,8 +471,8 @@ export interface InventorySessionUnit {
   id: string;
   sessionId: string;
   unitId: string;
-  session?: InventorySession;
   unit?: Unit;
+  session?: InventorySession;
 }
 
 // Ban kiểm kê chính
@@ -514,42 +524,43 @@ export enum InventorySubCommitteeRole {
   MEMBER = "MEMBER" // Thành viên
 }
 
-// Thành viên tiểu ban
+// Thành viên tiểu ban (Backend: SubInventoryMember)
 export interface InventorySubCommitteeMember {
   id: string;
-  subCommitteeId: string;
+  subInventoryId: string; // Backend uses subInventoryId instead of subCommitteeId
   userId: string;
-  role: InventorySubCommitteeRole;
+  role: string; // Backend uses CommitteeRole enum as string
+  notes?: string; // Ghi chú thêm
+  createdAt: string;
+  updatedAt: string;
   subCommittee?: InventorySubCommittee;
   user?: User;
 }
 
-// Tiểu ban
+// Tiểu ban (Backend: InventorySub)
 export interface InventorySubCommittee {
   id: string;
-  committeeId: string;
-  name: string; // Tên tiểu ban, ví dụ: Tiểu ban 1 - Khối công nghệ
-  leaderId: string;
-  secretaryId: string;
+  name: string; // Tên tiểu ban
+  inventorySessionUnitId: string; // ID của cơ sở tham gia
+  status: string; // Trạng thái tiểu ban
+  description?: string; // Mô tả tiểu ban
   createdAt: string; // datetime
-  committee?: InventoryCommittee;
-  leader?: User;
-  secretary?: User;
+  updatedAt: string; // datetime
+  inventorySessionUnit?: InventorySessionUnit;
   members?: InventorySubCommitteeMember[]; // Thành viên tiểu ban
   groups?: InventoryGroup[]; // Nhóm trong tiểu ban
 }
 
-// Nhóm trong tiểu ban
+// Nhóm trong tiểu ban (Backend: InventoryGroup)
 export interface InventoryGroup {
   id: string;
-  subCommitteeId: string;
-  name: string; // Tên nhóm, ví dụ: Nhóm I - Khoa Cơ khí
-  leaderId: string;
-  secretaryId: string;
+  subInventoryId: string; // Backend uses subInventoryId instead of subCommitteeId
+  name: string; // Tên nhóm
+  description?: string; // Mô tả nhóm
+  status: string; // Trạng thái nhóm
   createdAt: string; // datetime
-  subCommittee?: InventorySubCommittee;
-  leader?: User;
-  secretary?: User;
+  updatedAt: string; // datetime
+  subInventory?: InventorySubCommittee; // Backend relation name
   members?: InventoryGroupMember[]; // Thành viên nhóm
   assignments?: InventoryGroupAssignment[]; // Phân công kiểm kê
 }
@@ -561,24 +572,30 @@ export enum InventoryGroupRole {
   MEMBER = "MEMBER"
 }
 
-// Thành viên nhóm
+// Thành viên nhóm (Backend: InventoryGroupMember)
 export interface InventoryGroupMember {
   id: string;
   groupId: string;
   userId: string;
-  role: InventoryGroupRole;
+  role: string; // Backend uses CommitteeRole enum as string
+  notes?: string; // Ghi chú thêm
+  createdAt: string;
+  updatedAt: string;
   group?: InventoryGroup;
   user?: User;
 }
 
-// Phân công nhóm kiểm kê cho đơn vị
+// Phân công nhóm kiểm kê cho đơn vị (Backend: InventoryGroupAssignment)
 export interface InventoryGroupAssignment {
   id: string;
   groupId: string;
   unitId: string;
   startDate: string; // date - Ngày bắt đầu kiểm kê tại đơn vị
   endDate: string; // date - Ngày kết thúc kiểm kê tại đơn vị
+  status: string; // Trạng thái phân công
   note?: string;
+  createdAt: string;
+  updatedAt: string;
   group?: InventoryGroup;
   unit?: Unit;
   results?: InventoryResult[]; // Kết quả kiểm kê
@@ -643,7 +660,9 @@ export interface InventorySessionFormData {
   isGlobal: boolean;
   startDate: string;
   endDate: string;
-  unitIds?: string[]; // For non-global sessions
+  status: InventorySessionStatus;
+  fileUrls?: string[];
+  unitIds?: string[];
 }
 
 export interface InventoryCommitteeFormData {

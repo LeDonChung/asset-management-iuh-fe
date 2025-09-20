@@ -3,23 +3,22 @@
 import React, { useState } from "react";
 import {
   Users,
-  Building2,
-  FileText
 } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { InventorySession } from "@/types/asset";
-import { InventoryProcess } from "./InventoryProcess";
+import { useAppSelector } from "@/lib/store/hooks";
 import InventoryCommitteeManager from "./InventoryCommitteeManager";
 import InventorySubCommitteeManagerNew from "./InventorySubCommitteeManagerNew";
 import InventoryAssignmentManager from "./InventoryAssignmentManager";
 
 interface InventorySessionTabsProps {
-  session: InventorySession;
+  // Remove props since we'll use Redux
 }
 
-export default function InventorySessionTabs({ session }: InventorySessionTabsProps) {
+export default function InventorySessionTabs({}: InventorySessionTabsProps) {
   const [activeTab, setActiveTab] = useState("committees");
+  const { currentSession } = useAppSelector(state => state.inventory);
+  
+  // Use currentSession from Redux instead of prop
+  const session = currentSession;
 
   const tabs = [
     {
@@ -35,34 +34,24 @@ export default function InventorySessionTabs({ session }: InventorySessionTabsPr
   ];
 
   const renderTabContent = () => {
-    switch (activeTab) {
-      case "progress":
-        return (
-          <InventoryProcess />
-        );
+    if (!session) {
+      return (
+        <div className="mt-6 text-center py-12">
+          <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Không có phiên kiểm kê</h3>
+          <p className="text-gray-500">Vui lòng tải lại trang để xem thông tin.</p>
+        </div>
+      );
+    }
 
+    switch (activeTab) {
       case "committees":
-        return <InventoryCommitteeManager session={session} />;
+        return <InventoryCommitteeManager />;
 
       case "groups":
-        return session.committees ? (
-          <div className="mt-6">
-            <InventorySubCommitteeManagerNew committee={session.committees} />
-          </div>
-        ) : (
-          <div className="mt-6 text-center py-12">
-            <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Tiểu ban & Nhóm</h3>
-            <p className="text-gray-500 max-w-md mx-auto mb-6">
-              Vui lòng tạo Ban kiểm kê trước khi thiết lập Tiểu ban & Nhóm kiểm kê.
-            </p>
-          </div>
-        );
-        
-      case "assignments":
         return (
           <div className="mt-6">
-            <InventoryAssignmentManager session={session} />
+            <InventorySubCommitteeManagerNew />
           </div>
         );
       default:

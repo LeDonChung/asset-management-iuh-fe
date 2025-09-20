@@ -1,428 +1,232 @@
 "use client";
 
-import React, { useState } from "react";
-import { 
-  InventoryCommittee, 
+import React, { useState, useEffect } from "react";
+import {
   InventorySubCommittee, 
-  InventoryGroup, 
-  InventorySubCommitteeMember,
-  InventorySubCommitteeRole,
-  User 
+  InventoryGroup,
+  User,
+  InventorySessionUnit,
+  Unit,
+  UnitType,
 } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { 
   Plus, 
   Users,
-  ChevronRight,
   Building,
   AlertTriangle,
-  Eye,
   Edit,
   Trash2,
-  MoreHorizontal
+  Loader2,
 } from "lucide-react";
 import SubCommitteeModal from "./modals/SubCommitteeModal";
 import GroupModal from "./modals/GroupModal";
-import GroupCombinedModal from "./modals/GroupCombinedModal";
-import SystemOverview from "./SystemOverview";
-import GroupCombinedModalNew from "./modals/GroupCombinedModalNew";
+import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
+import { 
+  createInventorySubCommittee,
+  updateInventorySubCommittee,
+  deleteInventorySubCommittee,
+  createInventoryGroup,
+  updateInventoryGroup,
+  deleteInventoryGroup,
+  CreateInventorySubDto,
+  UpdateInventorySubDto,
+  CreateInventoryGroupDto,
+  UpdateInventoryGroupDto,
+} from "@/lib/store/slices/inventorySlice";
+import { getAllInventoryCommitteeUsers } from "@/lib/store/slices/userSlice";
+import { getAllUnits, getUnitChildren } from "@/lib/store/slices/unitSlice";
+import toast from "react-hot-toast";
 
-interface InventorySubCommitteeManagerNewProps {
-  committee: InventoryCommittee;
-}
 
-// Mock data for development - Enhanced with more realistic data
-const mockUsers: User[] = [
-  { 
-    id: "u1", 
-    fullName: "TS. Nguyễn Văn Minh", 
-    username: "nguyenvanminh", 
-    email: "minh.nv@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u2", 
-    fullName: "ThS. Trần Thị Hương", 
-    username: "tranthihuong", 
-    email: "huong.tt@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u3", 
-    fullName: "PGS.TS. Phạm Văn Cường", 
-    username: "phamvancuong", 
-    email: "cuong.pv@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u4", 
-    fullName: "ThS. Lê Thị Diệu", 
-    username: "lethidieu", 
-    email: "dieu.lt@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u5", 
-    fullName: "Th.S Nguyễn Văn Đức", 
-    username: "nguyenvanduc", 
-    email: "duc.nv@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u6", 
-    fullName: "Cô. Trần Thị Lan", 
-    username: "tranthilan", 
-    email: "lan.tt@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u7", 
-    fullName: "ThS. Hoàng Minh Tuấn", 
-    username: "hoangminhtuan", 
-    email: "tuan.hm@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u8", 
-    fullName: "Cô. Võ Thị Mai", 
-    username: "vothimai", 
-    email: "mai.vt@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u9", 
-    fullName: "ThS. Đặng Văn Nam", 
-    username: "dangvannam", 
-    email: "nam.dv@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u10", 
-    fullName: "Cô. Lưu Thị Oanh", 
-    username: "luuthioanh", 
-    email: "oanh.lt@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u11", 
-    fullName: "ThS. Bùi Văn Hùng", 
-    username: "buivanhung", 
-    email: "hung.bv@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u12", 
-    fullName: "Cô. Ngô Thị Thu", 
-    username: "ngothithu", 
-    email: "thu.nt@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u13", 
-    fullName: "ThS. Phan Minh Đức", 
-    username: "phanminhduc", 
-    email: "duc.pm@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u14", 
-    fullName: "Cô. Vũ Thị Hồng", 
-    username: "vuthihong", 
-    email: "hong.vt@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u15", 
-    fullName: "ThS. Tạ Văn Long", 
-    username: "tavanlong", 
-    email: "long.tv@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  },
-  { 
-    id: "u16", 
-    fullName: "Cô. Đinh Thị Xuân", 
-    username: "dinhthixuan", 
-    email: "xuan.dt@iuh.edu.vn", 
-    status: "ACTIVE" as any,
-    createdAt: "2025-01-01T00:00:00Z",
-    updatedAt: "2025-01-01T00:00:00Z"
-  }
-];
-
-// Mock subcommittees with comprehensive data including multiple members
-const mockSubCommittees: InventorySubCommittee[] = [
-  {
-    id: "sub1",
-    committeeId: "com1",
-    name: "Tiểu ban Cơ sở Gò Vấp",
-    leaderId: "u1",
-    secretaryId: "u2",
-    createdAt: "2025-01-01T00:00:00Z",
-    leader: mockUsers.find(u => u.id === "u1"),
-    secretary: mockUsers.find(u => u.id === "u2"),
-    members: [
-      {
-        id: "sm1",
-        subCommitteeId: "sub1",
-        userId: "u3",
-        role: InventorySubCommitteeRole.MEMBER,
-        user: mockUsers.find(u => u.id === "u3")
-      },
-      {
-        id: "sm2",
-        subCommitteeId: "sub1",
-        userId: "u4",
-        role: InventorySubCommitteeRole.MEMBER,
-        user: mockUsers.find(u => u.id === "u4")
-      },
-      {
-        id: "sm3",
-        subCommitteeId: "sub1",
-        userId: "u5",
-        role: InventorySubCommitteeRole.MEMBER,
-        user: mockUsers.find(u => u.id === "u5")
-      }
-    ],
-    groups: [
-      {
-        id: "g1",
-        subCommitteeId: "sub1",
-        name: "Nhóm 1 - Khoa Cơ khí",
-        leaderId: "u3",
-        secretaryId: "u4",
-        createdAt: "2025-01-01T00:00:00Z",
-        leader: mockUsers.find(u => u.id === "u3"),
-        secretary: mockUsers.find(u => u.id === "u4"),
-        members: [
-          {
-            id: "m1",
-            groupId: "g1",
-            userId: "u5",
-            role: "MEMBER" as any,
-            user: mockUsers.find(u => u.id === "u5")
-          },
-          {
-            id: "m2",
-            groupId: "g1",
-            userId: "u6",
-            role: "MEMBER" as any,
-            user: mockUsers.find(u => u.id === "u6")
-          },
-          {
-            id: "m3",
-            groupId: "g1",
-            userId: "u7",
-            role: "MEMBER" as any,
-            user: mockUsers.find(u => u.id === "u7")
-          }
-        ],
-        assignments: [
-          {
-            id: "a1",
-            groupId: "g1",
-            unitId: "dept1",
-            startDate: "2025-01-15T00:00:00Z",
-            endDate: "2025-01-25T00:00:00Z",
-            note: "Kiểm kê thiết bị phòng thí nghiệm và dụng cụ thực hành",
-            unit: {
-              id: "dept1",
-              name: "Phòng thí nghiệm Cơ khí 1",
-              type: "DON_VI_SU_DUNG" as any,
-              representativeId: "u3",
-              status: "ACTIVE" as any,
-              createdBy: "admin",
-              createdAt: "2025-01-01T00:00:00Z",
-              updatedAt: "2025-01-01T00:00:00Z"
-            },
-            results: []
-          },
-          {
-            id: "a2",
-            groupId: "g1",
-            unitId: "dept2",
-            startDate: "2025-01-20T00:00:00Z",
-            endDate: "2025-01-30T00:00:00Z",
-            note: "Kiểm kê máy móc và trang thiết bị sản xuất",
-            unit: {
-              id: "dept2",
-              name: "Xưởng Cơ khí",
-              type: "DON_VI_SU_DUNG" as any,
-              representativeId: "u4",
-              status: "ACTIVE" as any,
-              createdBy: "admin",
-              createdAt: "2025-01-01T00:00:00Z",
-              updatedAt: "2025-01-01T00:00:00Z"
-            },
-            results: []
-          }
-        ]
-      },
-      {
-        id: "g2",
-        subCommitteeId: "sub1",
-        name: "Nhóm 2 - Khoa Công nghệ thông tin",
-        leaderId: "u8",
-        secretaryId: "u9",
-        createdAt: "2025-01-01T00:00:00Z",
-        leader: mockUsers.find(u => u.id === "u8"),
-        secretary: mockUsers.find(u => u.id === "u9"),
-        members: [
-          {
-            id: "m4",
-            groupId: "g2",
-            userId: "u10",
-            role: "MEMBER" as any,
-            user: mockUsers.find(u => u.id === "u10")
-          },
-          {
-            id: "m5",
-            groupId: "g2",
-            userId: "u11",
-            role: "MEMBER" as any,
-            user: mockUsers.find(u => u.id === "u11")
-          },
-          {
-            id: "m6",
-            groupId: "g2",
-            userId: "u12",
-            role: "MEMBER" as any,
-            user: mockUsers.find(u => u.id === "u12")
-          },
-          {
-            id: "m7",
-            groupId: "g2",
-            userId: "u13",
-            role: "MEMBER" as any,
-            user: mockUsers.find(u => u.id === "u13")
-          }
-        ],
-        assignments: [
-          {
-            id: "a3",
-            groupId: "g2",
-            unitId: "dept3",
-            startDate: "2025-01-10T00:00:00Z",
-            endDate: "2025-01-20T00:00:00Z",
-            note: "Kiểm kê máy tính và thiết bị mạng",
-            unit: {
-              id: "dept3",
-              name: "Phòng máy tính P501",
-              type: "DON_VI_SU_DUNG" as any,
-              representativeId: "u8",
-              status: "ACTIVE" as any,
-              createdBy: "admin",
-              createdAt: "2025-01-01T00:00:00Z",
-              updatedAt: "2025-01-01T00:00:00Z"
-            },
-            results: []
-          }
-        ]
-      }
-    ]
-  },
-  {
-    id: "sub2",
-    committeeId: "com1",
-    name: "Tiểu ban Cơ sở Quận 12",
-    leaderId: "u5",
-    secretaryId: "u6",
-    createdAt: "2025-01-01T00:00:00Z",
-    leader: mockUsers.find(u => u.id === "u5"),
-    secretary: mockUsers.find(u => u.id === "u6"),
-    members: [
-      {
-        id: "sm4",
-        subCommitteeId: "sub2",
-        userId: "u7",
-        role: InventorySubCommitteeRole.MEMBER,
-        user: mockUsers.find(u => u.id === "u7")
-      },
-      {
-        id: "sm5",
-        subCommitteeId: "sub2",
-        userId: "u8",
-        role: InventorySubCommitteeRole.MEMBER,
-        user: mockUsers.find(u => u.id === "u8")
-      }
-    ],
-    groups: [
-      {
-        id: "g4",
-        subCommitteeId: "sub2",
-        name: "Nhóm 1 - Khoa Kinh tế",
-        leaderId: "u7",
-        secretaryId: "u8",
-        createdAt: "2025-01-01T00:00:00Z",
-        leader: mockUsers.find(u => u.id === "u7"),
-        secretary: mockUsers.find(u => u.id === "u8"),
-        members: [
-          {
-            id: "m9",
-            groupId: "g4",
-            userId: "u9",
-            role: "MEMBER" as any,
-            user: mockUsers.find(u => u.id === "u9")
-          },
-          {
-            id: "m10",
-            groupId: "g4",
-            userId: "u10",
-            role: "MEMBER" as any,
-            user: mockUsers.find(u => u.id === "u10")
-          }
-        ],
-        assignments: []
-      }
-    ]
-  }
-];
-
-export default function InventorySubCommitteeManagerNew({ committee }: InventorySubCommitteeManagerNewProps) {
-  const [subCommittees, setSubCommittees] = useState<InventorySubCommittee[]>(mockSubCommittees);
+export default function InventorySubCommitteeManagerNew() {
+  const dispatch = useAppDispatch();
+  const { 
+    currentSession,
+    createSubCommitteeLoading,
+    deleteSubCommitteeLoading,
+    createGroupLoading,
+    deleteGroupLoading,
+  } = useAppSelector(state => state.inventory);
   
+  const { 
+    inventoryCommitteeUsers,
+  } = useAppSelector(state => state.user);
+  
+  const { 
+    allUnits,
+  } = useAppSelector(state => state.unit);
+  
+  // Get sub-committees from current session's inventory session units
+  const getSubCommittees = (): InventorySubCommittee[] => {
+    if (!currentSession?.inventorySessionUnits) return [];
+    
+    const subCommittees: InventorySubCommittee[] = [];
+    currentSession.inventorySessionUnits.forEach((unit: any) => {
+      if (unit.subInventory) {
+        // Ensure subCommittee has complete inventorySessionUnit data with unit info
+        const subCommitteeWithUnit = {
+          ...unit.subInventory,
+          inventorySessionUnit: {
+            ...unit,
+            unit: unit.unit // Include the unit data
+          }
+        };
+        subCommittees.push(subCommitteeWithUnit);
+      }
+    });
+    
+    return subCommittees;
+  };
+
+  const [subCommittees, setSubCommittees] = useState<InventorySubCommittee[]>(getSubCommittees());
+
+  // Update sub-committees when current session changes
+  useEffect(() => {
+    setSubCommittees(getSubCommittees());
+  }, [currentSession]);
+
+  // Load available users for inventory committee
+  useEffect(() => {
+    if (!inventoryCommitteeUsers || inventoryCommitteeUsers.length === 0) {
+      try {
+        dispatch(getAllInventoryCommitteeUsers());
+      } catch (error: any) {
+        console.log(error);
+        toast.error(error.message || 'Có lỗi xảy ra khi lấy danh sách thành viên ban kiểm kê');
+      } 
+    }
+  }, [dispatch, inventoryCommitteeUsers]);
+
+  // Load all units for group assignments
+  useEffect(() => {
+    if (!allUnits || allUnits.length === 0) {
+      try {
+        dispatch(getAllUnits());
+      } catch (error: any) {
+        console.log(error);
+        toast.error(error.message || 'Có lỗi xảy ra khi lấy danh sách đơn vị');
+      }
+    }
+  }, [dispatch, allUnits]);
+
   // Modal states
   const [isSubCommitteeModalOpen, setIsSubCommitteeModalOpen] = useState(false);
-  const [selectedSubCommittee, setSelectedSubCommittee] = useState<InventorySubCommittee | null>(null);
-  
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [selectedSubCommittee, setSelectedSubCommittee] = useState<InventorySubCommittee | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<InventoryGroup | null>(null);
   const [currentSubCommittee, setCurrentSubCommittee] = useState<InventorySubCommittee | null>(null);
   
-  const [isGroupCombinedModalOpen, setIsGroupCombinedModalOpen] = useState(false);
-  
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'subcommittee' | 'group'; item: any } | null>(null);
+
+  // Helper function to get available session units (units without sub-committees)
+  const getAvailableSessionUnits = (): InventorySessionUnit[] => {
+    if (!currentSession?.inventorySessionUnits) return [];
+    
+    return currentSession.inventorySessionUnits.filter((unit: any) => 
+      !unit.subInventory || (selectedSubCommittee && unit.subInventory?.id === selectedSubCommittee.id)
+    );
+  };
+
+
+  // Helper function to get available units for group assignments
+  const getAvailableUnitsForGroups = (): Unit[] => {
+    // Return all units that are not campuses (USER_DEPT and ADMIN_DEPT)
+    return allUnits.filter((unit: Unit) => unit.type !== UnitType.CO_SO);
+  };
+
+  // Helper function to get all assigned user IDs across all sub-committees and groups
+  const getAllAssignedUserIds = (excludeSubCommitteeId?: string, excludeGroupId?: string): string[] => {
+    const assignedUserIds = new Set<string>();
+
+    subCommittees.forEach(subCommittee => {
+      // Skip the sub-committee being edited
+      if (excludeSubCommitteeId && subCommittee.id === excludeSubCommitteeId) {
+        return;
+      }
+
+      // Add sub-committee members (leaders, secretaries, and members)
+      if (subCommittee.members) {
+        subCommittee.members.forEach(member => {
+          assignedUserIds.add(member.userId);
+        });
+      }
+
+      // Add group members from all groups in this sub-committee
+      if (subCommittee.groups) {
+        subCommittee.groups.forEach(group => {
+          // Skip the group being edited
+          if (excludeGroupId && group.id === excludeGroupId) {
+            return;
+          }
+
+          if (group.members) {
+            group.members.forEach(member => {
+              assignedUserIds.add(member.userId);
+            });
+          }
+        });
+      }
+    });
+
+    return Array.from(assignedUserIds);
+  };
+
+  // Helper function to get available users for sub-committee (excluding already assigned users)
+  const getAvailableUsersForSubCommittee = (excludeSubCommitteeId?: string): User[] => {
+    const assignedUserIds = getAllAssignedUserIds(excludeSubCommitteeId);
+    return (inventoryCommitteeUsers || []).filter(user => !assignedUserIds.includes(user.id));
+  };
+
+  // Helper function to get available users for group (excluding already assigned users)
+  const getAvailableUsersForGroup = (subCommitteeId: string, excludeGroupId?: string): User[] => {
+    const assignedUserIds = getAllAssignedUserIds(undefined, excludeGroupId);
+    return (inventoryCommitteeUsers || []).filter(user => !assignedUserIds.includes(user.id));
+  };
+
+  // Helper function to check if a user is already assigned
+  const isUserAssigned = (userId: string, excludeSubCommitteeId?: string, excludeGroupId?: string): { isAssigned: boolean; assignedTo?: string } => {
+    const assignedUserIds = getAllAssignedUserIds(excludeSubCommitteeId, excludeGroupId);
+    
+    if (!assignedUserIds.includes(userId)) {
+      return { isAssigned: false };
+    }
+
+    // Find where the user is assigned
+    for (const subCommittee of subCommittees) {
+      if (excludeSubCommitteeId && subCommittee.id === excludeSubCommitteeId) {
+        continue;
+      }
+
+      // Check sub-committee members
+      if (subCommittee.members?.some(member => member.userId === userId)) {
+        return { 
+          isAssigned: true, 
+          assignedTo: `tiểu ban "${subCommittee.name}"` 
+        };
+      }
+
+      // Check group members
+      if (subCommittee.groups) {
+        for (const group of subCommittee.groups) {
+          if (excludeGroupId && group.id === excludeGroupId) {
+            continue;
+          }
+
+          if (group.members?.some(member => member.userId === userId)) {
+            return { 
+              isAssigned: true, 
+              assignedTo: `nhóm "${group.name}" trong tiểu ban "${subCommittee.name}"` 
+            };
+          }
+        }
+      }
+    }
+
+    return { isAssigned: false };
+  };
 
   // SubCommittee handlers
   const handleAddSubCommittee = () => {
@@ -440,44 +244,38 @@ export default function InventorySubCommitteeManagerNew({ committee }: Inventory
     setShowDeleteConfirm(true);
   };
 
-  const saveSubCommittee = (formData: any) => {
-    if (selectedSubCommittee) {
-      // Edit existing
-      setSubCommittees(prev => 
-        prev.map(s => 
-          s.id === selectedSubCommittee.id 
-            ? { 
-                ...s, 
-                ...formData, 
-                leader: mockUsers.find(u => u.id === formData.leaderId), 
-                secretary: mockUsers.find(u => u.id === formData.secretaryId),
-                members: formData.members?.map((member: InventorySubCommitteeMember) => ({
-                  ...member,
-                  user: mockUsers.find(u => u.id === member.userId)
-                })) || []
-              } 
-            : s
-        )
-      );
-    } else {
-      // Add new
-      const newSubCommittee: InventorySubCommittee = {
-        id: `sub${Date.now()}`,
-        committeeId: committee.id,
-        name: formData.name,
-        leaderId: formData.leaderId,
-        secretaryId: formData.secretaryId,
-        createdAt: new Date().toISOString(),
-        leader: mockUsers.find(u => u.id === formData.leaderId),
-        secretary: mockUsers.find(u => u.id === formData.secretaryId),
-        members: formData.members?.map((member: InventorySubCommitteeMember) => ({
-          ...member,
-          subCommitteeId: `sub${Date.now()}`,
-          user: mockUsers.find(u => u.id === member.userId)
-        })) || [],
-        groups: []
-      };
-      setSubCommittees(prev => [...prev, newSubCommittee]);
+  const saveSubCommittee = async (formData: any) => {
+    try {
+      if (selectedSubCommittee) {
+        // Edit existing sub-committee
+        const updateData: UpdateInventorySubDto = {
+          name: formData.name || "",
+          leaderId: formData.leaderId || "",
+          secretaryId: formData.secretaryId || "",
+          memberIds: formData.memberIds || []
+        };
+        
+        await dispatch(updateInventorySubCommittee({ 
+          id: selectedSubCommittee.id, 
+          subData: updateData 
+        })).unwrap();
+        
+      } else {
+        // Create new sub-committee
+        const createData: CreateInventorySubDto = {
+          name: formData.name || "",
+          inventorySessionUnitId: formData.inventorySessionUnitId || "",
+          leaderId: formData.leaderId || "",
+          secretaryId: formData.secretaryId || "",
+          memberIds: formData.memberIds || []
+        };
+        
+        await dispatch(createInventorySubCommittee(createData)).unwrap();
+      }
+      
+      setIsSubCommitteeModalOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Có lỗi xảy ra khi lưu tiểu ban');
     }
   };
 
@@ -499,87 +297,66 @@ export default function InventorySubCommitteeManagerNew({ committee }: Inventory
     setShowDeleteConfirm(true);
   };
 
-  const handleViewGroupDetails = (group: InventoryGroup, subCommittee: InventorySubCommittee) => {
-    setSelectedGroup(group);
-    setCurrentSubCommittee(subCommittee);
-    setIsGroupCombinedModalOpen(true);
-  };
 
-  const handleManageGroup = (group: InventoryGroup, subCommittee: InventorySubCommittee) => {
-    setSelectedGroup(group);
-    setCurrentSubCommittee(subCommittee);
-    setIsGroupCombinedModalOpen(true);
-  };
-
-  const saveGroup = (formData: any) => {
+  const saveGroup = async (formData: CreateInventoryGroupDto | UpdateInventoryGroupDto) => {
     if (!currentSubCommittee) return;
 
-    setSubCommittees(prev => 
-      prev.map(sub => {
-        if (sub.id === currentSubCommittee.id) {
-          let updatedGroups = [...(sub.groups || [])];
-          
-          if (selectedGroup) {
-            // Edit existing
-            updatedGroups = updatedGroups.map(g => 
-              g.id === selectedGroup.id 
-                ? { 
-                    ...g, 
-                    ...formData, 
-                    leader: mockUsers.find(u => u.id === formData.leaderId),
-                    secretary: mockUsers.find(u => u.id === formData.secretaryId),
-                    members: formData.members?.map((member: any) => ({
-                      ...member,
-                      user: mockUsers.find(u => u.id === member.userId)
-                    })) || []
-                  } 
-                : g
-            );
-          } else {
-            // Add new
-            const newGroup: InventoryGroup = {
-              id: `g${Date.now()}`,
-              subCommitteeId: currentSubCommittee.id,
-              name: formData.name,
-              leaderId: formData.leaderId,
-              secretaryId: formData.secretaryId,
-              createdAt: new Date().toISOString(),
-              leader: mockUsers.find(u => u.id === formData.leaderId),
-              secretary: mockUsers.find(u => u.id === formData.secretaryId),
-              members: formData.members?.map((member: any) => ({
-                ...member,
-                groupId: `g${Date.now()}`,
-                user: mockUsers.find(u => u.id === member.userId)
-              })) || [],
-              assignments: []
-            };
-            updatedGroups.push(newGroup);
-          }
-          
-          return { ...sub, groups: updatedGroups };
-        }
-        return sub;
-      })
-    );
+    try {
+      if (selectedGroup) {
+        // Edit existing group
+        const updateData: UpdateInventoryGroupDto = {
+          name: formData.name,
+          leaderId: formData.leaderId,
+          secretaryId: formData.secretaryId,
+          memberIds: formData.memberIds || [],
+          assignments: formData.assignments || []
+        };
+        
+        await dispatch(updateInventoryGroup({ 
+          id: selectedGroup.id, 
+          groupData: updateData 
+        })).unwrap();
+        
+        console.log('Group updated successfully');
+      } else {
+        // Create new group
+        const createData: CreateInventoryGroupDto = {
+          name: formData.name!,
+          subInventoryId: currentSubCommittee.id,
+          leaderId: formData.leaderId!,
+          secretaryId: formData.secretaryId!,
+          memberIds: formData.memberIds || [],
+          assignments: formData.assignments || []
+        };
+        
+        await dispatch(createInventoryGroup(createData)).unwrap();
+        
+      }
+      
+      setIsGroupModalOpen(false);
+    } catch (error: any) {
+      console.log(error);
+      toast.error(error.message || 'Có lỗi xảy ra khi lưu nhóm');
+    }
   };
 
   // Delete confirmation
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return;
 
-    if (deleteTarget.type === 'subcommittee') {
-      setSubCommittees(prev => prev.filter(s => s.id !== deleteTarget.item.id));
-    } else if (deleteTarget.type === 'group') {
-      setSubCommittees(prev => 
-        prev.map(sub => ({
-          ...sub,
-          groups: sub.groups?.filter(g => g.id !== deleteTarget.item.id) || []
-        }))
-      );
-    }
+    try {
+      if (deleteTarget.type === 'subcommittee') {
+        await dispatch(deleteInventorySubCommittee(deleteTarget.item.id)).unwrap();
+      } else if (deleteTarget.type === 'group') {
+        await dispatch(deleteInventoryGroup(deleteTarget.item.id)).unwrap();
+      }
 
-    setShowDeleteConfirm(false);
-    setDeleteTarget(null);
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Có lỗi xảy ra khi xóa');
+      console.log(error);
+    }
   };
 
   return (
@@ -588,35 +365,23 @@ export default function InventorySubCommitteeManagerNew({ committee }: Inventory
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Quản lý tiểu ban và nhóm</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Tổng cộng: {subCommittees.length} tiểu ban, {subCommittees.reduce((total, sub) => total + (sub.groups?.length || 0), 0)} nhóm, {getAllAssignedUserIds().length} người được phân công
+          </p>
         </div>
         <Button 
           onClick={handleAddSubCommittee}
           className="bg-blue-600 hover:bg-blue-700 shadow-lg"
+          disabled={createSubCommitteeLoading || getAvailableSessionUnits().length === 0}
         >
-          <Plus className="h-5 w-5 mr-2" />
+          {createSubCommitteeLoading ? (
+            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+          ) : (
+            <Plus className="h-5 w-5 mr-2" />
+          )}
           Thêm tiểu ban
         </Button>
       </div>
-
-      {/* Enhanced System Overview */}
-      <SystemOverview 
-        stats={{
-          totalSubCommittees: subCommittees.length,
-          totalGroups: subCommittees.reduce((total, sub) => total + (sub.groups?.length || 0), 0),
-          totalMembers: subCommittees.reduce((total, sub) => 
-            total + 
-            (sub.groups?.reduce((groupTotal, group) => 
-              groupTotal + (group.members?.length || 0), 0) || 0) +
-            (sub.members?.length || 0) + 2 // Add sub-committee members + leader + secretary
-          , 0),
-          totalAssignments: subCommittees.reduce((total, sub) => 
-            total + (sub.groups?.reduce((groupTotal, group) => 
-              groupTotal + (group.assignments?.length || 0), 0) || 0), 0),
-          completedAssignments: 12, // Mock data
-          inProgressAssignments: 8, // Mock data  
-          overdueAssignments: 2 // Mock data
-        }}
-      />
 
       {/* SubCommittees List */}
       {subCommittees.length === 0 ? (
@@ -636,34 +401,30 @@ export default function InventorySubCommitteeManagerNew({ committee }: Inventory
           {subCommittees.map((subCommittee, index) => (
             <Card key={subCommittee.id} className="overflow-hidden shadow-md hover:shadow-lg transition-shadow">
               {/* SubCommittee Header */}
-              <div className={`p-6 bg-gradient-to-r ${
-                index % 3 === 0 ? 'from-blue-50 to-blue-100' : 
-                index % 3 === 1 ? 'from-green-50 to-green-100' : 
-                'from-purple-50 to-purple-100'
-              }`}>
+              <div className={`p-6 bg-gradient-to-r from-blue-50 to-blue-100 `}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className={`p-3 rounded-full ${
-                      index % 3 === 0 ? 'bg-blue-200' : 
-                      index % 3 === 1 ? 'bg-green-200' : 
-                      'bg-purple-200'
+                      'bg-blue-200'
                     }`}>
                       <Users className={`h-6 w-6 ${
-                        index % 3 === 0 ? 'text-blue-600' : 
-                        index % 3 === 1 ? 'text-green-600' : 
-                        'text-purple-600'
+                        'text-blue-600'
                       }`} />
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-gray-800">{subCommittee.name}</h3>
                       <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
-                        <span>Trưởng: {subCommittee.leader?.fullName}</span>
-                        <span>•</span>
-                        <span>Thư ký: {subCommittee.secretary?.fullName}</span>
+                        <span>Trạng thái: {subCommittee.status}</span>
                         <span>•</span>
                         <span>{subCommittee.groups?.length || 0} nhóm</span>
                         <span>•</span>
-                        <span>{(subCommittee.members?.length || 0) + 2} thành viên</span>
+                        <span>{subCommittee.members?.length || 0} thành viên</span>
+                        {subCommittee.description && (
+                          <>
+                            <span>•</span>
+                            <span>{subCommittee.description}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -687,8 +448,13 @@ export default function InventorySubCommitteeManagerNew({ committee }: Inventory
                     variant="outline"
                     onClick={() => handleAddGroup(subCommittee)}
                     className="border-dashed"
+                    disabled={createGroupLoading}
                   >
-                    <Plus className="h-4 w-4 mr-1" />
+                    {createGroupLoading ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4 mr-1" />
+                    )}
                     Thêm nhóm
                   </Button>
                 </div>
@@ -743,39 +509,21 @@ export default function InventorySubCommitteeManagerNew({ committee }: Inventory
                         
                         <div className="space-y-2 text-xs">
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Trưởng nhóm:</span>
-                            <span className="font-medium">{group.leader?.fullName}</span>
+                            <span className="text-gray-500">Trạng thái:</span>
+                            <span className="font-medium">{group.status}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Thư ký:</span>
-                            <span className="font-medium">{group.secretary?.fullName}</span>
-                          </div>
+                          {group.description && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Mô tả:</span>
+                              <span className="font-medium">{group.description}</span>
+                            </div>
+                          )}
                           <div className="flex justify-between">
                             <span className="text-gray-500">Phân công:</span>
                             <span className="font-medium">{group.assignments?.length || 0} đơn vị</span>
                           </div>
                         </div>
                         
-                        <div className="mt-3 pt-3 border-t border-gray-200 flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="flex-1"
-                            onClick={() => handleViewGroupDetails(group, subCommittee)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            Chi tiết
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="flex-1"
-                            onClick={() => handleManageGroup(group, subCommittee)}
-                          >
-                            <Users className="h-4 w-4 mr-1" />
-                            Quản lý
-                          </Button>
-                        </div>
                       </Card>
                     ))}
                   </div>
@@ -792,7 +540,9 @@ export default function InventorySubCommitteeManagerNew({ committee }: Inventory
         onClose={() => setIsSubCommitteeModalOpen(false)}
         subCommittee={selectedSubCommittee}
         onSave={saveSubCommittee}
-        availableUsers={mockUsers}
+        availableUsers={getAvailableUsersForSubCommittee(selectedSubCommittee?.id)}
+        availableSessionUnits={getAvailableSessionUnits()}
+        onUserAssignmentCheck={(userId) => isUserAssigned(userId, selectedSubCommittee?.id)}
       />
 
       {currentSubCommittee && (
@@ -802,96 +552,16 @@ export default function InventorySubCommitteeManagerNew({ committee }: Inventory
           subCommittee={currentSubCommittee}
           group={selectedGroup}
           onSave={saveGroup}
-          availableUsers={mockUsers}
+          availableUsers={getAvailableUsersForGroup(currentSubCommittee.id, selectedGroup?.id)}
+          availableUnits={getAvailableUnitsForGroups()}
+          onUserAssignmentCheck={(userId: string) => isUserAssigned(userId, undefined, selectedGroup?.id)}
         />
       )}
 
-      {selectedGroup && currentSubCommittee && (
-        <GroupCombinedModalNew
-          isOpen={isGroupCombinedModalOpen}
-          onClose={() => setIsGroupCombinedModalOpen(false)}
-          group={selectedGroup}
-          subCommittee={currentSubCommittee}
-          availableUsers={mockUsers}
-          availableUnits={[
-            {
-              id: "dept1",
-              name: "Khoa Cơ khí",
-              type: "DON_VI_SU_DUNG" as any,
-              representativeId: "u1",
-              status: "ACTIVE" as any,
-              createdBy: "admin",
-              createdAt: "2025-01-01T00:00:00Z",
-              updatedAt: "2025-01-01T00:00:00Z"
-            },
-            {
-              id: "dept2",
-              name: "Khoa Công nghệ thông tin",
-              type: "DON_VI_SU_DUNG" as any,
-              representativeId: "u3",
-              status: "ACTIVE" as any,
-              createdBy: "admin",
-              createdAt: "2025-01-01T00:00:00Z",
-              updatedAt: "2025-01-01T00:00:00Z"
-            },
-            {
-              id: "dept3",
-              name: "Khoa Điện - Điện tử",
-              type: "DON_VI_SU_DUNG" as any,
-              representativeId: "u4",
-              status: "ACTIVE" as any,
-              createdBy: "admin",
-              createdAt: "2025-01-01T00:00:00Z",
-              updatedAt: "2025-01-01T00:00:00Z"
-            },
-            {
-              id: "dept4",
-              name: "Khoa Kinh tế",
-              type: "DON_VI_SU_DUNG" as any,
-              representativeId: "u5",
-              status: "ACTIVE" as any,
-              createdBy: "admin",
-              createdAt: "2025-01-01T00:00:00Z",
-              updatedAt: "2025-01-01T00:00:00Z"
-            },
-            {
-              id: "dept5",
-              name: "Phòng Đào tạo",
-              type: "DON_VI_SU_DUNG" as any,
-              representativeId: "u10",
-              status: "ACTIVE" as any,
-              createdBy: "admin",
-              createdAt: "2025-01-01T00:00:00Z",
-              updatedAt: "2025-01-01T00:00:00Z"
-            }
-          ]}
-          onSave={(updatedGroup: InventoryGroup) => {
-            setSubCommittees(prev => 
-              prev.map(sub => {
-                if (sub.id === currentSubCommittee.id) {
-                  return {
-                    ...sub,
-                    groups: sub.groups?.map(g => 
-                      g.id === updatedGroup.id ? updatedGroup : g
-                    ) || []
-                  };
-                }
-                return sub;
-              })
-            );
-            setIsGroupCombinedModalOpen(false);
-          }}
-          onEdit={(group: InventoryGroup) => {
-            setSelectedGroup(group);
-            setIsGroupCombinedModalOpen(false);
-            handleEditGroup(group, currentSubCommittee);
-          }}
-        />
-      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && deleteTarget && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
             <div className="p-6">
               <div className="flex items-center mb-4">
@@ -915,7 +585,14 @@ export default function InventorySubCommitteeManagerNew({ committee }: Inventory
                 <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
                   Hủy
                 </Button>
-                <Button variant="destructive" onClick={confirmDelete}>
+                <Button 
+                  variant="destructive" 
+                  onClick={confirmDelete}
+                  disabled={deleteSubCommitteeLoading || deleteGroupLoading}
+                >
+                  {(deleteSubCommitteeLoading || deleteGroupLoading) ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : null}
                   Xóa
                 </Button>
               </div>

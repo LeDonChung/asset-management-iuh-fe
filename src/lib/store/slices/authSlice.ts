@@ -49,6 +49,13 @@ const saveUserToLocalStorage = (user: UserLoginResponse) => {
     window.dispatchEvent(new CustomEvent('auth-storage-change'))
   }
 }
+const saveTokenToLocalStorage = (token: string) => {
+  localStorage.setItem(TOKEN_KEY, token)
+  // Trigger custom event để AuthContext update
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('auth-storage-change'))
+  }
+}
 
 const getTokenFromCookie = (): string | null => {
   return Cookies.get(TOKEN_KEY) || null
@@ -150,6 +157,7 @@ const authSlice = createSlice({
       state.error = null
       // Lưu vào cookie và localStorage
       saveTokenToCookie(action.payload.token)
+      saveTokenToLocalStorage(action.payload.token)
       saveUserToLocalStorage(action.payload.user)
     })
     builder.addCase(login.rejected, (state, action) => {

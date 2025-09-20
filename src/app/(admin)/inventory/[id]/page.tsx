@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Edit2,
@@ -36,206 +36,149 @@ import {
   Unit,
   UnitStatus,
   UnitType,
-  AssetType
+  AssetType,
+  InventorySessionUnit,
+  InventorySessionMember
 } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal, ModalHeader } from "@/components/ui/modal";
-import { useAuth } from "@/contexts/AuthContext";
 import InventorySessionTabs from "@/components/inventory/InventorySessionTabs";
-
-// Mock data
-const mockInventorySession: InventorySession = {
-  id: "inv-session-1",
-  year: 2024,
-  name: "Kiểm kê tài sản cuối năm 2024",
-  period: 1,
-  isGlobal: true,
-  startDate: "2024-12-01",
-  endDate: "2024-12-31",
-  status: InventorySessionStatus.PLANNED,
-  createdBy: "user-1",
-  createdAt: "2024-11-01T00:00:00Z",
-  creator: {
-    id: "user-1",
-    username: "admin",
-    fullName: "Nguyễn Văn Admin",
-    email: "admin@iuh.edu.vn",
-    phoneNumber: "0123456789",
-    status: UserStatus.ACTIVE,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z",
-  },
-  units: [
-    {
-      id: "session-unit-1",
-      sessionId: "inv-session-1",
-      unitId: "unit-1",
-      unit: {
-        id: "unit-1",
-        name: "Khoa Công nghệ thông tin",
-        type: UnitType.DON_VI_SU_DUNG,
-        status: UnitStatus.ACTIVE,
-        phone: "028-38968641",
-        email: "cntt@iuh.edu.vn",
-        representativeId: "user-2",
-        createdBy: "admin",
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:00:00Z"
-      }
-    },
-    {
-      id: "session-unit-2",
-      sessionId: "inv-session-1",
-      unitId: "unit-2",
-      unit: {
-        id: "unit-2",
-        name: "Khoa Cơ khí",
-        type: UnitType.DON_VI_SU_DUNG,
-        status: UnitStatus.ACTIVE,
-        phone: "028-38968642",
-        email: "comech@iuh.edu.vn",
-        representativeId: "user-3",
-        createdBy: "admin",
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:00:00Z"
-      }
-    }
-  ],
-  committees: [],
-};
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { findByIdInventorySession, updateStatusInventorySession, updateStatusSessionById, setCurrentSession, clearCurrentSession } from "@/lib/store/slices/inventorySlice";
+import toast from "react-hot-toast";
 
 // Mock data for asset preview
 const mockAssetPreview = {
   "unit-1": {
     [AssetType.CCDC]: [
-      { 
-        id: "1", 
-        ktCode: "KT-2025/001", 
+      {
+        id: "1",
+        ktCode: "KT-2025/001",
         fixedCode: "2025.001",
-        name: "Máy in Canon LBP6030", 
+        name: "Máy in Canon LBP6030",
         specs: "Laser, Đen trắng, A4",
         location: "A-3-301",
         entryDate: "15/1/2025",
-        quantity: 2, 
+        quantity: 2,
         unit: "Chiếc",
-        status: "Đầy đủ" 
+        status: "Đầy đủ"
       },
-      { 
-        id: "2", 
-        ktCode: "KT-2025/002", 
+      {
+        id: "2",
+        ktCode: "KT-2025/002",
         fixedCode: "2025.002",
-        name: "Chuột quang Logitech B100", 
+        name: "Chuột quang Logitech B100",
         specs: "USB, Quang học, 1000 DPI",
         location: "A-3-302",
         entryDate: "16/1/2025",
-        quantity: 25, 
+        quantity: 25,
         unit: "Chiếc",
-        status: "Đầy đủ" 
+        status: "Đầy đủ"
       },
-      { 
-        id: "3", 
-        ktCode: "KT-2025/003", 
+      {
+        id: "3",
+        ktCode: "KT-2025/003",
         fixedCode: "2025.003",
-        name: "Bàn phím Dell KB216", 
+        name: "Bàn phím Dell KB216",
         specs: "USB, Layout QWERTY, Đen",
         location: "A-3-303",
         entryDate: "17/1/2025",
-        quantity: 28, 
+        quantity: 28,
         unit: "Chiếc",
-        status: "Thiếu 2" 
+        status: "Thiếu 2"
       },
     ],
     [AssetType.TSCD]: [
-      { 
-        id: "4", 
-        ktCode: "TS-2025/001", 
+      {
+        id: "4",
+        ktCode: "TS-2025/001",
         fixedCode: "2025.004",
-        name: "Máy tính để bàn Dell OptiPlex 7090", 
+        name: "Máy tính để bàn Dell OptiPlex 7090",
         specs: "Intel i5-11500, 8GB RAM, 256GB SSD",
         location: "A-3-301",
         entryDate: "15/1/2025",
-        quantity: 1, 
+        quantity: 1,
         unit: "Chiếc",
-        status: "Đầy đủ" 
+        status: "Đầy đủ"
       },
-      { 
-        id: "5", 
-        ktCode: "TS-2025/002", 
+      {
+        id: "5",
+        ktCode: "TS-2025/002",
         fixedCode: "2025.005",
-        name: "Màn hình Samsung 24 inch", 
+        name: "Màn hình Samsung 24 inch",
         specs: "Full HD, VA Panel, 75Hz",
         location: "A-3-302",
         entryDate: "16/1/2025",
-        quantity: 1, 
+        quantity: 1,
         unit: "Chiếc",
-        status: "Hư hỏng 3" 
+        status: "Hư hỏng 3"
       },
-      { 
-        id: "6", 
-        ktCode: "TS-2025/003", 
+      {
+        id: "6",
+        ktCode: "TS-2025/003",
         fixedCode: "2025.006",
-        name: "Bàn ghế văn phòng", 
+        name: "Bàn ghế văn phòng",
         specs: "Gỗ công nghiệp, màu nâu",
         location: "A-3-304",
         entryDate: "18/1/2025",
-        quantity: 1, 
+        quantity: 1,
         unit: "Bộ",
-        status: "Đầy đủ" 
+        status: "Đầy đủ"
       },
     ]
   },
   "unit-2": {
     [AssetType.CCDC]: [
-      { 
-        id: "7", 
-        ktCode: "KT-2025/004", 
+      {
+        id: "7",
+        ktCode: "KT-2025/004",
         fixedCode: "2025.007",
-        name: "Máy khoan Bosch GSB 550", 
+        name: "Máy khoan Bosch GSB 550",
         specs: "550W, 13mm, Có búa",
         location: "B-1-101",
         entryDate: "20/1/2025",
-        quantity: 5, 
+        quantity: 5,
         unit: "Chiếc",
-        status: "Đầy đủ" 
+        status: "Đầy đủ"
       },
-      { 
-        id: "8", 
-        ktCode: "KT-2025/005", 
+      {
+        id: "8",
+        ktCode: "KT-2025/005",
         fixedCode: "2025.008",
-        name: "Thước kẹp Mitutoyo", 
+        name: "Thước kẹp Mitutoyo",
         specs: "0-150mm, Độ chính xác 0.02mm",
         location: "B-1-102",
         entryDate: "21/1/2025",
-        quantity: 12, 
+        quantity: 12,
         unit: "Chiếc",
-        status: "Thiếu 1" 
+        status: "Thiếu 1"
       },
     ],
     [AssetType.TSCD]: [
-      { 
-        id: "9", 
-        ktCode: "TS-2025/004", 
+      {
+        id: "9",
+        ktCode: "TS-2025/004",
         fixedCode: "2025.009",
-        name: "Máy CNC Haas VF-2", 
+        name: "Máy CNC Haas VF-2",
         specs: "3 trục, 762x406x508mm",
         location: "B-1-201",
         entryDate: "22/1/2025",
-        quantity: 1, 
+        quantity: 1,
         unit: "Chiếc",
-        status: "Đầy đủ" 
+        status: "Đầy đủ"
       },
-      { 
-        id: "10", 
-        ktCode: "TS-2025/005", 
+      {
+        id: "10",
+        ktCode: "TS-2025/005",
         fixedCode: "2025.010",
-        name: "Máy lạnh Daikin FTXM35R", 
+        name: "Máy lạnh Daikin FTXM35R",
         specs: "1.5HP, Inverter, R32",
         location: "B-1-202",
         entryDate: "23/1/2025",
-        quantity: 1, 
+        quantity: 1,
         unit: "Chiếc",
-        status: "Đầy đủ" 
+        status: "Đầy đủ"
       },
     ]
   }
@@ -248,7 +191,7 @@ const statusConfig = {
     color: "bg-blue-100 text-blue-800",
     icon: Clock,
     nextStatus: InventorySessionStatus.IN_PROGRESS,
-    nextLabel: "Bắt đầu kiểm kê",
+    nextLabel: "Đang thực hiện",
     nextIcon: PlayCircle
   },
   [InventorySessionStatus.IN_PROGRESS]: {
@@ -280,72 +223,91 @@ const statusConfig = {
 export default function InventorySessionDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [session, setSession] = useState<InventorySession | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isChangingStatus, setIsChangingStatus] = useState(false);
-  
+  const searchParams = useSearchParams();
+
   // Asset Report Modal States
   const [isAssetReportModalOpen, setIsAssetReportModalOpen] = useState(false);
   const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
   const [selectedAssetTypes, setSelectedAssetTypes] = useState<AssetType[]>([]);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const { 
+    findByIdLoading, 
+    findByIdError, 
+    updateStatusLoading, 
+    updateStatusError,
+    currentSession 
+  } = useAppSelector(state => state.inventory);
+  const dispatch = useAppDispatch();
 
+  // Use currentSession from Redux instead of local state
+  const session = currentSession;
   // Check user permissions
   const isSuperAdmin = true;
   const isAdmin = true;
-  const isPhongQuanTri = true;
 
-  // Fetch session data
+  // Fetch session data and store in Redux
   useEffect(() => {
     const fetchSession = async () => {
-      setIsLoading(true);
       try {
-        // Mock API call
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setSession(mockInventorySession);
+        // This will automatically set currentSession in Redux via the fulfilled case
+        await dispatch(findByIdInventorySession(params.id as string)).unwrap();
       } catch (error) {
         console.error("Error fetching session:", error);
-        alert("Không thể tải thông tin kỳ kiểm kê. Vui lòng thử lại.");
+        toast.error("Không thể tải thông tin kỳ kiểm kê. Vui lòng thử lại.");
         router.push("/inventory");
-      } finally {
-        setIsLoading(false);
       }
     };
 
     if (params.id) {
       fetchSession();
     }
-  }, [params.id, router]);
+  }, [params.id, router, dispatch]);
+
+  // Clean up currentSession when component unmounts
+  useEffect(() => {
+    return () => {
+      dispatch(clearCurrentSession());
+    };
+  }, [dispatch]);
+
+  useEffect(() => {
+    if(updateStatusError) {
+      toast.error(updateStatusError ?? "Không thể cập nhật trạng thái kỳ kiểm kê. Vui lòng thử lại.");
+    }
+  }, [updateStatusError]);
 
   const handleStatusChange = async (newStatus: InventorySessionStatus) => {
     if (!session) return;
 
-    const config = statusConfig[session.status];
+    const config = statusConfig[session.status as InventorySessionStatus];
     if (!config.nextStatus || config.nextStatus !== newStatus) {
-      alert("Không thể chuyển trạng thái này");
+      toast.error("Không thể chuyển trạng thái này");
       return;
     }
 
     const newConfig = statusConfig[newStatus];
-    if (confirm(`Bạn có chắc chắn muốn ${newConfig.nextLabel?.toLowerCase()}?`)) {
-      setIsChangingStatus(true);
+    if (confirm(`Bạn có chắc chắn muốn ${newConfig.label?.toLowerCase()}?`)) {
       try {
-        // Mock API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const result = await dispatch(updateStatusInventorySession({ 
+          id: session.id, 
+          status: newStatus 
+        })).unwrap();
 
-        setSession(prev => prev ? {
-          ...prev,
-          status: newStatus,
-          updatedAt: new Date().toISOString()
-        } : null);
+        if (result) {
+          // Update Redux store state
+          dispatch(updateStatusSessionById({ id: session.id, status: newStatus }));
 
-        alert(`${newConfig.nextLabel} thành công!`);
-      } catch (error) {
+          // Show appropriate success message
+          if (newStatus === InventorySessionStatus.CLOSED) {
+            toast.success(`Đã đóng kỳ kiểm kê thành công!`);
+          } else {
+            toast.success(`Đã cập nhật trạng thái kỳ kiểm kê thành công!`);
+          }
+        }
+      } catch (error: any) {
         console.error("Error changing status:", error);
-        alert("Có lỗi xảy ra khi thay đổi trạng thái. Vui lòng thử lại.");
-      } finally {
-        setIsChangingStatus(false);
+        toast.error(error?.message || "Có lỗi xảy ra khi thay đổi trạng thái. Vui lòng thử lại.");
       }
     }
   };
@@ -360,16 +322,16 @@ export default function InventorySessionDetailPage() {
 
   // Asset Report Functions
   const handleUnitToggle = (unitId: string) => {
-    setSelectedUnits(prev => 
-      prev.includes(unitId) 
+    setSelectedUnits(prev =>
+      prev.includes(unitId)
         ? prev.filter(id => id !== unitId)
         : [...prev, unitId]
     );
   };
 
   const handleAssetTypeToggle = (assetType: AssetType) => {
-    setSelectedAssetTypes(prev => 
-      prev.includes(assetType) 
+    setSelectedAssetTypes(prev =>
+      prev.includes(assetType)
         ? prev.filter(type => type !== assetType)
         : [...prev, assetType]
     );
@@ -402,16 +364,37 @@ export default function InventorySessionDetailPage() {
     setShowPreview(false);
   };
 
-  if (isLoading) {
+  const handleGoBack = () => {
+    const returnUrl = searchParams.get('returnUrl');
+    const allParams = searchParams.toString();
+
+    // Debug logging
+    console.log('Debug Info:');
+    console.log('searchParams:', allParams);
+    console.log('returnUrl:', returnUrl);
+    console.log('returnUrl type:', typeof returnUrl);
+    console.log('returnUrl length:', returnUrl?.length);
+
+    if (returnUrl && returnUrl.trim() !== '') {
+      const decodedUrl = decodeURIComponent(returnUrl);
+      console.log('Decoded URL:', decodedUrl);
+      // Quay lại URL với đầy đủ filter state
+      router.push(decodedUrl);
+    } else {
+      console.log('No valid returnUrl found, going to /inventory');
+      // Fallback về trang inventory
+      router.push('/inventory');
+    }
+  };
+
+  if (findByIdLoading) {
     return (
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="flex items-center space-x-4">
-          <Link href="/inventory">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Quay lại
-            </Button>
-          </Link>
+          <Button variant="outline" size="sm" onClick={handleGoBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Quay lại
+          </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Chi tiết kỳ kiểm kê</h1>
             <p className="text-gray-600">Đang tải thông tin...</p>
@@ -424,7 +407,7 @@ export default function InventorySessionDetailPage() {
       </div>
     );
   }
-
+  // This function is no longer needed since we use Redux actions directly
   if (!session) {
     return (
       <div className="max-w-7xl mx-auto space-y-8">
@@ -452,7 +435,7 @@ export default function InventorySessionDetailPage() {
     );
   }
 
-  const currentStatusConfig = statusConfig[session.status];
+  const currentStatusConfig = statusConfig[session.status as InventorySessionStatus];
   const StatusIcon = currentStatusConfig.icon;
 
   return (
@@ -476,7 +459,7 @@ export default function InventorySessionDetailPage() {
         <div className="flex items-center space-x-3">
           <Link href={`/inventory/${session.id}/results`}>
             <Button
-              variant="outline" 
+              variant="outline"
               className="flex items-center gap-2 border border-green-200 hover:bg-green-50"
             >
               <FileText className="h-4 w-4" />
@@ -504,10 +487,10 @@ export default function InventorySessionDetailPage() {
           {currentStatusConfig.nextStatus && (isAdmin || isSuperAdmin) && (
             <Button
               onClick={() => handleStatusChange(currentStatusConfig.nextStatus!)}
-              disabled={isChangingStatus}
+              disabled={updateStatusLoading}
               className="min-w-[140px]"
             >
-              {isChangingStatus ? (
+              {updateStatusLoading ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Đang xử lý...
@@ -540,118 +523,72 @@ export default function InventorySessionDetailPage() {
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Left Column - Basic Info */}
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Calendar className="h-4 w-4 text-gray-600" />
-                        <span className="text-sm font-medium text-gray-600">Năm kiểm kê</span>
-                      </div>
-                      <p className="text-lg font-semibold text-gray-900">{session.year}</p>
+              <div className="space-y-6">
+                {/* Thông tin cơ bản */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Năm kiểm kê */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Calendar className="h-4 w-4 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-600">Năm</span>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Hash className="h-4 w-4 text-gray-600" />
-                        <span className="text-sm font-medium text-gray-600">Đợt</span>
-                      </div>
-                      <p className="text-lg font-semibold text-gray-900">{session.period}</p>
-                    </div>
+                    <p className="text-lg font-semibold text-gray-900">{session.year}</p>
                   </div>
 
+                  {/* Đợt kiểm kê */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Hash className="h-4 w-4 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-600">Đợt</span>
+                    </div>
+                    <p className="text-lg font-semibold text-gray-900">{session.period}</p>
+                  </div>
+
+                  {/* Thời gian */}
                   <div className="bg-blue-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <Clock className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">Thời gian thực hiện</span>
+                      <span className="text-sm font-medium text-blue-800">Thời gian</span>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-blue-700">
-                        <strong>Bắt đầu:</strong> {new Date(session.startDate).toLocaleDateString('vi-VN', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                      <p className="text-sm text-blue-700">
-                        <strong>Kết thúc:</strong> {new Date(session.endDate).toLocaleDateString('vi-VN', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                      <p className="text-sm text-blue-800 font-medium">
-                        Thời gian: {calculateDuration(session.startDate, session.endDate)} ngày
-                      </p>
-                    </div>
+                    <p className="text-sm font-semibold text-blue-900">
+                      {calculateDuration(session.startDate, session.endDate)} ngày
+                    </p>
+                    <p className="text-xs text-blue-700">
+                      {new Date(session.startDate).toLocaleDateString('vi-VN')} - {new Date(session.endDate).toLocaleDateString('vi-VN')}
+                    </p>
                   </div>
                 </div>
 
-                {/* Right Column - Scope & Creator Info */}
-                <div className="space-y-6">
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      {session.isGlobal ? (
-                        <Globe className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <Building2 className="h-4 w-4 text-green-600" />
-                      )}
-                      <span className="text-sm font-medium text-green-800">Phạm vi kiểm kê</span>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-green-900">
-                        {session.isGlobal ? "Toàn trường" : "Đơn vị cụ thể"}
-                      </p>
-                      {!session.isGlobal && session.units && session.units.length > 0 && (
-                        <div className="space-y-1">
-                          <p className="text-xs text-green-700 font-medium">
-                            Đơn vị tham gia ({session.units.length}):
-                          </p>
-                          {session.units.slice(0, 3).map((sessionUnit) => (
-                            <div key={sessionUnit.id} className="flex items-center space-x-2">
-                              <MapPin className="h-3 w-3 text-green-600" />
-                              <span className="text-xs text-green-800">
-                                {sessionUnit.unit?.name}
-                              </span>
-                            </div>
-                          ))}
-                          {session.units.length > 3 && (
-                            <p className="text-xs text-green-700">
-                              và {session.units.length - 3} đơn vị khác...
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-purple-50 rounded-lg p-4">
+                {/* Các cơ sở tham gia */}
+                {session?.inventorySessionUnits && session.inventorySessionUnits.length > 0 && (
+                  <div>
                     <div className="flex items-center space-x-2 mb-3">
-                      <User className="h-4 w-4 text-purple-600" />
-                      <span className="text-sm font-medium text-purple-800">Người tạo</span>
+                      <Building2 className="h-5 w-5 text-green-600" />
+                      <h3 className="text-lg font-medium text-gray-900">Cơ sở tham gia kiểm kê</h3>
                     </div>
-                    <div className="space-y-2">
-                      <p className="font-semibold text-purple-900">{session.creator?.fullName}</p>
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <Mail className="h-3 w-3 text-purple-600" />
-                          <span className="text-sm text-purple-700">{session.creator?.email}</span>
-                        </div>
-                        {session.creator?.phoneNumber && (
-                          <div className="flex items-center space-x-2">
-                            <Phone className="h-3 w-3 text-purple-600" />
-                            <span className="text-sm text-purple-700">{session.creator.phoneNumber}</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {session.inventorySessionUnits.map((sessionUnit: InventorySessionUnit) => (
+                        <div 
+                          key={sessionUnit.id} 
+                          className="bg-green-50 rounded-lg p-4 border border-green-200 hover:bg-green-100 transition-colors cursor-pointer group"
+                          onClick={() => {
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <MapPin className="h-4 w-4 text-green-600" />
+                              <span className="text-sm font-medium text-green-800">Cơ sở</span>
+                            </div>
+                            <Eye className="h-4 w-4 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
-                        )}
-                      </div>
-                      <p className="text-xs text-purple-600">
-                        Tạo lúc: {new Date(session.createdAt).toLocaleString('vi-VN')}
-                      </p>
+                          <p className="text-sm font-semibold text-green-900 mb-1">
+                            {sessionUnit.unit?.name?.replace("Đại học Công nghiệp thành phố Hồ Chí Minh", "TP.HCM")}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -671,25 +608,25 @@ export default function InventorySessionDetailPage() {
                     <div
                       key={status}
                       className={`flex items-center space-x-3 p-3 rounded-lg ${isCurrentStatus
-                          ? 'bg-blue-100 border border-blue-300'
-                          : isPastStatus
-                            ? 'bg-green-50 border border-green-200'
-                            : 'bg-white border border-gray-200'
+                        ? 'bg-blue-100 border border-blue-300'
+                        : isPastStatus
+                          ? 'bg-green-50 border border-green-200'
+                          : 'bg-white border border-gray-200'
                         }`}
                     >
                       {React.createElement(config.icon, {
                         className: `h-5 w-5 ${isCurrentStatus
-                            ? 'text-blue-600'
-                            : isPastStatus
-                              ? 'text-green-600'
-                              : 'text-gray-400'
+                          ? 'text-blue-600'
+                          : isPastStatus
+                            ? 'text-green-600'
+                            : 'text-gray-400'
                           }`
                       })}
                       <span className={`text-sm font-medium ${isCurrentStatus
-                          ? 'text-blue-900'
-                          : isPastStatus
-                            ? 'text-green-800'
-                            : 'text-gray-500'
+                        ? 'text-blue-900'
+                        : isPastStatus
+                          ? 'text-green-800'
+                          : 'text-gray-500'
                         }`}>
                         {config.label}
                       </span>
@@ -747,11 +684,11 @@ export default function InventorySessionDetailPage() {
                 <p className="text-sm font-medium text-gray-700 mb-3">Hành động tiếp theo</p>
                 <Button
                   onClick={() => handleStatusChange(currentStatusConfig.nextStatus!)}
-                  disabled={isChangingStatus}
+                  disabled={updateStatusLoading}
                   className="w-full"
                   size="sm"
                 >
-                  {isChangingStatus ? (
+                  {updateStatusLoading ? (
                     <div className="flex items-center">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       Đang xử lý...
@@ -770,11 +707,11 @@ export default function InventorySessionDetailPage() {
       </div>
 
       {/* Tab Section */}
-      <InventorySessionTabs session={session} />
+      <InventorySessionTabs />
 
       {/* Asset Report Modal */}
-      <Modal 
-        isOpen={isAssetReportModalOpen} 
+      <Modal
+        isOpen={isAssetReportModalOpen}
         onClose={() => {
           setIsAssetReportModalOpen(false);
           resetAssetReportModal();
@@ -805,7 +742,7 @@ export default function InventorySessionDetailPage() {
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-3">Chọn đơn vị đã kiểm kê</h3>
             <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
-              {session?.units?.map((sessionUnit) => (
+              {session?.units?.map((sessionUnit: any) => (
                 <label
                   key={sessionUnit.id}
                   className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
@@ -891,14 +828,14 @@ export default function InventorySessionDetailPage() {
                   Xem trước sổ tài sản
                 </h4>
               </div>
-              
+
               <div className="p-4 space-y-6">
                 {selectedUnits.map(unitId => {
-                  const unit = session?.units?.find(u => u.unitId === unitId)?.unit;
+                  const unit = session?.units?.find((u: any) => u.unitId === unitId)?.unit;
                   const unitAssets = mockAssetPreview[unitId as keyof typeof mockAssetPreview];
-                  
+
                   if (!unit || !unitAssets) return null;
-                  
+
                   return (
                     <div key={unitId} className="border border-gray-200 rounded-lg overflow-hidden">
                       {/* Unit Header */}
@@ -913,22 +850,21 @@ export default function InventorySessionDetailPage() {
                           </Badge>
                         </div>
                       </div>
-                      
+
                       {/* Asset Types */}
                       <div className="divide-y divide-gray-200">
                         {selectedAssetTypes.map(assetType => {
                           const assets = unitAssets[assetType];
                           if (!assets || assets.length === 0) return null;
-                          
+
                           return (
                             <div key={assetType} className="p-4">
                               {/* Asset Type Header */}
                               <div className="flex items-center mb-3">
-                                <div className={`w-6 h-6 rounded flex items-center justify-center mr-2 ${
-                                  assetType === AssetType.CCDC 
-                                    ? 'bg-orange-100' 
+                                <div className={`w-6 h-6 rounded flex items-center justify-center mr-2 ${assetType === AssetType.CCDC
+                                    ? 'bg-orange-100'
                                     : 'bg-purple-100'
-                                }`}>
+                                  }`}>
                                   {assetType === AssetType.CCDC ? (
                                     <Wrench className="h-3 w-3 text-orange-600" />
                                   ) : (
@@ -939,7 +875,7 @@ export default function InventorySessionDetailPage() {
                                   {assetType === AssetType.CCDC ? 'Công cụ dụng cụ' : 'Tài sản cố định'}
                                 </h6>
                               </div>
-                              
+
                               {/* Asset Table */}
                               <div className="overflow-x-auto">
                                 <table className="min-w-full text-sm border-collapse border border-gray-300">
@@ -979,7 +915,7 @@ export default function InventorySessionDetailPage() {
                                   </tbody>
                                 </table>
                               </div>
-                              
+
                               {/* Summary for this asset type */}
                               <div className="mt-3 text-xs text-gray-600">
                                 <span className="font-medium">Tổng cộng:</span> {assets.length} loại tài sản
@@ -988,7 +924,7 @@ export default function InventorySessionDetailPage() {
                           );
                         })}
                       </div>
-                      
+
                       {/* Unit Footer */}
                       <div className="bg-gray-50 px-4 py-2 text-xs text-gray-600 flex justify-between">
                         <span>Ngày tạo: {new Date().toLocaleDateString('vi-VN')}</span>
@@ -997,21 +933,21 @@ export default function InventorySessionDetailPage() {
                     </div>
                   );
                 })}
-                
+
                 {/* Overall Summary */}
                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                   <h6 className="font-medium text-blue-900 mb-2">Tổng kết sổ tài sản</h6>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-blue-700">Số đơn vị:</span> 
+                      <span className="text-blue-700">Số đơn vị:</span>
                       <span className="font-medium ml-1">{selectedUnits.length}</span>
                     </div>
                     <div>
-                      <span className="text-blue-700">Loại tài sản:</span> 
+                      <span className="text-blue-700">Loại tài sản:</span>
                       <span className="font-medium ml-1">{selectedAssetTypes.length}</span>
                     </div>
                     <div>
-                      <span className="text-blue-700">Tổng số loại tài sản:</span> 
+                      <span className="text-blue-700">Tổng số loại tài sản:</span>
                       <span className="font-medium ml-1">
                         {selectedUnits.reduce((total, unitId) => {
                           const unitAssets = mockAssetPreview[unitId as keyof typeof mockAssetPreview];
@@ -1023,7 +959,7 @@ export default function InventorySessionDetailPage() {
                       </span>
                     </div>
                     <div>
-                      <span className="text-blue-700">Kỳ kiểm kê:</span> 
+                      <span className="text-blue-700">Kỳ kiểm kê:</span>
                       <span className="font-medium ml-1">{session?.year} - Đợt {session?.period}</span>
                     </div>
                   </div>
