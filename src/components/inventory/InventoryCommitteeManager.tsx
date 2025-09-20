@@ -1,234 +1,96 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Plus,
   Edit,
   Trash2,
-  UserCheck
+  UserCheck,
+  Search,
+  Users,
+  UserPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableColumn } from "@/components/ui/table";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
-import { 
-  InventoryCommitteeMember, 
-  InventoryCommitteeRole,
-  InventorySession
+import {
+  User,
+  Role,
+  UserStatus,
+  InventorySessionMember
 } from "@/types/asset";
 
-interface InventoryCommitteeManagerProps {
-  session: InventorySession;
+// DTO interfaces matching backend
+interface MemberUserDto {
+  id: string;
+  name: string;
+  email?: string;
+  phoneNumber?: string;
 }
 
-export default function InventoryCommitteeManager({ session }: InventoryCommitteeManagerProps) {
+interface InventorySessionMemberResponseDto {
+  id: string;
+  userId: string;
+  inventorySessionId: string;
+  role: string;
+  notes?: string;
+  user?: MemberUserDto;
+}
+
+interface AddMemberDto {
+  userId: string;
+  role?: string;
+}
+
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { findAllUserInventory, createUser, UpdateUser, updateUser, CreateUser } from "@/lib/store/slices/userSlice";
+import { findAllInventoryRoles } from "@/lib/store/slices/roleSlice";
+import toast from "react-hot-toast";
+import { createMemberInventorySession, updateMemberInventorySession, deleteMemberInventorySession, setMemberSession } from "@/lib/store/slices/inventorySlice";
+
+interface InventoryCommitteeManagerProps {
+  // Remove session prop since we'll use Redux
+}
+
+export default function InventoryCommitteeManager({}: InventoryCommitteeManagerProps) {
+  const dispatch = useAppDispatch();
+  const { findAllUserInventoryLoading } = useAppSelector(state => state.user);
+  const { createUserLoading } = useAppSelector(state => state.user);
+  const { inventoryRoles } = useAppSelector(state => state.role);
+  const { currentSession } = useAppSelector(state => state.inventory);
+
+  // Use currentSession from Redux instead of prop
+  const session = currentSession;
+
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-  const [editingMember, setEditingMember] = useState<InventoryCommitteeMember | null>(null);
+  const [editingMember, setEditingMember] = useState<InventorySessionMember | null>(null);
+  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
 
-  // Mock data for committee members using proper interface
-  const [committeeMembers, setCommitteeMembers] = useState<InventoryCommitteeMember[]>([
-    {
-      id: "1",
-      committeeId: "committee-1",
-      userId: "user-1",
-      role: InventoryCommitteeRole.CHAIR,
-      responsibility: "Chỉ đạo chung công tác kiểm kê, quyết định các vấn đề quan trọng",
-      user: {
-        id: "user-1",
-        username: "nxhong",
-        fullName: "Nguyễn Xuân Hồng",
-        email: "nguyenxuanhong@iuh.edu.vn",
-        phoneNumber: "028.38940390",
-        status: "ACTIVE" as any,
-        createdAt: "2024-01-01",
-        updatedAt: "2024-01-01"
-      }
-    },
-    {
-      id: "2",
-      committeeId: "committee-1", 
-      userId: "user-2",
-      role: InventoryCommitteeRole.VICE_CHAIR,
-      responsibility: "Hỗ trợ trưởng ban, phụ trách điều phối các tiểu ban",
-      user: {
-        id: "user-2",
-        username: "nqtuan",
-        fullName: "Nguyễn Quý Tuấn",
-        email: "nguyenquytuan@iuh.edu.vn",
-        phoneNumber: "028.38940390",
-        status: "ACTIVE" as any,
-        createdAt: "2024-01-01",
-        updatedAt: "2024-01-01"
-      }
-    },
-    {
-      id: "3",
-      committeeId: "committee-1",
-      userId: "user-3", 
-      role: InventoryCommitteeRole.CHIEF_SECRETARY,
-      responsibility: "Tổng hợp báo cáo, quản lý tài liệu, điều phối thông tin",
-      user: {
-        id: "user-3",
-        username: "ptttrang",
-        fullName: "Phạm Thị Thùy Trang",
-        email: "phamthithuytrang@iuh.edu.vn",
-        phoneNumber: "028.38940390",
-        status: "ACTIVE" as any,
-        createdAt: "2024-01-01",
-        updatedAt: "2024-01-01"
-      }
-    },
-    {
-      id: "4",
-      committeeId: "committee-1",
-      userId: "user-4",
-      role: InventoryCommitteeRole.SECRETARY,
-      responsibility: "Hỗ trợ thư ký tổng hợp, quản lý hồ sơ phân công",
-      user: {
-        id: "user-4",
-        username: "dihai",
-        fullName: "Đặng Ích Hải", 
-        email: "dangichai@iuh.edu.vn",
-        phoneNumber: "028.38940390",
-        status: "ACTIVE" as any,
-        createdAt: "2024-01-01",
-        updatedAt: "2024-01-01"
-      }
-    },
-    {
-      id: "5",
-      committeeId: "committee-1",
-      userId: "user-5",
-      role: InventoryCommitteeRole.MEMBER,
-      responsibility: "Giám sát công tác kiểm kê tài chính kế toán",
-      user: {
-        id: "user-5",
-        username: "ptqminh",
-        fullName: "Phạm Thị Quế Minh",
-        email: "phamthiqueminh@iuh.edu.vn", 
-        phoneNumber: "028.38940390",
-        status: "ACTIVE" as any,
-        createdAt: "2024-01-01",
-        updatedAt: "2024-01-01"
-      }
-    },
-    {
-      id: "6",
-      committeeId: "committee-1",
-      userId: "user-6",
-      role: InventoryCommitteeRole.MEMBER,
-      responsibility: "Kiểm tra công tác lập kế hoạch và đầu tư tài sản",
-      user: {
-        id: "user-6",
-        username: "ntthi",
-        fullName: "Nguyễn Trường Thi",
-        email: "nguyentruongthi@iuh.edu.vn",
-        phoneNumber: "028.38940390", 
-        status: "ACTIVE" as any,
-        createdAt: "2024-01-01",
-        updatedAt: "2024-01-01"
-      }
-    },
-    {
-      id: "7",
-      committeeId: "committee-1", 
-      userId: "user-7",
-      role: InventoryCommitteeRole.MEMBER,
-      responsibility: "Hỗ trợ kiểm tra công tác kế hoạch đầu tư",
-      user: {
-        id: "user-7",
-        username: "tthai",
-        fullName: "Trần Thanh Hải",
-        email: "tranthanhai@iuh.edu.vn",
-        phoneNumber: "028.38940390",
-        status: "ACTIVE" as any,
-        createdAt: "2024-01-01", 
-        updatedAt: "2024-01-01"
-      }
-    },
-    {
-      id: "8",
-      committeeId: "committee-1",
-      userId: "user-8", 
-      role: InventoryCommitteeRole.MEMBER,
-      responsibility: "Giám sát kiểm kê tại cơ sở Thanh Hóa",
-      user: {
-        id: "user-8",
-        username: "ntha",
-        fullName: "Nguyễn Thị Hà",
-        email: "nguyenthiha@iuh.edu.vn",
-        phoneNumber: "0237.3940390",
-        status: "ACTIVE" as any,
-        createdAt: "2024-01-01",
-        updatedAt: "2024-01-01"
-      }
-    },
-    {
-      id: "9",
-      committeeId: "committee-1",
-      userId: "user-9",
-      role: InventoryCommitteeRole.MEMBER, 
-      responsibility: "Giám sát kiểm kê tại phân hiệu Quảng Ngãi",
-      user: {
-        id: "user-9",
-        username: "pvhung",
-        fullName: "Phạm Việt Hùng",
-        email: "phamviethung@iuh.edu.vn",
-        phoneNumber: "0255.3940390",
-        status: "ACTIVE" as any,
-        createdAt: "2024-01-01",
-        updatedAt: "2024-01-01"
-      }
-    },
-    {
-      id: "10", 
-      committeeId: "committee-1",
-      role: InventoryCommitteeRole.MEMBER,
-      responsibility: "Điều phối các đơn vị thuộc trường tham gia kiểm kê"
-    }
-  ]);
-
-  const getRoleLabel = (role: InventoryCommitteeRole) => {
-    switch (role) {
-      case InventoryCommitteeRole.CHAIR:
-        return "Trưởng ban";
-      case InventoryCommitteeRole.VICE_CHAIR:
-        return "Phó Trưởng ban";
-      case InventoryCommitteeRole.CHIEF_SECRETARY:
-        return "Thư ký Tổng hợp";
-      case InventoryCommitteeRole.SECRETARY:
-        return "Thư ký";
-      case InventoryCommitteeRole.MEMBER:
-        return "Ủy viên";
-      default:
-        return "Ủy viên";
-    }
-  };
-
-  const getRoleBadgeColor = (role: InventoryCommitteeRole) => {
-    switch (role) {
-      case InventoryCommitteeRole.CHAIR:
-        return "bg-red-100 text-red-800";
-      case InventoryCommitteeRole.VICE_CHAIR:
-        return "bg-orange-100 text-orange-800";
-      case InventoryCommitteeRole.CHIEF_SECRETARY:
-        return "bg-blue-100 text-blue-800";
-      case InventoryCommitteeRole.SECRETARY:
-        return "bg-cyan-100 text-cyan-800";
-      case InventoryCommitteeRole.MEMBER:
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const handleDeleteMember = (id: string) => {
+  const handleDeleteMember = async (id: string) => {
+    if (!session) return;
+    
     if (confirm("Bạn có chắc chắn muốn xóa thành viên này khỏi ban kiểm kê?")) {
-      setCommitteeMembers(prev => prev.filter(member => member.id !== id));
+      try {
+        await dispatch(deleteMemberInventorySession({
+          sessionId: session.id,
+          memberId: id
+        })).unwrap();
+        
+        // Update Redux state
+        dispatch(setMemberSession(
+          session.members?.filter((m: InventorySessionMember) => m.id !== id) || []
+        ));
+        
+        toast.success('Xóa thành viên thành công!');
+      } catch (error: any) {
+        console.log(error);
+        toast.error(error.message || 'Có lỗi xảy ra khi xóa thành viên');
+      }
     }
   };
 
   // Define table columns
-  const columns: TableColumn<InventoryCommitteeMember>[] = [
+  const columns: TableColumn<InventorySessionMember>[] = [
     {
       key: "index",
       title: "STT",
@@ -237,8 +99,8 @@ export default function InventoryCommitteeManager({ session }: InventoryCommitte
       className: "text-center"
     },
     {
-      key: "user",
-      title: "Họ tên",
+      key: "fullName",
+      title: "Họ và tên",
       width: "250px",
       sortable: true,
       sorter: (a, b) => {
@@ -247,42 +109,38 @@ export default function InventoryCommitteeManager({ session }: InventoryCommitte
         return nameA.localeCompare(nameB, 'vi');
       },
       render: (_, record) => (
+        console.log(record),
         <div className="flex items-center">
           <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
             <UserCheck className="h-5 w-5 text-gray-500" />
           </div>
           <div className="ml-4">
-            <div className="text-sm font-medium text-gray-900">
+            <div className="text-sm">
               {record.user?.fullName || "Trưởng các đơn vị thuộc trường"}
             </div>
-            {record.user && (
-              <div className="text-sm text-gray-500">
-                {record.user.phoneNumber} • {record.user.email}
-              </div>
-            )}
           </div>
         </div>
       )
     },
     {
-      key: "role",
+      key: "roles",
       title: "Chức vụ",
       width: "150px",
       sortable: true,
       render: (_, record) => (
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadgeColor(record.role)}`}>
-          {getRoleLabel(record.role)}
+        <span className={`inline-flex px-2 py-1 rounded-full`}>
+          {record.user?.roles?.map(role => role.name).join(', ')}
         </span>
       )
     },
     {
-      key: "responsibility",
+      key: "role",
       title: "Nhiệm vụ",
       sortable: true,
-      render: (value) => (
+      render: (_, record) => (
         <div className="max-w-xs">
-          <div className="truncate" title={value}>
-            {value || "Chưa có mô tả nhiệm vụ"}
+          <div className="truncate" title={record.role}>
+            {record.role || "Chưa có ghi chú"}
           </div>
         </div>
       )
@@ -313,71 +171,231 @@ export default function InventoryCommitteeManager({ session }: InventoryCommitte
     }
   ];
 
+  // Load available users and roles on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        let usersResult = await dispatch(findAllUserInventory()).unwrap();
+        dispatch(findAllInventoryRoles());
+        // remove user in usersResult that is in session.members
+        usersResult = usersResult.filter((user: User) => !session.members?.some((member: InventorySessionMember) => member.userId === user.id));
+        setAvailableUsers(usersResult || []);
+      } catch (error: any) {
+        console.log(error);
+        toast.error(error.message || 'Có lỗi xảy ra khi lấy danh sách người dùng');
+        setAvailableUsers([]);
+      }
+    };
+
+    loadData();
+  }, [dispatch]);
+
+
   // Add/Edit Member Modal Component
-  const MemberModal = ({ 
-    isOpen, 
-    onClose, 
-    member = null 
+  const MemberModal = ({
+    isOpen,
+    onClose,
+    member = null
   }: {
     isOpen: boolean;
     onClose: () => void;
-    member?: InventoryCommitteeMember | null;
+    member?: InventorySessionMember | null;
   }) => {
-    const [formData, setFormData] = useState({
-      fullName: member?.user?.fullName || "",
-      role: member?.role || InventoryCommitteeRole.MEMBER,
-      responsibility: member?.responsibility || "",
-      phoneNumber: member?.user?.phoneNumber || "",
-      email: member?.user?.email || ""
+    const [modalTab, setModalTab] = useState<'select' | 'create'>('select');
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("");
+
+    interface FormData extends UpdateUser {
+      role: string;
+      userId: string;
+    }
+
+    const [formData, setFormData] = useState<FormData>({
+      userId: '',
+      username: '',
+      password: '',
+      fullName: '',
+      email: '',
+      roleIds: [],
+      role: '',
+      status: UserStatus.ACTIVE,
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      
+    // Populate form data when editing member
+    useEffect(() => {
       if (member) {
-        // Update existing member
-        setCommitteeMembers(prev => 
-          prev.map(m => m.id === member.id ? {
-            ...member,
-            role: formData.role,
-            responsibility: formData.responsibility,
-            user: member.user ? {
-              ...member.user,
-              fullName: formData.fullName,
-              phoneNumber: formData.phoneNumber,
-              email: formData.email
-            } : undefined
-          } : m)
-        );
-      } else {
-        // Add new member
-        const newMember: InventoryCommitteeMember = {
-          id: Date.now().toString(),
-          committeeId: "committee-1",
-          userId: `user-${Date.now()}`,
-          role: formData.role,
-          responsibility: formData.responsibility,
-          user: {
-            id: `user-${Date.now()}`,
-            username: formData.fullName.toLowerCase().replace(/\s/g, ''),
-            fullName: formData.fullName,
-            email: formData.email,
-            phoneNumber: formData.phoneNumber,
-            status: "ACTIVE" as any,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        };
-        setCommitteeMembers(prev => [...prev, newMember]);
+        setFormData(prev => ({
+          ...prev,
+          role: member.role || '',
+          userId: member.userId || ''
+        }));
       }
-      
-      onClose();
+    }, [member]);
+
+    // Reset form when modal opens for new member
+    useEffect(() => {
+      if (isOpen && !member) {
+        setSelectedUser(null);
+        setSearchTerm("");
+        setSelectedRoleFilter("");
+        setFilteredUsers([]);
+        setModalTab('select');
+        setFormData({
+          userId: '',
+          username: '',
+          password: '',
+          fullName: '',
+          email: '',
+          roleIds: [],
+          role: '',
+          status: UserStatus.ACTIVE,
+        });
+      }
+    }, [isOpen, member]);
+
+    // Handle user search and role filter
+    useEffect(() => {
+      let filtered = availableUsers;
+
+      // Filter by search term
+      if (searchTerm) {
+        filtered = filtered.filter(user =>
+          user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.username.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+
+      // Filter by role
+      if (selectedRoleFilter) {
+        filtered = filtered.filter(user =>
+          user.roles?.some(role => role.id === selectedRoleFilter)
+        );
+      }
+
+      setFilteredUsers(filtered);
+    }, [searchTerm, selectedRoleFilter, availableUsers]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+
+      // If editing existing member
+      if (member) {
+        try {
+          const updateMemberDto: AddMemberDto = {
+            userId: member.userId,
+            role: formData.role
+          };
+          const updatedMember = await dispatch(updateMemberInventorySession({
+            sessionId: session.id,
+            memberId: member.id,
+            memberData: updateMemberDto
+          })).unwrap();
+
+          // Update Redux state with updated member
+          if (updatedMember) {
+            dispatch(setMemberSession(
+              session.members?.map((m: InventorySessionMember) => m.id === updatedMember.id ? updatedMember : m) || []
+            ));
+          }
+
+          toast.success('Cập nhật thành viên thành công!');
+          onClose();
+          resetForm();
+        } catch (error: any) {
+          toast.error(error.message || 'Có lỗi xảy ra khi cập nhật thành viên');
+        }
+        return;
+      }
+
+      console.log(formData, selectedUser);
+      if (modalTab === 'create') {
+        // Create User
+        const createUserDto: CreateUser = {
+          username: formData.username,
+          password: formData.password,
+          fullName: formData.fullName,
+          email: formData.email,
+          phoneNumber: formData.phoneNumber,
+          status: UserStatus.ACTIVE,
+          roleIds: formData.roleIds,
+        };
+        try {
+          const user = await dispatch(createUser(createUserDto)).unwrap();
+          if (user) {
+            // Create Member
+            const createMemberDto: AddMemberDto = {
+              userId: user.id,
+              role: formData.role ?? ''
+            };
+            const newMember = await dispatch(createMemberInventorySession({
+              id: session.id,
+              memberData: createMemberDto
+            })).unwrap();
+
+            // Update Redux state with new member
+            if (newMember) {
+              dispatch(setMemberSession(
+                [...(session.members ?? []), newMember]
+              ));
+            }
+
+            toast.success('Tạo người dùng và thêm vào ban kiểm kê thành công!');
+            onClose();
+            resetForm();
+          }
+        } catch (error: any) {
+          toast.error(error.message || 'Có lỗi xảy ra khi tạo người dùng');
+        }
+
+      } else {
+        if (!selectedUser) {
+          toast.error('Vui lòng chọn người dùng');
+          return;
+        }
+        try {
+          const createMemberDto: AddMemberDto = {
+            userId: selectedUser?.id ?? '',
+            role: formData.role ?? ''
+          };
+          const newMember = await dispatch(createMemberInventorySession({
+            id: session.id,
+            memberData: createMemberDto
+          })).unwrap();
+
+          // Update Redux state with new member
+          if (newMember) {
+            dispatch(setMemberSession(
+              [...(session.members ?? []), newMember]
+            ));
+          }
+
+          toast.success('Thêm thành viên vào ban kiểm kê thành công!');
+          onClose();
+          resetForm();
+        } catch (error: any) {
+          toast.error(error.message || 'Có lỗi xảy ra khi thêm thành viên');
+        }
+      }
+    };
+
+    const resetForm = () => {
+      setSelectedUser(null);
+      setSearchTerm("");
+      setSelectedRoleFilter("");
+      setFilteredUsers([]);
+      setModalTab('select');
       setFormData({
-        fullName: "",
-        role: InventoryCommitteeRole.MEMBER,
-        responsibility: "",
-        phoneNumber: "",
-        email: ""
+        userId: '',
+        username: '',
+        password: '',
+        fullName: '',
+        email: '',
+        roleIds: [],
+        role: '',
+        status: UserStatus.ACTIVE,
       });
     };
 
@@ -393,102 +411,312 @@ export default function InventoryCommitteeManager({ session }: InventoryCommitte
                 {member ? "Chỉnh sửa thành viên" : "Thêm thành viên mới"}
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                {member ? "Cập nhật thông tin thành viên ban kiểm kê" : "Thêm thành viên mới vào ban kiểm kê"}
+                {member ? "Cập nhật thông tin thành viên ban kiểm kê" : "Chọn từ danh sách có sẵn hoặc tạo người dùng mới"}
               </p>
             </div>
           </div>
         </ModalHeader>
-        
+
         <form onSubmit={handleSubmit}>
           <ModalBody className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Họ tên <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.fullName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="Nhập họ tên đầy đủ"
-                />
+            {/* Show member info when editing */}
+            {member && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <UserCheck className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-900">
+                      {member.user?.fullName || "Người dùng không xác định"}
+                    </div>
+                    {member.user?.email && (
+                      <div className="text-xs text-gray-500">{member.user.email}</div>
+                    )}
+                    {member.user?.phoneNumber && (
+                      <div className="text-xs text-gray-500">{member.user.phoneNumber}</div>
+                    )}
+                  </div>
+                </div>
               </div>
+            )}
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Chức vụ <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={formData.role}
-                  onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as InventoryCommitteeRole }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            {/* Tab selection for add new member */}
+            {!member && (
+              <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => setModalTab('select')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${modalTab === 'select'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-800'
+                    }`}
                 >
-                  <option value={InventoryCommitteeRole.CHAIR}>Trưởng ban</option>
-                  <option value={InventoryCommitteeRole.VICE_CHAIR}>Phó Trưởng ban</option>
-                  <option value={InventoryCommitteeRole.CHIEF_SECRETARY}>Thư ký Tổng hợp</option>
-                  <option value={InventoryCommitteeRole.SECRETARY}>Thư ký</option>
-                  <option value={InventoryCommitteeRole.MEMBER}>Ủy viên</option>
-                </select>
+                  <Users className="h-4 w-4 inline mr-2" />
+                  Chọn từ danh sách
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab('create')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${modalTab === 'create'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                >
+                  <UserPlus className="h-4 w-4 inline mr-2" />
+                  Tạo người dùng mới
+                </button>
               </div>
+            )}
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nhiệm vụ <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  value={formData.responsibility}
-                  onChange={(e) => setFormData(prev => ({ ...prev, responsibility: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-                  placeholder="Mô tả chi tiết nhiệm vụ và trách nhiệm của thành viên"
-                />
-              </div>
+            {/* Select existing user tab */}
+            {(!member && modalTab === 'select') && (
+              <div className="space-y-4">
+                {/* User search and role filter */}
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm người dùng..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Số điện thoại
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phoneNumber}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="0xx.xxxx.xxxx"
-                />
-              </div>
+                  <div>
+                    <select
+                      value={selectedRoleFilter}
+                      onChange={(e) => setSelectedRoleFilter(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Tất cả vai trò</option>
+                      {inventoryRoles.map((role: Role) => (
+                        <option key={role.id} value={role.id}>{role.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="email@iuh.edu.vn"
-                />
+                {/* Selected user display (if selected but not in filtered list) */}
+                {selectedUser && !filteredUsers.some(u => u.id === selectedUser.id) && (
+                  <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="text-sm text-blue-600 font-medium mb-2">Đã chọn:</div>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                        <UserCheck className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900">{selectedUser.fullName}</div>
+                        {
+                          selectedUser.email && (
+                            <div className="text-xs text-gray-500">{selectedUser.email}</div>
+                          )
+                        }
+                        {
+                          selectedUser.phoneNumber && (
+                            <div className="text-xs text-gray-500">{selectedUser.phoneNumber}</div>
+                          )
+                        }
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUser(null)}
+                        className="text-blue-600 hover:text-blue-800 text-xs"
+                      >
+                        Bỏ chọn
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* User list */}
+                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                  {findAllUserInventoryLoading ? (
+                    <div className="p-4 text-center text-gray-500">Đang tải danh sách người dùng...</div>
+                  ) : filteredUsers.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500">
+                      {selectedRoleFilter || searchTerm ? 'Không tìm thấy người dùng nào phù hợp' : 'Không tìm thấy người dùng nào'}
+                    </div>
+                  ) : (
+                    filteredUsers.map(user => (
+                      <div
+                        key={user.id}
+                        onClick={() => setSelectedUser(user)}
+                        className={`p-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${selectedUser?.id === user.id ? 'bg-blue-50 border-blue-200' : ''
+                          }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900">{user.fullName}</div>
+                            {
+                              user.email && (
+                                <div className="text-xs text-gray-500">{user.email}</div>
+                              )
+                            }
+                            {
+                              user.phoneNumber && (
+                                <div className="text-xs text-gray-500">{user.phoneNumber}</div>
+                              )
+                            }
+                            {user.roles && user.roles.length > 0 && (
+                              <div className="text-xs text-blue-600 mt-1">
+                                {user.roles.map(role => role.name).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                          {selectedUser?.id === user.id && (
+                            <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                              <div className="w-2 h-2 bg-white rounded-full"></div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Create new user tab */}
+            {(!member && modalTab === 'create') && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tên đăng nhập <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.username}
+                    onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="Nhập tên đăng nhập"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Mật khẩu <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={formData.password}
+                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="Nhập mật khẩu"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Họ tên <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.fullName}
+                    onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="Nhập họ tên đầy đủ"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="email@iuh.edu.vn"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Số điện thoại
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="0xx.xxxx.xxxx"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Role and Notes (common for all modes) */}
+            {(member || (!member && (modalTab === 'select' || modalTab === 'create'))) && (
+              <div className="border-t pt-4 space-y-4">
+                {
+                  modalTab === 'create' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Chức vụ<span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        required
+                        value={formData.roleIds?.[0] ?? ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, roleIds: [e.target.value] }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      >
+                        <option value="">Chọn chức vụ</option>
+                        {inventoryRoles.map((role: Role) => (
+                          <option key={role.id} value={role.id}>{role.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )
+                }
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nhiệm vụ
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={formData.role}
+                    onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                    placeholder="Mô tả chi tiết nhiệm vụ và trách nhiệm của thành viên trong ban kiểm kê"
+                  />
+                </div>
+              </div>
+            )}
+
           </ModalBody>
 
           <ModalFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={() => {
+                onClose();
+                resetForm();
+              }}
             >
               Hủy bỏ
             </Button>
             <Button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700"
+              disabled={createUserLoading || (!member && modalTab === 'select' && !selectedUser) || (!member && modalTab === 'create' && (!formData.username || !formData.password || !formData.fullName || !formData.email || !formData.roleIds)) || !formData.role}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
             >
-              {member ? "Cập nhật thông tin" : "Thêm thành viên"}
+              {createUserLoading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Đang xử lý...</span>
+                </div>
+              ) : (
+                member ? "Cập nhật thông tin" : "Thêm thành viên"
+              )}
             </Button>
           </ModalFooter>
         </form>
@@ -496,16 +724,27 @@ export default function InventoryCommitteeManager({ session }: InventoryCommitte
     );
   };
 
+  // Return early if no session
+  if (!session) {
+    return (
+      <div className="mt-6 text-center py-12">
+        <UserCheck className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Không có phiên kiểm kê</h3>
+        <p className="text-gray-500">Vui lòng tải lại trang để xem thông tin.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-6">
       {/* Committee Members Table */}
       <Table
         columns={columns}
-        data={committeeMembers}
+        data={session.members ?? []}
         rowKey="id"
         title="Ban kiểm kê chính"
         headerExtra={
-          <Button 
+          <Button
             onClick={() => setShowAddMemberModal(true)}
             className="flex items-center space-x-2"
           >
@@ -517,47 +756,12 @@ export default function InventoryCommitteeManager({ session }: InventoryCommitte
         emptyText="Chưa có thành viên nào trong ban kiểm kê"
         emptyIcon={<UserCheck className="h-16 w-16 text-gray-300 mx-auto" />}
       />
-
-      {/* Summary Statistics */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">
-            {committeeMembers.length}
-          </div>
-          <div className="text-sm text-gray-500">Tổng thành viên</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-2xl font-bold text-red-600">
-            {committeeMembers.filter(m => m.role === InventoryCommitteeRole.CHAIR).length}
-          </div>
-          <div className="text-sm text-gray-500">Trưởng ban</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-2xl font-bold text-orange-600">
-            {committeeMembers.filter(m => m.role === InventoryCommitteeRole.VICE_CHAIR).length}
-          </div>
-          <div className="text-sm text-gray-500">Phó Trưởng ban</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-2xl font-bold text-blue-600">
-            {committeeMembers.filter(m => [InventoryCommitteeRole.CHIEF_SECRETARY, InventoryCommitteeRole.SECRETARY].includes(m.role)).length}
-          </div>
-          <div className="text-sm text-gray-500">Thư ký</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-2xl font-bold text-gray-600">
-            {committeeMembers.filter(m => m.role === InventoryCommitteeRole.MEMBER).length}
-          </div>
-          <div className="text-sm text-gray-500">Ủy viên</div>
-        </div>
-      </div>
-
       {/* Member Modals */}
-      <MemberModal 
+      <MemberModal
         isOpen={showAddMemberModal}
         onClose={() => setShowAddMemberModal(false)}
       />
-      <MemberModal 
+      <MemberModal
         isOpen={!!editingMember}
         onClose={() => setEditingMember(null)}
         member={editingMember}
