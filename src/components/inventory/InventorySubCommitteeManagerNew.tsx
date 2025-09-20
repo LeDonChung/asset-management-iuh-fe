@@ -34,15 +34,10 @@ import {
   UpdateInventorySubDto,
   CreateInventoryGroupDto,
   UpdateInventoryGroupDto,
-  clearCreateSubCommitteeError,
-  clearUpdateSubCommitteeError,
-  clearDeleteSubCommitteeError,
-  clearCreateGroupError,
-  clearUpdateGroupError,
-  clearDeleteGroupError,
 } from "@/lib/store/slices/inventorySlice";
 import { getAllInventoryCommitteeUsers } from "@/lib/store/slices/userSlice";
 import { getAllUnits, getUnitChildren } from "@/lib/store/slices/unitSlice";
+import toast from "react-hot-toast";
 
 
 export default function InventorySubCommitteeManagerNew() {
@@ -50,29 +45,17 @@ export default function InventorySubCommitteeManagerNew() {
   const { 
     currentSession,
     createSubCommitteeLoading,
-    createSubCommitteeError,
-    updateSubCommitteeLoading,
-    updateSubCommitteeError,
     deleteSubCommitteeLoading,
-    deleteSubCommitteeError,
     createGroupLoading,
-    createGroupError,
-    updateGroupLoading,
-    updateGroupError,
     deleteGroupLoading,
-    deleteGroupError,
   } = useAppSelector(state => state.inventory);
   
   const { 
     inventoryCommitteeUsers,
-    inventoryCommitteeUsersLoading 
   } = useAppSelector(state => state.user);
   
   const { 
     allUnits,
-    childrenUnits,
-    loading: unitsLoading,
-    childrenLoading: childrenUnitsLoading
   } = useAppSelector(state => state.unit);
   
   // Get sub-committees from current session's inventory session units
@@ -107,14 +90,24 @@ export default function InventorySubCommitteeManagerNew() {
   // Load available users for inventory committee
   useEffect(() => {
     if (!inventoryCommitteeUsers || inventoryCommitteeUsers.length === 0) {
-      dispatch(getAllInventoryCommitteeUsers());
+      try {
+        dispatch(getAllInventoryCommitteeUsers());
+      } catch (error: any) {
+        console.log(error);
+        toast.error(error.message || 'Có lỗi xảy ra khi lấy danh sách thành viên ban kiểm kê');
+      } 
     }
   }, [dispatch, inventoryCommitteeUsers]);
 
   // Load all units for group assignments
   useEffect(() => {
     if (!allUnits || allUnits.length === 0) {
-      dispatch(getAllUnits());
+      try {
+        dispatch(getAllUnits());
+      } catch (error: any) {
+        console.log(error);
+        toast.error(error.message || 'Có lỗi xảy ra khi lấy danh sách đơn vị');
+      }
     }
   }, [dispatch, allUnits]);
 
@@ -124,19 +117,6 @@ export default function InventorySubCommitteeManagerNew() {
   const [selectedSubCommittee, setSelectedSubCommittee] = useState<InventorySubCommittee | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<InventoryGroup | null>(null);
   const [currentSubCommittee, setCurrentSubCommittee] = useState<InventorySubCommittee | null>(null);
-  
-  // Clear errors when modal closes
-  useEffect(() => {
-    if (!isSubCommitteeModalOpen) {
-      dispatch(clearCreateSubCommitteeError());
-      dispatch(clearUpdateSubCommitteeError());
-    }
-    if (!isGroupModalOpen) {
-      dispatch(clearCreateGroupError());
-      dispatch(clearUpdateGroupError());
-    }
-  }, [isSubCommitteeModalOpen, isGroupModalOpen, dispatch]);
-  
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'subcommittee' | 'group'; item: any } | null>(null);
@@ -150,16 +130,102 @@ export default function InventorySubCommitteeManagerNew() {
     );
   };
 
-  // Helper function to generate default sub-committee name
-  const generateSubCommitteeName = (sessionUnit: InventorySessionUnit): string => {
-    const unitName = sessionUnit.unit?.name || `Đơn vị ${sessionUnit.unitId}`;
-    return `Tiểu ban ${unitName}`;
-  };
 
   // Helper function to get available units for group assignments
   const getAvailableUnitsForGroups = (): Unit[] => {
     // Return all units that are not campuses (USER_DEPT and ADMIN_DEPT)
     return allUnits.filter((unit: Unit) => unit.type !== UnitType.CO_SO);
+  };
+
+  // Helper function to get all assigned user IDs across all sub-committees and groups
+  const getAllAssignedUserIds = (excludeSubCommitteeId?: string, excludeGroupId?: string): string[] => {
+    const assignedUserIds = new Set<string>();
+
+    subCommittees.forEach(subCommittee => {
+      // Skip the sub-committee being edited
+      if (excludeSubCommitteeId && subCommittee.id === excludeSubCommitteeId) {
+        return;
+      }
+
+      // Add sub-committee members (leaders, secretaries, and members)
+      if (subCommittee.members) {
+        subCommittee.members.forEach(member => {
+          assignedUserIds.add(member.userId);
+        });
+      }
+
+      // Add group members from all groups in this sub-committee
+      if (subCommittee.groups) {
+        subCommittee.groups.forEach(group => {
+          // Skip the group being edited
+          if (excludeGroupId && group.id === excludeGroupId) {
+            return;
+          }
+
+          if (group.members) {
+            group.members.forEach(member => {
+              assignedUserIds.add(member.userId);
+            });
+          }
+        });
+      }
+    });
+
+    return Array.from(assignedUserIds);
+  };
+
+  // Helper function to get available users for sub-committee (excluding already assigned users)
+  const getAvailableUsersForSubCommittee = (excludeSubCommitteeId?: string): User[] => {
+    const assignedUserIds = getAllAssignedUserIds(excludeSubCommitteeId);
+    return (inventoryCommitteeUsers || []).filter(user => !assignedUserIds.includes(user.id));
+  };
+
+  // Helper function to get available users for group (excluding already assigned users)
+  const getAvailableUsersForGroup = (subCommitteeId: string, excludeGroupId?: string): User[] => {
+    const assignedUserIds = getAllAssignedUserIds(undefined, excludeGroupId);
+    return (inventoryCommitteeUsers || []).filter(user => !assignedUserIds.includes(user.id));
+  };
+
+  // Helper function to check if a user is already assigned
+  const isUserAssigned = (userId: string, excludeSubCommitteeId?: string, excludeGroupId?: string): { isAssigned: boolean; assignedTo?: string } => {
+    const assignedUserIds = getAllAssignedUserIds(excludeSubCommitteeId, excludeGroupId);
+    
+    if (!assignedUserIds.includes(userId)) {
+      return { isAssigned: false };
+    }
+
+    // Find where the user is assigned
+    for (const subCommittee of subCommittees) {
+      if (excludeSubCommitteeId && subCommittee.id === excludeSubCommitteeId) {
+        continue;
+      }
+
+      // Check sub-committee members
+      if (subCommittee.members?.some(member => member.userId === userId)) {
+        return { 
+          isAssigned: true, 
+          assignedTo: `tiểu ban "${subCommittee.name}"` 
+        };
+      }
+
+      // Check group members
+      if (subCommittee.groups) {
+        for (const group of subCommittee.groups) {
+          if (excludeGroupId && group.id === excludeGroupId) {
+            continue;
+          }
+
+          if (group.members?.some(member => member.userId === userId)) {
+            return { 
+              isAssigned: true, 
+              assignedTo: `nhóm "${group.name}" trong tiểu ban "${subCommittee.name}"` 
+            };
+          }
+        }
+      }
+    }
+
+    return { isAssigned: false };
   };
 
   // SubCommittee handlers
@@ -194,7 +260,6 @@ export default function InventorySubCommitteeManagerNew() {
           subData: updateData 
         })).unwrap();
         
-        console.log('Sub-committee updated successfully');
       } else {
         // Create new sub-committee
         const createData: CreateInventorySubDto = {
@@ -206,14 +271,11 @@ export default function InventorySubCommitteeManagerNew() {
         };
         
         await dispatch(createInventorySubCommittee(createData)).unwrap();
-        
-        console.log('Sub-committee created successfully');
       }
       
       setIsSubCommitteeModalOpen(false);
-    } catch (error) {
-      console.error('Failed to save sub-committee:', error);
-      // Error will be handled by Redux and displayed in the modal
+    } catch (error: any) {
+      toast.error(error.message || 'Có lỗi xảy ra khi lưu tiểu ban');
     }
   };
 
@@ -269,13 +331,12 @@ export default function InventorySubCommitteeManagerNew() {
         
         await dispatch(createInventoryGroup(createData)).unwrap();
         
-        console.log('Group created successfully');
       }
       
       setIsGroupModalOpen(false);
-    } catch (error) {
-      console.error('Failed to save group:', error);
-      // Error will be handled by Redux and displayed in the modal
+    } catch (error: any) {
+      console.log(error);
+      toast.error(error.message || 'Có lỗi xảy ra khi lưu nhóm');
     }
   };
 
@@ -286,17 +347,15 @@ export default function InventorySubCommitteeManagerNew() {
     try {
       if (deleteTarget.type === 'subcommittee') {
         await dispatch(deleteInventorySubCommittee(deleteTarget.item.id)).unwrap();
-        console.log('Sub-committee deleted successfully');
       } else if (deleteTarget.type === 'group') {
         await dispatch(deleteInventoryGroup(deleteTarget.item.id)).unwrap();
-        console.log('Group deleted successfully');
       }
 
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
-    } catch (error) {
-      console.error('Failed to delete:', error);
-      // Error will be handled by Redux and could be displayed in UI
+    } catch (error: any) {
+      toast.error(error.message || 'Có lỗi xảy ra khi xóa');
+      console.log(error);
     }
   };
 
@@ -306,6 +365,9 @@ export default function InventorySubCommitteeManagerNew() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Quản lý tiểu ban và nhóm</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Tổng cộng: {subCommittees.length} tiểu ban, {subCommittees.reduce((total, sub) => total + (sub.groups?.length || 0), 0)} nhóm, {getAllAssignedUserIds().length} người được phân công
+          </p>
         </div>
         <Button 
           onClick={handleAddSubCommittee}
@@ -339,22 +401,14 @@ export default function InventorySubCommitteeManagerNew() {
           {subCommittees.map((subCommittee, index) => (
             <Card key={subCommittee.id} className="overflow-hidden shadow-md hover:shadow-lg transition-shadow">
               {/* SubCommittee Header */}
-              <div className={`p-6 bg-gradient-to-r ${
-                index % 3 === 0 ? 'from-blue-50 to-blue-100' : 
-                index % 3 === 1 ? 'from-green-50 to-green-100' : 
-                'from-purple-50 to-purple-100'
-              }`}>
+              <div className={`p-6 bg-gradient-to-r from-blue-50 to-blue-100 `}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className={`p-3 rounded-full ${
-                      index % 3 === 0 ? 'bg-blue-200' : 
-                      index % 3 === 1 ? 'bg-green-200' : 
-                      'bg-purple-200'
+                      'bg-blue-200'
                     }`}>
                       <Users className={`h-6 w-6 ${
-                        index % 3 === 0 ? 'text-blue-600' : 
-                        index % 3 === 1 ? 'text-green-600' : 
-                        'text-purple-600'
+                        'text-blue-600'
                       }`} />
                     </div>
                     <div>
@@ -486,8 +540,9 @@ export default function InventorySubCommitteeManagerNew() {
         onClose={() => setIsSubCommitteeModalOpen(false)}
         subCommittee={selectedSubCommittee}
         onSave={saveSubCommittee}
-        availableUsers={inventoryCommitteeUsers || []}
+        availableUsers={getAvailableUsersForSubCommittee(selectedSubCommittee?.id)}
         availableSessionUnits={getAvailableSessionUnits()}
+        onUserAssignmentCheck={(userId) => isUserAssigned(userId, selectedSubCommittee?.id)}
       />
 
       {currentSubCommittee && (
@@ -497,15 +552,16 @@ export default function InventorySubCommitteeManagerNew() {
           subCommittee={currentSubCommittee}
           group={selectedGroup}
           onSave={saveGroup}
-          availableUsers={inventoryCommitteeUsers || []}
+          availableUsers={getAvailableUsersForGroup(currentSubCommittee.id, selectedGroup?.id)}
           availableUnits={getAvailableUnitsForGroups()}
+          onUserAssignmentCheck={(userId: string) => isUserAssigned(userId, undefined, selectedGroup?.id)}
         />
       )}
 
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && deleteTarget && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
             <div className="p-6">
               <div className="flex items-center mb-4">

@@ -34,7 +34,6 @@ import { getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { uploadFileDocument } from "@/lib/store/slices/fileSlice";
 import {
   createInventorySession,
-  clearCreateSessionError,
   CreateInventorySession,
 } from "@/lib/store/slices/inventorySlice";
 import toast from "react-hot-toast";
@@ -95,7 +94,7 @@ export default function CreateInventorySessionPage() {
     (state) => state.file
   );
 
-  const { createSessionLoading, createSessionError } = useAppSelector(
+  const { createSessionLoading } = useAppSelector(
     (state) => state.inventory
   );
   const { canCreateInventorySession } = usePermissions();
@@ -144,14 +143,6 @@ export default function CreateInventorySessionPage() {
   useEffect(() => {
     dispatch(getUnitCampus());
   }, [dispatch]);
-
-  // Handle inventory creation errors with toast
-  useEffect(() => {
-    if (createSessionError) {
-      toast.error(createSessionError);
-      dispatch(clearCreateSessionError());
-    }
-  }, [createSessionError, dispatch]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -266,13 +257,13 @@ export default function CreateInventorySessionPage() {
       const result = await dispatch(
         createInventorySession(newSession)
       ).unwrap();
-
-      // Show success toast and redirect
-      toast.success("Tạo kỳ kiểm kê thành công!");
-      router.push("/inventory");
-    } catch (error) {
-      // Error will be handled by the useEffect hook above
-      console.error("Error creating inventory session:", error);
+      if (result) {
+        toast.success("Tạo kỳ kiểm kê thành công!");
+        router.push("/inventory");
+      }
+      
+    } catch (error: any) {
+      toast.error(error.message || "Có lỗi xảy ra khi tạo kỳ kiểm kê");
     }
   };
 
