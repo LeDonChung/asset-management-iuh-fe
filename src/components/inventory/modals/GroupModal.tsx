@@ -17,6 +17,7 @@ import { AlertCircle, Loader2, Plus, Calendar, MapPin, Eye, EyeOff } from "lucid
 import { getUnitChildren } from "@/lib/store/slices/unitSlice";
 import { createUser, CreateUser } from "@/lib/store/slices/userSlice";
 import { UserStatus } from "@/types/asset";
+import toast from "react-hot-toast";
 
 interface GroupModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ interface GroupModalProps {
   onSave: (data: any) => void;
   availableUsers: User[];
   availableUnits?: Unit[];
+  onUserAssignmentCheck?: (userId: string) => { isAssigned: boolean; assignedTo?: string };
 }
 
 export default function GroupModal({ 
@@ -35,7 +37,8 @@ export default function GroupModal({
   group, 
   onSave,
   availableUsers,
-  availableUnits = []
+  availableUnits = [],
+  onUserAssignmentCheck
 }: GroupModalProps) {
   const dispatch = useAppDispatch();
   const { 
@@ -89,6 +92,33 @@ export default function GroupModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate leader assignment
+    if (formData.leaderId) {
+      const leaderValidation = validateUserAssignment(formData.leaderId, 'LEADER');
+      if (leaderValidation) {
+        toast.error(leaderValidation);
+        return;
+      }
+    }
+    
+    // Validate secretary assignment
+    if (formData.secretaryId) {
+      const secretaryValidation = validateUserAssignment(formData.secretaryId, 'SECRETARY');
+      if (secretaryValidation) {
+        toast.error(secretaryValidation);
+        return;
+      }
+    }
+    
+    // Validate member assignments
+    for (const member of members.filter(m => m.role === "MEMBER")) {
+      const memberValidation = validateUserAssignment(member.userId, 'MEMBER');
+      if (memberValidation) {
+        toast.error(memberValidation);
+        return;
+      }
+    }
+    
     // Extract member IDs by role
     const memberIds = members
       .filter(m => m.role === "MEMBER")
@@ -121,6 +151,13 @@ export default function GroupModal({
   };
 
   const handleAddMember = (userData: { userId: string; role: InventoryGroupRole }) => {
+    // Validate user assignment
+    const validationError = validateUserAssignment(userData.userId, userData.role);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     const newMember: InventoryGroupMember = {
       id: `m${Date.now()}`,
       groupId: group?.id || "",
@@ -192,6 +229,18 @@ export default function GroupModal({
     ].filter(Boolean);
     
     return availableUsers.filter(user => !usedUserIds.includes(user.id));
+  };
+
+  // Validation function to check if user can be assigned
+  const validateUserAssignment = (userId: string, role: string): string | null => {
+    if (!onUserAssignmentCheck) return null;
+    
+    const assignmentCheck = onUserAssignmentCheck(userId);
+    if (assignmentCheck.isAssigned) {
+      return `Người dùng này đã được phân công cho ${assignmentCheck.assignedTo}. Vui lòng chọn người khác.`;
+    }
+    
+    return null;
   };
 
   // Filter users based on search term
@@ -357,11 +406,15 @@ export default function GroupModal({
                     required
                   >
                     <option value="">-- Chọn trưởng nhóm --</option>
-                    {availableUsers.map(user => (
-                      <option key={user.id} value={user.id}>
-                        {user.fullName}
-                      </option>
-                    ))}
+                    {availableUsers.map(user => {
+                      const assignmentCheck = onUserAssignmentCheck?.(user.id);
+                      const isAssigned = assignmentCheck?.isAssigned && user.id !== formData.leaderId;
+                      return (
+                        <option key={user.id} value={user.id} disabled={isAssigned}>
+                          {user.fullName}{isAssigned ? ` (Đã phân công cho ${assignmentCheck?.assignedTo})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                   <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
@@ -379,11 +432,15 @@ export default function GroupModal({
                     required
                   >
                     <option value="">-- Chọn thư ký --</option>
-                    {availableUsers.map(user => (
-                      <option key={user.id} value={user.id}>
-                        {user.fullName}
-                      </option>
-                    ))}
+                    {availableUsers.map(user => {
+                      const assignmentCheck = onUserAssignmentCheck?.(user.id);
+                      const isAssigned = assignmentCheck?.isAssigned && user.id !== formData.secretaryId;
+                      return (
+                        <option key={user.id} value={user.id} disabled={isAssigned}>
+                          {user.fullName}{isAssigned ? ` (Đã phân công cho ${assignmentCheck?.assignedTo})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                   <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
@@ -393,7 +450,12 @@ export default function GroupModal({
             {/* Members Section */}
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">Thành viên nhóm</h3>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Thành viên nhóm</h3>
+                  <p className="text-xs text-gray-500">
+                    {getAvailableUsers().length} người có thể thêm mới
+                  </p>
+                </div>
                 <Button 
                   type="button"
                   onClick={() => setShowMemberForm(true)} 
@@ -691,15 +753,18 @@ export default function GroupModal({
                       required
                     >
                       <option value="">-- Chọn thành viên --</option>
-                      {filteredUsers.map(user => (
-                        <option key={user.id} value={user.id}>
-                          {user.fullName} - {user.email}
-                        </option>
-                      ))}
+                      {filteredUsers.map(user => {
+                        const assignmentCheck = onUserAssignmentCheck?.(user.id);
+                        const isAssigned = assignmentCheck?.isAssigned;
+                        return (
+                          <option key={user.id} value={user.id} disabled={isAssigned}>
+                            {user.fullName} - {user.email}{isAssigned ? ` (Đã phân công cho ${assignmentCheck?.assignedTo})` : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                     <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">Chọn thành viên từ danh sách có sẵn</p>
                 </div>
               </>
             ) : (
@@ -802,28 +867,6 @@ export default function GroupModal({
                   )}
                   <p className="mt-1 text-xs text-gray-500">Mật khẩu phải có ít nhất 6 ký tự</p>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Đơn vị
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={createUserForm.unitId}
-                      onChange={(e) => setCreateUserForm(prev => ({ ...prev, unitId: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none"
-                    >
-                      <option value="">-- Chọn đơn vị (tùy chọn) --</option>
-                      {availableUnits.map(unit => (
-                        <option key={unit.id} value={unit.id}>
-                          {unit.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">Chọn đơn vị cho người dùng mới (không bắt buộc)</p>
-                </div>
               </div>
             )}
 
@@ -844,7 +887,6 @@ export default function GroupModal({
                 </select>
                 <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
               </div>
-              <p className="mt-1 text-xs text-gray-500">Chọn vai trò cho thành viên trong nhóm</p>
             </div>
           </ModalBody>
           
@@ -860,7 +902,7 @@ export default function GroupModal({
                 (memberModalTab === 'create' && Object.keys(createUserErrors).length > 0)
               }
             >
-              {memberModalTab === 'create' ? 'Tạo tài khoản & Thêm thành viên' : 'Thêm thành viên'}
+              Thêm thành viên
             </Button>
           </ModalFooter>
         </form>
@@ -961,7 +1003,6 @@ export default function GroupModal({
                 </select>
                 <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
               </div>
-              <p className="mt-1 text-xs text-gray-500">Chọn đơn vị cần kiểm kê</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -975,7 +1016,6 @@ export default function GroupModal({
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" 
                   required 
                 />
-                <p className="mt-1 text-xs text-gray-500">Ngày bắt đầu thực hiện kiểm kê</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -987,7 +1027,6 @@ export default function GroupModal({
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" 
                   required 
                 />
-                <p className="mt-1 text-xs text-gray-500">Ngày hoàn thành kiểm kê</p>
               </div>
             </div>
 
@@ -1001,7 +1040,6 @@ export default function GroupModal({
                 rows={3}
                 placeholder="Ghi chú về nhiệm vụ kiểm kê, yêu cầu đặc biệt..."
               />
-              <p className="mt-1 text-xs text-gray-500">Thêm thông tin chi tiết về nhiệm vụ kiểm kê</p>
             </div>
           </ModalBody>
           

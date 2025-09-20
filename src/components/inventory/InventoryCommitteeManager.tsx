@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Table, TableColumn } from "@/components/ui/table";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import {
-  InventorySession,
   User,
   Role,
   UserStatus,
@@ -55,9 +54,9 @@ interface InventoryCommitteeManagerProps {
 
 export default function InventoryCommitteeManager({}: InventoryCommitteeManagerProps) {
   const dispatch = useAppDispatch();
-  const { findAllUserInventoryLoading, findAllUserInventoryError } = useAppSelector(state => state.user);
-  const { createUserLoading, createUserError } = useAppSelector(state => state.user);
-  const { inventoryRoles, inventoryRolesLoading } = useAppSelector(state => state.role);
+  const { findAllUserInventoryLoading } = useAppSelector(state => state.user);
+  const { createUserLoading } = useAppSelector(state => state.user);
+  const { inventoryRoles } = useAppSelector(state => state.role);
   const { currentSession } = useAppSelector(state => state.inventory);
 
   // Use currentSession from Redux instead of prop
@@ -84,6 +83,7 @@ export default function InventoryCommitteeManager({}: InventoryCommitteeManagerP
         
         toast.success('Xóa thành viên thành công!');
       } catch (error: any) {
+        console.log(error);
         toast.error(error.message || 'Có lỗi xảy ra khi xóa thành viên');
       }
     }
@@ -115,7 +115,7 @@ export default function InventoryCommitteeManager({}: InventoryCommitteeManagerP
             <UserCheck className="h-5 w-5 text-gray-500" />
           </div>
           <div className="ml-4">
-            <div className="text-sm font-medium text-gray-900">
+            <div className="text-sm">
               {record.user?.fullName || "Trưởng các đơn vị thuộc trường"}
             </div>
           </div>
@@ -128,7 +128,7 @@ export default function InventoryCommitteeManager({}: InventoryCommitteeManagerP
       width: "150px",
       sortable: true,
       render: (_, record) => (
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full`}>
+        <span className={`inline-flex px-2 py-1 rounded-full`}>
           {record.user?.roles?.map(role => role.name).join(', ')}
         </span>
       )
@@ -175,16 +175,19 @@ export default function InventoryCommitteeManager({}: InventoryCommitteeManagerP
   useEffect(() => {
     const loadData = async () => {
       try {
-        const usersResult = await dispatch(findAllUserInventory()).unwrap();
+        let usersResult = await dispatch(findAllUserInventory()).unwrap();
+        dispatch(findAllInventoryRoles());
+        // remove user in usersResult that is in session.members
+        usersResult = usersResult.filter((user: User) => !session.members?.some((member: InventorySessionMember) => member.userId === user.id));
         setAvailableUsers(usersResult || []);
-      } catch (error) {
-        console.error('Failed to load users:', error);
+      } catch (error: any) {
+        console.log(error);
+        toast.error(error.message || 'Có lỗi xảy ra khi lấy danh sách người dùng');
         setAvailableUsers([]);
       }
     };
 
     loadData();
-    dispatch(findAllInventoryRoles());
   }, [dispatch]);
 
 
