@@ -270,10 +270,15 @@ export default function InventorySubCommitteeManagerNew() {
           memberIds: formData.memberIds || []
         };
         
-        await dispatch(createInventorySubCommittee(createData)).unwrap();
+        const response = await dispatch(createInventorySubCommittee(createData)).unwrap();
+        if(response) {
+          console.log('Sub committee created successfully');
+          // Reset form data for next creation
+          setSelectedSubCommittee(null);
+          setIsSubCommitteeModalOpen(false);
+        }
       }
       
-      setIsSubCommitteeModalOpen(false);
     } catch (error: any) {
       toast.error(error.message || 'Có lỗi xảy ra khi lưu tiểu ban');
     }
@@ -331,6 +336,8 @@ export default function InventorySubCommitteeManagerNew() {
         
         await dispatch(createInventoryGroup(createData)).unwrap();
         
+        // Reset form data for next creation
+        setSelectedGroup(null);
       }
       
       setIsGroupModalOpen(false);

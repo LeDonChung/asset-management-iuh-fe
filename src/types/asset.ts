@@ -2,7 +2,9 @@
 
 export enum AssetType {
   TSCD = "TSCD", // Tài sản cố định
-  CCDC = "CCDC" // Công cụ dụng cụ
+  CCDC = "CCDC", // Công cụ dụng cụ
+  FIXED_ASSET = 'FIXED_ASSET', // Tài sản cố định
+  TOOLS_EQUIPMENT = 'TOOLS_EQUIPMENT', // Công cụ dụng cụ
 }
 
 export enum AssetStatus {
@@ -159,11 +161,12 @@ export enum RoomStatus {
 
 export interface Room {
   id: string;
-  name: string;
+  name?: string;
+  roomCode: string; // Mã phòng
   building?: string; // Tòa
   floor: string; // Tầng
   roomNumber?: string; // Số phòng / tên phòng
-  adjacentRooms?: string[]; // Danh sách ID các phòng cạnh bên
+  adjacentRooms?: Room[]; // Danh sách ID các phòng cạnh bên
   status: RoomStatus;
   unitId: string; // Mã đơn vị sử dụng
   createdBy: string;
@@ -232,16 +235,24 @@ export enum BookStatus {
   CLOSE = "CLOSE"
 }
 
+export enum AssetBookStatus {
+  OPEN = "OPEN",
+  CLOSED = "CLOSED"
+}
+
 export interface AssetBook {
   id: string;
   unitId: string; // Đơn vị quản lý sổ
   year: number; // Năm
-  createdBy: string;
-  createdAt: string; // datetime
-  lockedAt?: string; // datetime - Khóa sổ khi kết thúc năm
-  status: BookStatus; // Open, Closed
+  lookedAt?: Date; // Ngày xem sổ
+  status: AssetBookStatus;
   unit?: Unit;
-  items?: AssetBookItem[];
+  assetTypes?: AssetTypeResponse[];
+}
+
+export interface AssetTypeResponse {
+  type: AssetType;
+  items: AssetBookItem[];
 }
 
 export enum AssetBookItemStatus {
@@ -253,14 +264,12 @@ export enum AssetBookItemStatus {
 
 export interface AssetBookItem {
   id: string;
-  bookId: string;
-  assetId: string;
   roomId: string;
-  assignedAt: string; // datetime - Ngày được ghi nhận vào sổ
+  assetId: string;
+  assignedAt: Date; // datetime - Ngày được ghi nhận vào sổ
   quantity: number; // Số lượng thực tế trong sổ
   status: AssetBookItemStatus;
   note?: string;
-  book?: AssetBook;
   asset?: Asset;
   room?: Room;
 }
@@ -470,6 +479,8 @@ export interface InventorySession {
 export interface InventorySessionUnit {
   id: string;
   sessionId: string;
+  subInventoryId?: string;
+  subInventory?: InventorySubCommittee;
   unitId: string;
   unit?: Unit;
   session?: InventorySession;
@@ -592,10 +603,8 @@ export interface InventoryGroupAssignment {
   unitId: string;
   startDate: string; // date - Ngày bắt đầu kiểm kê tại đơn vị
   endDate: string; // date - Ngày kết thúc kiểm kê tại đơn vị
-  status: string; // Trạng thái phân công
   note?: string;
   createdAt: string;
-  updatedAt: string;
   group?: InventoryGroup;
   unit?: Unit;
   results?: InventoryResult[]; // Kết quả kiểm kê
@@ -626,6 +635,7 @@ export interface InventoryResult {
   countedQuantity: number; // Số lượng thực tế kiểm kê
   scanMethod?: ScanMethod;
   status: InventoryResultStatus;
+  imageUrls: string[];
   note?: string;
   createdAt: string; // datetime
   assignment?: InventoryGroupAssignment;
