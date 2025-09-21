@@ -43,9 +43,8 @@ export default function GroupModal({
   const dispatch = useAppDispatch();
   const { 
     createGroupLoading, 
-    createGroupError, 
-    updateGroupLoading, 
-    updateGroupError 
+    updateGroupLoading,
+    error
   } = useAppSelector(state => state.inventory);
   
   const { 
@@ -59,7 +58,7 @@ export default function GroupModal({
   });
 
   const [members, setMembers] = useState<InventoryGroupMember[]>(
-    group?.members || []
+    group?.members?.filter(m => m.role === "MEMBER") || []
   );
 
   const [assignments, setAssignments] = useState<InventoryGroupAssignment[]>(
@@ -89,12 +88,63 @@ export default function GroupModal({
   });
   const [createUserErrors, setCreateUserErrors] = useState<Record<string, string>>({});
 
+  // Reset form data when group changes or modal opens/closes
+  useEffect(() => {
+    if (group) {
+      // Editing existing group
+      setFormData({
+        name: group.name || "",
+        leaderId: group.members?.find(m => m.role === "LEADER")?.userId || "",
+        secretaryId: group.members?.find(m => m.role === "SECRETARY")?.userId || ""
+      });
+      setMembers(group.members?.filter(m => m.role === "MEMBER") || []);
+      setAssignments(group.assignments || []);
+    } else {
+      // Creating new group - reset form
+      setFormData({
+        name: "",
+        leaderId: "",
+        secretaryId: ""
+      });
+      setMembers([]);
+      setAssignments([]);
+    }
+    
+    // Reset other form states
+    setShowMemberForm(false);
+    setEditingMember(null);
+    setShowAssignmentForm(false);
+    setEditingAssignment(null);
+    setMemberModalTab('select');
+    setSelectedUser(null);
+    setFilteredUsers([]);
+    setSearchTerm("");
+    setShowPassword(false);
+    setCreateUserForm({
+      username: "",
+      fullName: "",
+      email: "",
+      phoneNumber: "",
+      password: "",
+      unitId: ""
+    });
+    setCreateUserErrors({});
+  }, [group, isOpen]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Lấy leader và secretary từ members array thay vì formData để đảm bảo tính nhất quán
+    const leaderMember = members.find(m => m.role === 'LEADER');
+    const secretaryMember = members.find(m => m.role === 'SECRETARY');
+    const regularMembers = members.filter(m => m.role === 'MEMBER');
+    
+    const leaderId = leaderMember?.userId || formData.leaderId;
+    const secretaryId = secretaryMember?.userId || formData.secretaryId;
+    
     // Validate leader assignment
-    if (formData.leaderId) {
-      const leaderValidation = validateUserAssignment(formData.leaderId, 'LEADER');
+    if (leaderId) {
+      const leaderValidation = validateUserAssignment(leaderId, 'LEADER');
       if (leaderValidation) {
         toast.error(leaderValidation);
         return;
@@ -102,8 +152,8 @@ export default function GroupModal({
     }
     
     // Validate secretary assignment
-    if (formData.secretaryId) {
-      const secretaryValidation = validateUserAssignment(formData.secretaryId, 'SECRETARY');
+    if (secretaryId) {
+      const secretaryValidation = validateUserAssignment(secretaryId, 'SECRETARY');
       if (secretaryValidation) {
         toast.error(secretaryValidation);
         return;
@@ -111,7 +161,7 @@ export default function GroupModal({
     }
     
     // Validate member assignments
-    for (const member of members.filter(m => m.role === "MEMBER")) {
+    for (const member of regularMembers) {
       const memberValidation = validateUserAssignment(member.userId, 'MEMBER');
       if (memberValidation) {
         toast.error(memberValidation);
@@ -119,10 +169,8 @@ export default function GroupModal({
       }
     }
     
-    // Extract member IDs by role
-    const memberIds = members
-      .filter(m => m.role === "MEMBER")
-      .map(m => m.userId);
+    // Extract member IDs by role - chỉ lấy những member có role MEMBER
+    const memberIds = regularMembers.map(m => m.userId);
     
     // Format assignments for API
     const formattedAssignments = assignments.map(assignment => ({
@@ -132,11 +180,22 @@ export default function GroupModal({
       note: assignment.note
     }));
     
+    // Log để debug
+    console.log('Submitting group data:', {
+      name: formData.name,
+      subInventoryId: subCommittee.id,
+      leaderId: leaderId,
+      secretaryId: secretaryId,
+      memberIds: memberIds,
+      assignments: formattedAssignments,
+      allMembers: members
+    });
+    
     onSave({
       name: formData.name,
       subInventoryId: subCommittee.id,
-      leaderId: formData.leaderId,
-      secretaryId: formData.secretaryId,
+      leaderId: leaderId || null,
+      secretaryId: secretaryId || null,
       memberIds: memberIds,
       assignments: formattedAssignments
     });
@@ -144,10 +203,48 @@ export default function GroupModal({
   };
 
   const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        [field]: value
+      };
+      
+      // Đồng bộ members array khi thay đổi leader/secretary
+      if (field === 'leaderId' || field === 'secretaryId') {
+        setMembers(currentMembers => {
+          let updatedMembers = [...currentMembers];
+          
+          // Xóa role cũ nếu có
+          if (prev[field as keyof typeof prev]) {
+            updatedMembers = updatedMembers.filter(m => m.userId !== prev[field as keyof typeof prev]);
+          }
+          
+          // Thêm role mới nếu có giá trị
+          if (value) {
+            const user = availableUsers.find(u => u.id === value);
+            if (user) {
+              // Xóa user khỏi các role khác nếu đã tồn tại
+              updatedMembers = updatedMembers.filter(m => m.userId !== value);
+              
+              const newMember: InventoryGroupMember = {
+                id: `${field}_${Date.now()}`,
+                groupId: group?.id || "",
+                userId: value,
+                role: field === 'leaderId' ? 'LEADER' : 'SECRETARY',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                user: user
+              };
+              updatedMembers.push(newMember);
+            }
+          }
+          
+          return updatedMembers;
+        });
+      }
+      
+      return newFormData;
+    });
   };
 
   const handleAddMember = (userData: { userId: string; role: InventoryGroupRole }) => {
@@ -158,29 +255,90 @@ export default function GroupModal({
       return;
     }
 
-    const newMember: InventoryGroupMember = {
-      id: `m${Date.now()}`,
-      groupId: group?.id || "",
-      userId: userData.userId,
-      role: userData.role as string,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      user: availableUsers.find(u => u.id === userData.userId)
-    };
+    const user = availableUsers.find(u => u.id === userData.userId);
+    if (!user) {
+      toast.error("Không tìm thấy thông tin người dùng");
+      return;
+    }
 
-    setMembers(prev => [...prev, newMember]);
+    if (userData.role === 'LEADER') {
+      // Cập nhật formData cho leader
+      setFormData(prev => ({ ...prev, leaderId: userData.userId }));
+      // Xóa leader cũ khỏi members nếu có
+      setMembers(prev => prev.filter(m => m.role !== 'LEADER'));
+    } else if (userData.role === 'SECRETARY') {
+      // Cập nhật formData cho secretary
+      setFormData(prev => ({ ...prev, secretaryId: userData.userId }));
+      // Xóa secretary cũ khỏi members nếu có
+      setMembers(prev => prev.filter(m => m.role !== 'SECRETARY'));
+    } else {
+      // Chỉ thêm vào members array nếu là MEMBER
+      const newMember: InventoryGroupMember = {
+        id: `m${Date.now()}`,
+        groupId: group?.id || "",
+        userId: userData.userId,
+        role: userData.role as string,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        user: user
+      };
+
+      setMembers(prev => [...prev, newMember]);
+    }
+
     setShowMemberForm(false);
   };
 
   const handleEditMember = (member: InventoryGroupMember, userData: { role: InventoryGroupRole }) => {
-    setMembers(prev => 
-      prev.map(m => m.id === member.id ? { ...m, role: userData.role } : m)
-    );
+    const oldRole = member.role;
+    const newRole = userData.role;
+    
+    if (oldRole === newRole) {
+      setEditingMember(null);
+      return;
+    }
+
+    // Xóa member cũ
+    setMembers(prev => prev.filter(m => m.id !== member.id));
+    
+    // Xử lý role mới
+    if (newRole === 'LEADER') {
+      setFormData(prev => ({ ...prev, leaderId: member.userId }));
+    } else if (newRole === 'SECRETARY') {
+      setFormData(prev => ({ ...prev, secretaryId: member.userId }));
+    } else {
+      // Thêm lại như MEMBER
+      const updatedMember: InventoryGroupMember = {
+        ...member,
+        role: newRole as string,
+        updatedAt: new Date().toISOString()
+      };
+      setMembers(prev => [...prev, updatedMember]);
+    }
+    
+    // Xóa khỏi formData nếu role cũ là LEADER hoặc SECRETARY
+    if (oldRole === 'LEADER') {
+      setFormData(prev => ({ ...prev, leaderId: '' }));
+    } else if (oldRole === 'SECRETARY') {
+      setFormData(prev => ({ ...prev, secretaryId: '' }));
+    }
+    
     setEditingMember(null);
   };
 
   const handleRemoveMember = (memberId: string) => {
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+    
+    // Xóa khỏi members array
     setMembers(prev => prev.filter(m => m.id !== memberId));
+    
+    // Nếu là leader hoặc secretary, cũng cần xóa khỏi formData
+    if (member.role === 'LEADER') {
+      setFormData(prev => ({ ...prev, leaderId: '' }));
+    } else if (member.role === 'SECRETARY') {
+      setFormData(prev => ({ ...prev, secretaryId: '' }));
+    }
   };
 
   // Assignment handlers
@@ -218,6 +376,45 @@ export default function GroupModal({
 
   const handleRemoveAssignment = (assignmentId: string) => {
     setAssignments(prev => prev.filter(a => a.id !== assignmentId));
+  };
+
+  // Get all members including leader and secretary for display
+  const getAllMembers = () => {
+    const allMembers = [...members];
+    
+    // Thêm leader nếu có
+    if (formData.leaderId) {
+      const leader = availableUsers.find(u => u.id === formData.leaderId);
+      if (leader && !allMembers.find(m => m.userId === formData.leaderId)) {
+        allMembers.push({
+          id: `leader_${formData.leaderId}`,
+          groupId: group?.id || "",
+          userId: formData.leaderId,
+          role: 'LEADER',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          user: leader
+        });
+      }
+    }
+    
+    // Thêm secretary nếu có
+    if (formData.secretaryId) {
+      const secretary = availableUsers.find(u => u.id === formData.secretaryId);
+      if (secretary && !allMembers.find(m => m.userId === formData.secretaryId)) {
+        allMembers.push({
+          id: `secretary_${formData.secretaryId}`,
+          groupId: group?.id || "",
+          userId: formData.secretaryId,
+          role: 'SECRETARY',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          user: secretary
+        });
+      }
+    }
+    
+    return allMembers;
   };
 
   // Get available users (excluding leader, secretary, and current members)
@@ -366,13 +563,13 @@ export default function GroupModal({
         <form onSubmit={handleSubmit}>
           <ModalBody>
             {/* Error Display */}
-            {(createGroupError || updateGroupError) && (
+            {error && (
               <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
                 <div>
                   <h4 className="text-sm font-medium text-red-800">Có lỗi xảy ra</h4>
                   <p className="text-sm text-red-700 mt-1">
-                    {createGroupError || updateGroupError}
+                    {error}
                   </p>
                 </div>
               </div>
@@ -469,7 +666,7 @@ export default function GroupModal({
                 </Button>
               </div>
 
-              {members.length === 0 ? (
+              {getAllMembers().length === 0 ? (
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                   <Users className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                   <p className="text-gray-500 text-sm">Chưa có thành viên nào</p>
@@ -477,7 +674,7 @@ export default function GroupModal({
                 </div>
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {members.map((member) => (
+                  {getAllMembers().map((member) => (
                     <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -492,15 +689,15 @@ export default function GroupModal({
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          member.role === InventoryGroupRole.LEADER
+                          member.role === 'LEADER'
                             ? 'bg-blue-100 text-blue-700'
-                            : member.role === InventoryGroupRole.SECRETARY
+                            : member.role === 'SECRETARY'
                             ? 'bg-purple-100 text-purple-700'
                             : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {member.role === InventoryGroupRole.LEADER
+                          {member.role === 'LEADER'
                             ? 'Trưởng nhóm'
-                            : member.role === InventoryGroupRole.SECRETARY
+                            : member.role === 'SECRETARY'
                             ? 'Thư ký'
                             : 'Thành viên'
                           }
