@@ -6,6 +6,7 @@ import fileSlice from './slices/fileSlice'
 import inventorySlice from './slices/inventorySlice'
 import userSlice from './slices/userSlice'
 import roleSlice from './slices/roleSlice'
+import assetBookSlice from './slices/assetBookSlice'
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     inventory: inventorySlice,
     user: userSlice,
     role: roleSlice,
+    assetBook: assetBookSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

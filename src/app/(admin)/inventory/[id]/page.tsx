@@ -233,9 +233,7 @@ export default function InventorySessionDetailPage() {
   const [showPreview, setShowPreview] = useState(false);
   const { 
     findByIdLoading, 
-    findByIdError, 
     updateStatusLoading, 
-    updateStatusError,
     currentSession 
   } = useAppSelector(state => state.inventory);
   const dispatch = useAppDispatch();
@@ -270,12 +268,6 @@ export default function InventorySessionDetailPage() {
       dispatch(clearCurrentSession());
     };
   }, [dispatch]);
-
-  useEffect(() => {
-    if(updateStatusError) {
-      toast.error(updateStatusError ?? "Không thể cập nhật trạng thái kỳ kiểm kê. Vui lòng thử lại.");
-    }
-  }, [updateStatusError]);
 
   const handleStatusChange = async (newStatus: InventorySessionStatus) => {
     if (!session) return;
@@ -389,7 +381,7 @@ export default function InventorySessionDetailPage() {
 
   if (findByIdLoading) {
     return (
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className=" mx-auto space-y-8">
         <div className="flex items-center space-x-4">
           <Button variant="outline" size="sm" onClick={handleGoBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -410,7 +402,7 @@ export default function InventorySessionDetailPage() {
   // This function is no longer needed since we use Redux actions directly
   if (!session) {
     return (
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className=" mx-auto space-y-8">
         <div className="flex items-center space-x-4">
           <Link href="/inventory">
             <Button variant="outline" size="sm">
@@ -439,7 +431,7 @@ export default function InventorySessionDetailPage() {
   const StatusIcon = currentStatusConfig.icon;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">

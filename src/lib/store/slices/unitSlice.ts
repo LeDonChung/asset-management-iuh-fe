@@ -38,6 +38,18 @@ export const getAllUnits = createAsyncThunk(
   }
 );
 
+export const getRoomById = createAsyncThunk(
+  "units/getRoomById",
+  async (id: string, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(`/api/v1/rooms/${id}`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 interface UnitState {
   campuses: Unit[];
   allUnits: Unit[];

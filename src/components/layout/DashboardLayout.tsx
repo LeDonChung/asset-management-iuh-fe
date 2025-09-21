@@ -89,7 +89,7 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
         {
           name: "Thực hiện kiểm kê",
           href: "/inventory/perform",
-          permissions: ["PERM_UPDATE_INVENTORY"],
+          permissions: [],
         }
       ]
     },
