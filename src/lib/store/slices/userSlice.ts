@@ -1,5 +1,5 @@
 import axiosInstance from "@/lib/api";
-import { UserStatus } from "@/types/asset";
+import { User, UserStatus } from "@/types/asset";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 export interface CreateUser {
@@ -17,12 +17,97 @@ export interface CreateUser {
 export interface UpdateUser extends CreateUser {
 }
 
+export enum FilterOperator {
+    EQUALS = "equals",
+    CONTAINS = "contains",
+    STARTS_WITH = "startsWith",
+    ENDS_WITH = "endsWith",
+    GREATER_THAN = "gt",
+    GREATER_THAN_OR_EQUAL = "gte",
+    LESS_THAN = "lt",
+    LESS_THAN_OR_EQUAL = "lte",
+    IN = "in",
+    NOT_IN = "notIn",
+    BETWEEN = "between",
+}
+
+export enum FieldType {
+    TEXT = "text",
+    NUMBER = "number",
+    DATE = "date",
+    SELECT = "select",
+    BOOLEAN = "boolean",
+}
+
+export enum ConditionLogic {
+    AND = "and",
+    OR = "or",
+    CONTAINS = "contains",
+}
+
+export interface FilterCondition {
+    field: string;
+    fieldType: FieldType;
+    operator: FilterOperator;
+    value: any[];
+    dateFrom?: string;
+    dateTo?: string;
+    sort?: "asc" | "desc";
+}
+
+export interface UserFilterRequest {
+    conditionLogic?: ConditionLogic;
+    conditions?: FilterCondition[];
+    pagination?: {
+        currentPage?: number;
+        totalItems?: number;
+        itemsPerPage?: number;
+        totalPages?: number;
+    };
+    sorting?: Array<{
+        field: string;
+        direction: string;
+        priority: number;
+    }>;
+    search?: string | null;
+    statusFilter?: string[];
+
+}
+
+export interface PaginatedUserResponse {
+    data: any[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext: boolean;
+        hasPrev: boolean;
+        nextPage: number | null;
+        prevPage: number | null;
+        firstPage: number;
+        lastPage: number;
+    }
+}
+
 interface UserState {
     createUserLoading: boolean;
     updateUserLoading: boolean;
     findAllUserInventoryLoading: boolean;
     inventoryCommitteeUsers: any[];
     inventoryCommitteeUsersLoading: boolean;
+    lstUser: any[];
+    // List and filter state
+    sessions: any[];
+    filteredSessions: PaginatedUserResponse | null;
+    filterLoading: boolean;
+    filterError: string | null;
+
+    // Current session state
+    currentSession: any | null;
+
+    // Current filter state
+    currentFilter: UserFilterRequest | null;
 }
 
 const initialState: UserState = {
@@ -31,6 +116,29 @@ const initialState: UserState = {
     findAllUserInventoryLoading: false,
     inventoryCommitteeUsers: [],
     inventoryCommitteeUsersLoading: false,
+    lstUser: [],
+    // List and filter state
+    sessions: [],
+    filteredSessions: null,
+    filterLoading: false,
+    filterError: null,
+
+    // Current session state
+    currentSession: null,
+
+    // Current filter state
+    currentFilter: {
+        conditionLogic: ConditionLogic.AND,
+        conditions: [],
+        pagination: {
+            currentPage: 1,
+            itemsPerPage: 5,
+            totalItems: 0,
+            totalPages: 0,
+        },
+        sorting: [],
+        search: null,
+    },
 }
 
 export const createUser = createAsyncThunk(
@@ -50,6 +158,18 @@ export const updateUser = createAsyncThunk(
     async ({ id, userData }: { id: string; userData: UpdateUser }, { rejectWithValue }) => {
         try {
             const response = await axiosInstance.patch(`/api/v1/users/${id}`, userData)
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response.data)
+        }
+    }
+)
+
+export const getAllUser = createAsyncThunk(
+    'user/findAllUser',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get('/api/v1/users')
             return response.data;
         } catch (error: any) {
             return rejectWithValue(error.response.data)
@@ -81,6 +201,18 @@ export const getAllInventoryCommitteeUsers = createAsyncThunk(
     }
 )
 
+export const filterUserSessions = createAsyncThunk(
+    'user/filterUserSessions',
+    async (filterRequest: UserFilterRequest, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.post('/api/v1/users/filter', filterRequest)
+            return response.data as PaginatedUserResponse;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+)
+
 const userSlice = createSlice({
     name: 'user',
     initialState,
@@ -89,6 +221,38 @@ const userSlice = createSlice({
         }
     },
     extraReducers: (builder) => {
+        builder.addCase(filterUserSessions.pending, (state) => {
+            state.filterLoading = true;
+            state.filterError = null;
+        });
+        builder.addCase(filterUserSessions.fulfilled, (state, action) => {
+            state.filterLoading = false;
+            state.filterError = null;
+            state.filteredSessions = action.payload;
+
+            if (state.currentFilter?.pagination) {
+                state.currentFilter.pagination = {
+                    ...state.currentFilter.pagination,
+                    currentPage: action.payload.pagination.page,
+                    totalItems: action.payload.pagination.total,
+                    totalPages: action.payload.pagination.totalPages,
+                    itemsPerPage: action.payload.pagination.limit,
+                };
+            }
+        });
+        builder.addCase(filterUserSessions.rejected, (state, action) => {
+            state.filterLoading = false;
+            state.filterError = (action.payload as any)?.message || 'Failed to filter sessions';
+        });
+
+        builder.addCase(getAllUser.pending, (state) => {
+        })
+        builder.addCase(getAllUser.fulfilled, (state, action) => {
+            state.lstUser = action.payload
+        })
+        builder.addCase(getAllUser.rejected, (state, action) => {
+        })
+
         builder.addCase(createUser.pending, (state) => {
             state.createUserLoading = true
         })
@@ -98,15 +262,17 @@ const userSlice = createSlice({
         builder.addCase(createUser.rejected, (state, action) => {
             state.createUserLoading = false
         })
+
         builder.addCase(updateUser.pending, (state) => {
             state.updateUserLoading = true
         })
         builder.addCase(updateUser.fulfilled, (state, action) => {
-            state.updateUserLoading = false 
+            state.updateUserLoading = false
         })
         builder.addCase(updateUser.rejected, (state, action) => {
             state.updateUserLoading = false
         })
+
         builder.addCase(findAllUserInventory.pending, (state) => {
             state.findAllUserInventoryLoading = true
         })
@@ -116,6 +282,7 @@ const userSlice = createSlice({
         builder.addCase(findAllUserInventory.rejected, (state, action) => {
             state.findAllUserInventoryLoading = false
         })
+
         builder.addCase(getAllInventoryCommitteeUsers.pending, (state) => {
             state.inventoryCommitteeUsersLoading = true
         })
