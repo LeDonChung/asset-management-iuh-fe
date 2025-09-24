@@ -7,12 +7,16 @@ interface RoleState {
     inventoryRoles: Role[];
     inventoryRolesLoading: boolean;
     inventoryRolesError: string | null;
+    loading: boolean;
+    allRoles: any[];
 }
 
 const initialState: RoleState = {
     inventoryRoles: [],
     inventoryRolesLoading: false,
-    inventoryRolesError: null
+    inventoryRolesError: null,
+    allRoles: [],
+    loading: false,
 }
 
 export const findAllInventoryRoles = createAsyncThunk(
@@ -20,6 +24,18 @@ export const findAllInventoryRoles = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const response = await axiosInstance.get('/api/v1/roles/inventory')
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response.data)
+        }
+    }
+)
+
+export const findAllRoles = createAsyncThunk(
+    'role/findAllRoles',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get('/api/v1/roles')
             return response.data;
         } catch (error: any) {
             return rejectWithValue(error.response.data)
@@ -47,6 +63,19 @@ const roleSlice = createSlice({
         builder.addCase(findAllInventoryRoles.rejected, (state, action) => {
             state.inventoryRolesLoading = false;
             state.inventoryRolesError = (action.payload as any).message;
+        })
+
+        builder.addCase(findAllRoles.pending, (state) => {
+            state.loading = true;
+            state.allRoles = [];
+        })
+        builder.addCase(findAllRoles.fulfilled, (state, action) => {
+            state.loading = false;
+            state.allRoles = action.payload;
+        })
+        builder.addCase(findAllRoles.rejected, (state, action) => {
+            state.loading = false;
+            state.allRoles = [];
         })
     }
 })

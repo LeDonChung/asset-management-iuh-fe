@@ -134,9 +134,9 @@ export default function UsersPage() {
             render: (_, record) => (
                 <div className="text-sm text-gray-900">
                     {record.roles?.map(role => (
-                        <>
+                        <Badge key={role.id} className="mr-1 mb-1 bg-blue-100 text-blue-800">
                             {role.name}
-                        </>
+                        </Badge>
                     )) || <span className="text-gray-500 text-sm">Chưa có vai trò</span>}
                 </div>
             ),
