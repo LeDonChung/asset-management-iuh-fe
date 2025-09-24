@@ -14,7 +14,15 @@ export interface CreateUser {
     roleIds?: string[];
 }
 
-export interface UpdateUser extends CreateUser {
+export interface UpdateUser {
+    username: string;
+    fullName: string;
+    email: string;
+    unitId?: string;
+    phoneNumber?: string;
+    birthDate?: string;
+    status: UserStatus;
+    roleIds?: string[];
 }
 
 export enum FilterOperator {
@@ -108,6 +116,8 @@ interface UserState {
 
     // Current filter state
     currentFilter: UserFilterRequest | null;
+
+    user: User | null;
 }
 
 const initialState: UserState = {
@@ -139,6 +149,8 @@ const initialState: UserState = {
         sorting: [],
         search: null,
     },
+
+    user: null,
 }
 
 export const createUser = createAsyncThunk(
@@ -213,6 +225,18 @@ export const filterUserSessions = createAsyncThunk(
     }
 )
 
+export const findUserById = createAsyncThunk(
+    'user/findUserById',
+    async (userId: string, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get(`/api/v1/users/${userId}`);
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+)
+
 const userSlice = createSlice({
     name: 'user',
     initialState,
@@ -221,6 +245,7 @@ const userSlice = createSlice({
         }
     },
     extraReducers: (builder) => {
+        // get danh sach user voi dieu kien loc
         builder.addCase(filterUserSessions.pending, (state) => {
             state.filterLoading = true;
             state.filterError = null;
@@ -245,6 +270,7 @@ const userSlice = createSlice({
             state.filterError = (action.payload as any)?.message || 'Failed to filter sessions';
         });
 
+        // get all user
         builder.addCase(getAllUser.pending, (state) => {
         })
         builder.addCase(getAllUser.fulfilled, (state, action) => {
@@ -253,6 +279,7 @@ const userSlice = createSlice({
         builder.addCase(getAllUser.rejected, (state, action) => {
         })
 
+        // create user
         builder.addCase(createUser.pending, (state) => {
             state.createUserLoading = true
         })
@@ -263,6 +290,7 @@ const userSlice = createSlice({
             state.createUserLoading = false
         })
 
+        // update user
         builder.addCase(updateUser.pending, (state) => {
             state.updateUserLoading = true
         })
@@ -273,6 +301,7 @@ const userSlice = createSlice({
             state.updateUserLoading = false
         })
 
+        // find all user inventory
         builder.addCase(findAllUserInventory.pending, (state) => {
             state.findAllUserInventoryLoading = true
         })
@@ -283,6 +312,7 @@ const userSlice = createSlice({
             state.findAllUserInventoryLoading = false
         })
 
+        // get all inventory committee users
         builder.addCase(getAllInventoryCommitteeUsers.pending, (state) => {
             state.inventoryCommitteeUsersLoading = true
         })
@@ -292,6 +322,17 @@ const userSlice = createSlice({
         })
         builder.addCase(getAllInventoryCommitteeUsers.rejected, (state, action) => {
             state.inventoryCommitteeUsersLoading = false
+        })
+
+        // get user by id
+        builder.addCase(findUserById.pending, (state) => {
+            state.user = null;
+        })
+        builder.addCase(findUserById.fulfilled, (state, action) => {
+            state.user = action.payload;
+        })
+        builder.addCase(findUserById.rejected, (state) => {
+            state.user = null;
         })
     }
 })
