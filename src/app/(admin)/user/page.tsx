@@ -25,7 +25,7 @@ import UserDetailModal from "@/components/user/UserDetailModal";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
-import { getAllUser, updateUserStatus } from "@/lib/store/slices/userSlice";
+import { deletedUser, getAllUser, updateUserStatus } from "@/lib/store/slices/userSlice";
 import { getAllUnits } from "@/lib/store/slices/unitSlice";
 import toast from "react-hot-toast";
 
@@ -80,7 +80,14 @@ export default function UsersPage() {
 
     const handleDeleteUser = (userId: string) => {
         if (confirm("Bạn có chắc chắn muốn xóa người dùng này?")) {
-
+            dispatch(deletedUser(userId)).unwrap()
+                .then(() => {
+                    toast.success("Xóa người dùng thành công!");
+                    dispatch(getAllUser());
+                })
+                .catch(() => {
+                    toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+                });
         }
     };
 
@@ -294,7 +301,7 @@ export default function UsersPage() {
                 onClose={() => setIsDetailModalOpen(false)}
                 user={selectedUser}
                 onResetPassword={handleResetPassword}
-                onToggleLock={selectedUser ? () => handleToggleLock(selectedUser.id) : () => {}}
+                onToggleLock={selectedUser ? (() => handleToggleLock(selectedUser.id)) : (() => { })}
             />
         </div>
     );

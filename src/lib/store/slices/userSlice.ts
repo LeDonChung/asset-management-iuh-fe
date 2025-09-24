@@ -249,6 +249,18 @@ export const updateUserStatus = createAsyncThunk(
     }
 );
 
+export const deletedUser = createAsyncThunk(
+    'user/deleteUser',
+    async (userId: string, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.patch(`/api/v1/users/${userId}/deleted`);
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response.data);
+        }
+    }
+);
+
 const userSlice = createSlice({
     name: 'user',
     initialState,
