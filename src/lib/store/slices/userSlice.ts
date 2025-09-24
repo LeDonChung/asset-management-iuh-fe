@@ -237,6 +237,18 @@ export const findUserById = createAsyncThunk(
     }
 )
 
+export const updateUserStatus = createAsyncThunk(
+    'user/updateUserStatus',
+    async ({ userId, status }: { userId: string; status: UserStatus }, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.patch(`/api/v1/users/${userId}/update-status`, { status });
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response.data);
+        }
+    }
+);
+
 const userSlice = createSlice({
     name: 'user',
     initialState,
@@ -333,6 +345,17 @@ const userSlice = createSlice({
         })
         builder.addCase(findUserById.rejected, (state) => {
             state.user = null;
+        })
+
+        // update user status
+        builder.addCase(updateUserStatus.pending, (state) => {
+            state.updateUserLoading = true;
+        })
+        builder.addCase(updateUserStatus.fulfilled, (state, action) => {
+            state.updateUserLoading = false;
+        })
+        builder.addCase(updateUserStatus.rejected, (state) => {
+            state.updateUserLoading = false;
         })
     }
 })

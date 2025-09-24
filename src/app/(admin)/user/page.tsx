@@ -16,7 +16,8 @@ import {
     Unlock,
     Key,
     Download,
-    Upload
+    Upload,
+    X
 } from "lucide-react";
 import { User, UserStatus, Role, Unit, UnitType, UnitStatus } from "@/types/asset";
 import Link from "next/link";
@@ -24,8 +25,9 @@ import UserDetailModal from "@/components/user/UserDetailModal";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
-import { getAllUser } from "@/lib/store/slices/userSlice";
+import { getAllUser, updateUserStatus } from "@/lib/store/slices/userSlice";
 import { getAllUnits } from "@/lib/store/slices/unitSlice";
+import toast from "react-hot-toast";
 
 const statusLabels = {
     [UserStatus.ACTIVE]: "Đang hoạt động",
@@ -46,7 +48,7 @@ export default function UsersPage() {
     const dispatch = useAppDispatch();
     const { lstUser, filteredSessions } = useAppSelector((state: RootState) => state.user);
     const { allUnits } = useAppSelector((state: RootState) => state.unit);
-    
+
     const [searchTerm, setSearchTerm] = useState("");
     const [unitFilter, setUnitFilter] = useState<string>("");
     const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
@@ -78,12 +80,25 @@ export default function UsersPage() {
 
     const handleDeleteUser = (userId: string) => {
         if (confirm("Bạn có chắc chắn muốn xóa người dùng này?")) {
-            
+
         }
     };
 
     const handleToggleLock = (userId: string) => {
-        
+        const user = lstUser.find(u => u.id === userId);
+        if (!user) return;
+        if (confirm(`Bạn có chắc chắn muốn ${user.status === UserStatus.LOCKED ? "mở khóa" : "khóa"} người dùng này?`)) {
+            const status = user.status === UserStatus.LOCKED ? UserStatus.ACTIVE : UserStatus.LOCKED;
+            dispatch(updateUserStatus({ userId: user.id, status })).unwrap()
+                .then(() => {
+                    toast.success(`${user.status === UserStatus.LOCKED ? "Mở khóa" : "Khóa"} tài khoản người dùng thành công!`);
+                    dispatch(getAllUser());
+                })
+                .catch(() => {
+                    toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+                });
+
+        }
     };
 
     const handleResetPassword = (userId: string) => {
@@ -99,18 +114,19 @@ export default function UsersPage() {
             key: "username",
             title: "Tài khoản",
             render: (_, record) => (
-                <div className="flex items-center">
-                    <Users className="h-5 w-5 text-gray-400 mr-3" />
-                    <div>
-                        <div className="text-sm font-medium text-gray-900">{record.username}</div>
-                        <div className="text-sm text-gray-500">{record.fullName}</div>
-                    </div>
-                </div>
+                <div className="text-sm text-gray-900">{record.username}</div>
             ),
         },
         {
-            key: "email",
-            title: "Email",
+            key: "fullname",
+            title: "Họ và tên",
+            render: (_, record) => (
+                <div className="text-sm text-gray-900">{record.fullName}</div>
+            ),
+        },
+        {
+            key: "contact",
+            title: "Liên hệ",
             render: (_, record) => (
                 <div className="text-sm text-gray-900">
                     <div className="mb-1">{record.email}</div>
@@ -134,9 +150,10 @@ export default function UsersPage() {
             render: (_, record) => (
                 <div className="text-sm text-gray-900">
                     {record.roles?.map(role => (
-                        <Badge key={role.id} className="mr-1 mb-1 bg-blue-100 text-blue-800">
+                        <>
                             {role.name}
-                        </Badge>
+                            <br />
+                        </>
                     )) || <span className="text-gray-500 text-sm">Chưa có vai trò</span>}
                 </div>
             ),
@@ -272,14 +289,12 @@ export default function UsersPage() {
                 emptyText="Không tìm thấy người dùng"
                 emptyIcon={<Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
             />
-
-            {/* User Detail Modal */}
             <UserDetailModal
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
                 user={selectedUser}
                 onResetPassword={handleResetPassword}
-                onToggleLock={handleToggleLock}
+                onToggleLock={selectedUser ? () => handleToggleLock(selectedUser.id) : () => {}}
             />
         </div>
     );
