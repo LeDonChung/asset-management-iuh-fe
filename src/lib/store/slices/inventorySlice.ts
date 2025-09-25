@@ -3,7 +3,16 @@ import {
   InventorySessionStatus,
   InventorySubCommittee,
   InventoryGroup,
+  InventorySession,
+  InventoryGroupAssignment,
+  Room,
 } from "@/types/asset";
+import { 
+  SubmitInventoryResultRequest, 
+  SubmitInventoryResultResponse,
+  AssetActionStatus,
+  ScanMethod
+} from "@/lib/api/inventoryApi";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 // Backend filter enums and types (matching AdvancedFilter)
@@ -117,6 +126,16 @@ interface InventoryState {
   updateStatusLoading: boolean;
   createMemberLoading: boolean;
   deleteSessionLoading: boolean;
+
+  // Inventory perform states
+  assignedInventories: InventorySession[];
+  assignedGroups: InventoryGroupAssignment[];
+  unitRooms: Room[];
+
+  // Submit result states
+  submitResultLoading: boolean;
+  submitResultError: string | null;
+  lastSubmittedResult: any | null;
 }
 
 const initialState: InventoryState = {
@@ -165,6 +184,16 @@ const initialState: InventoryState = {
   findByIdLoading: false,
   updateStatusLoading: false,
   deleteSessionLoading: false,
+
+  // Inventory perform states
+  assignedInventories: [],
+  assignedGroups: [],
+  unitRooms: [],
+
+  // Submit result states
+  submitResultLoading: false,
+  submitResultError: null,
+  lastSubmittedResult: null,
 };
 
 export interface CreateInventorySession {
@@ -561,6 +590,59 @@ export const deleteMemberInventorySession = createAsyncThunk(
   }
 );
 
+export const getAssignedMembersInSession = createAsyncThunk(
+  "inventory-session/getAssignedMembersInSession",
+  async (
+    { sessionId, groupId }: { sessionId: string; groupId: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await axiosInstance.get(
+        `/api/v1/inventories/${sessionId}/assigned-members/${groupId}`
+      );
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const getAssignedInventories = createAsyncThunk(
+  "inventory-session/getAssignedInventories",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get("/api/v1/inventories/assigned");
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const getUnitRooms = createAsyncThunk(
+  "inventory-session/getUnitRooms",
+  async (unitId: string, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(`/api/v1/units/${unitId}`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const submitInventoryResult = createAsyncThunk(
+  "inventory/submitResult",
+  async (data: SubmitInventoryResultRequest, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post('/api/v1/inventories/submit-result', data);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 const inventorySlice = createSlice({
   name: "inventory",
   initialState,
@@ -576,7 +658,7 @@ const inventorySlice = createSlice({
       state.sessions = state.sessions.filter(
         (session) => session.id !== action.payload.id
       );
-    },    
+    },
     clearCurrentSession: (state) => {
       state.currentSession = null;
     },
@@ -630,6 +712,15 @@ const inventorySlice = createSlice({
     },
     clearFilterError: (state) => {
       state.filterError = null;
+    },
+    clearUnitRooms: (state) => {
+      state.unitRooms = [];
+    },
+    clearSubmitResultError: (state) => {
+      state.submitResultError = null;
+    },
+    clearLastSubmittedResult: (state) => {
+      state.lastSubmittedResult = null;
     },
     updateSubCommitteeInSession: (state, action) => {
       const { sessionUnitId, subCommittee } = action.payload;
@@ -1044,7 +1135,50 @@ const inventorySlice = createSlice({
       })
       .addCase(getInventoryGroupsBySub.rejected, (state, action) => {
         state.groupLoading = false;
-      });
+      })
+
+      // Inventory perform actions
+      .addCase(getAssignedInventories.pending, (state) => {
+      })
+      .addCase(getAssignedInventories.fulfilled, (state, action) => {
+        state.assignedInventories = action.payload;
+      })
+      .addCase(getAssignedInventories.rejected, (state, action) => {
+      })
+      .addCase(getAssignedMembersInSession.pending, (state) => {
+
+      })
+      .addCase(getAssignedMembersInSession.fulfilled, (state, action) => {
+        state.assignedGroups = action.payload;
+      })
+      .addCase(getAssignedMembersInSession.rejected, (state, action) => {
+
+      })
+      .addCase(getUnitRooms.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getUnitRooms.fulfilled, (state, action) => {
+        state.loading = false;
+        state.unitRooms = action.payload?.rooms || [];
+      })
+      .addCase(getUnitRooms.rejected, (state, action) => {
+        state.loading = false;
+      })
+
+      // Submit inventory result actions
+      .addCase(submitInventoryResult.pending, (state) => {
+        state.submitResultLoading = true;
+        state.submitResultError = null;
+      })
+      .addCase(submitInventoryResult.fulfilled, (state, action) => {
+        state.submitResultLoading = false;
+        state.submitResultError = null;
+        state.lastSubmittedResult = action.payload;
+      })
+      .addCase(submitInventoryResult.rejected, (state, action) => {
+        state.submitResultLoading = false;
+        state.submitResultError = (action.payload as any)?.message || "Submit failed";
+      })
   },
 });
 
@@ -1054,6 +1188,9 @@ export const {
   deleteSessionById,
   updatePagination,
   clearFilterError,
+  clearUnitRooms,
+  clearSubmitResultError,
+  clearLastSubmittedResult,
   updateStatusSessionById,
   setCurrentSession,
   clearCurrentSession,

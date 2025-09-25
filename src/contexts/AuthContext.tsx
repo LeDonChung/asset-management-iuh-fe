@@ -11,6 +11,7 @@ interface AuthContextType {
   hasAnyPermission: (requiredPermissions: string[]) => boolean
   hasAllPermissions: (requiredPermissions: string[]) => boolean
   getUserPermissions: () => string[]
+  logout: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -119,6 +120,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const getUserPermissions = (): string[] => {
     return userPermissions
   }
+  const logout = () => {
+    Cookies.remove('token')
+    localStorage.removeItem('user')
+    setUser(null)
+    setUserPermissions([])
+  }
 
   const value: AuthContextType = {
     user,
@@ -128,6 +135,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     hasAnyPermission,
     hasAllPermissions,
     getUserPermissions,
+    logout,
   }
 
   return (
