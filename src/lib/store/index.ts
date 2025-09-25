@@ -7,6 +7,7 @@ import inventorySlice from './slices/inventorySlice'
 import userSlice from './slices/userSlice'
 import roleSlice from './slices/roleSlice'
 import assetBookSlice from './slices/assetBookSlice'
+import permissionSlice from './slices/permissionSlice'
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     user: userSlice,
     role: roleSlice,
     assetBook: assetBookSlice,
+    permission: permissionSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

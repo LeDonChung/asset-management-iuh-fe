@@ -1,314 +1,256 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  Shield
+    Search,
+    Plus,
+    Edit,
+    Trash2,
+    Eye,
+    Shield
 } from "lucide-react";
 import { Role, Permission, ManagerPermission } from "@/types/asset";
 import RoleFormModal from "@/components/role/RoleFormModal";
 import RoleDetailModal from "@/components/role/RoleDetailModal";
-
-// Mock data cho demonstration
-const mockManagerPermissions: ManagerPermission[] = [
-  {
-    id: "1",
-    name: "Kiểm kê",
-    permissions: [
-      { id: "inv_view", name: "Xem kiểm kê", code: "INVENTORY_VIEW" },
-      { id: "inv_create", name: "Tạo kiểm kê", code: "INVENTORY_CREATE" },
-      { id: "inv_approve", name: "Duyệt kiểm kê", code: "INVENTORY_APPROVE" },
-      { id: "inv_manage", name: "Quản lý kiểm kê", code: "INVENTORY_MANAGE" },
-    ]
-  },
-  {
-    id: "2", 
-    name: "Tài sản",
-    permissions: [
-      { id: "asset_view", name: "Xem tài sản", code: "ASSET_VIEW" },
-      { id: "asset_create", name: "Thêm tài sản", code: "ASSET_CREATE" },
-      { id: "asset_edit", name: "Sửa tài sản", code: "ASSET_EDIT" },
-      { id: "asset_delete", name: "Xóa tài sản", code: "ASSET_DELETE" },
-      { id: "asset_handover", name: "Bàn giao tài sản", code: "ASSET_HANDOVER" },
-    ]
-  },
-  {
-    id: "3",
-    name: "Thanh lý", 
-    permissions: [
-      { id: "liq_view", name: "Xem thanh lý", code: "LIQUIDATION_VIEW" },
-      { id: "liq_create", name: "Tạo thanh lý", code: "LIQUIDATION_CREATE" },
-      { id: "liq_approve", name: "Duyệt thanh lý", code: "LIQUIDATION_APPROVE" },
-    ]
-  },
-  {
-    id: "4",
-    name: "Người dùng",
-    permissions: [
-      { id: "user_view", name: "Xem người dùng", code: "USER_VIEW" },
-      { id: "user_create", name: "Tạo người dùng", code: "USER_CREATE" },
-      { id: "user_edit", name: "Sửa người dùng", code: "USER_EDIT" },
-      { id: "user_delete", name: "Xóa người dùng", code: "USER_DELETE" },
-    ]
-  },
-  {
-    id: "5",
-    name: "Đơn vị",
-    permissions: [
-      { id: "unit_view", name: "Xem đơn vị", code: "UNIT_VIEW" },
-      { id: "unit_create", name: "Tạo đơn vị", code: "UNIT_CREATE" },
-      { id: "unit_edit", name: "Sửa đơn vị", code: "UNIT_EDIT" },
-      { id: "unit_delete", name: "Xóa đơn vị", code: "UNIT_DELETE" },
-    ]
-  }
-];
-
-const mockRoles: Role[] = [
-  {
-    id: "1",
-    name: "Quản trị viên",
-    code: "ADMIN",
-    permissions: [
-      ...mockManagerPermissions[0].permissions!,
-      ...mockManagerPermissions[1].permissions!,
-      ...mockManagerPermissions[2].permissions!,
-      ...mockManagerPermissions[3].permissions!,
-      ...mockManagerPermissions[4].permissions!,
-    ]
-  },
-  {
-    id: "2", 
-    name: "Kế toán",
-    code: "ACCOUNTANT",
-    permissions: [
-      mockManagerPermissions[1].permissions![0], // asset_view
-      mockManagerPermissions[1].permissions![1], // asset_create
-      mockManagerPermissions[1].permissions![2], // asset_edit
-      mockManagerPermissions[0].permissions![0], // inv_view
-    ]
-  },
-  {
-    id: "3",
-    name: "Nhân viên kiểm kê", 
-    code: "INVENTORY_STAFF",
-    permissions: [
-      mockManagerPermissions[0].permissions![0], // inv_view
-      mockManagerPermissions[0].permissions![1], // inv_create
-      mockManagerPermissions[1].permissions![0], // asset_view
-    ]
-  },
-  {
-    id: "4",
-    name: "Trưởng phòng",
-    code: "DEPARTMENT_HEAD", 
-    permissions: [
-      mockManagerPermissions[0].permissions![0], // inv_view
-      mockManagerPermissions[0].permissions![2], // inv_approve
-      mockManagerPermissions[1].permissions![0], // asset_view
-      mockManagerPermissions[2].permissions![0], // liq_view
-      mockManagerPermissions[2].permissions![2], // liq_approve
-    ]
-  }
-];
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { RootState } from "@/lib/store";
+import { useRouter } from "next/navigation";
+import { createRole, CreateRoleRequest, deleteRole, findAllRoles, updateRole, UpdateRoleRequest } from "@/lib/store/slices/roleSlice";
+import { findAllPermissions } from "@/lib/store/slices/permissionSlice";
+import toast from "react-hot-toast";
 
 export default function RolePage() {
-  const [roles, setRoles] = useState<Role[]>(mockRoles);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+    const router = useRouter();
+    const dispatch = useAppDispatch();
+    const { allRoles, loading } = useAppSelector((state: RootState) => state.role);
+    const { allPermission } = useAppSelector((state: RootState) => state.permission);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
-  // Filter roles based on search term
-  const filteredRoles = roles.filter(role =>
-    role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    role.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                await dispatch(findAllRoles()).unwrap();
+                await dispatch(findAllPermissions()).unwrap();
+            } catch (error) {
+                console.error("Failed to fetch roles:", error);
+            }
+        };
+        fetchData();
+    }, [dispatch]);
 
-  const handleCreateRole = () => {
-    setSelectedRole(null);
-    setIsFormModalOpen(true);
-  };
+    // Filter roles based on search term
+    const filteredRoles = allRoles.filter(role =>
+        role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        role.code.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-  const handleEditRole = (role: Role) => {
-    setSelectedRole(role);
-    setIsFormModalOpen(true);
-  };
+    const handleCreateRole = () => {
+        setSelectedRole(null);
+        setIsFormModalOpen(true);
+    };
 
-  const handleViewRole = (role: Role) => {
-    setSelectedRole(role);
-    setIsDetailModalOpen(true);
-  };
+    const handleEditRole = (role: Role) => {
+        setSelectedRole(role);
+        setIsFormModalOpen(true);
+    };
 
-  const handleDeleteRole = (roleId: string) => {
-    if (confirm("Bạn có chắc chắn muốn xóa role này?")) {
-      setRoles(prev => prev.filter(r => r.id !== roleId));
+    const handleViewRole = (role: Role) => {
+        setSelectedRole(role);
+        setIsDetailModalOpen(true);
+    };
+
+    const handleDeleteRole = (roleId: string) => {
+        if (confirm("Bạn có chắc chắn muốn xóa role này?")) {
+            dispatch(deleteRole(roleId)).unwrap()
+                .then(() => {
+                    toast.success("Xóa role thành công!");
+                })
+                .catch((error) => {
+                    console.error("Failed to delete role:", error);
+                    toast.error("Xóa role thất bại: " + (error.message || "Lỗi không xác định"));
+                });
+        }
+    };
+
+    const handleSaveRole = (roleData: any) => {
+        const lstPermission = roleData.permissions;
+        const lstPermissionId = lstPermission.map((p: ManagerPermission) => p.id);
+        if (selectedRole) {
+            
+            const newRole: UpdateRoleRequest = {
+                name: roleData.name,
+                permissionIds: lstPermissionId,
+            };
+
+            dispatch(updateRole({ roleId: selectedRole.id, roleData: newRole })).unwrap()
+                .then(() => {
+                    toast.success(`Cập nhật role "${roleData.name}" thành công!`);
+                })
+                .catch((error) => {
+                    console.error("Failed to update role:", error);
+                    toast.error("Cập nhật role thất bại: " + (error.message || "Lỗi không xác định"));
+                });
+        } else {
+            const newRole: CreateRoleRequest = {
+                name: roleData.name,
+                permissionIds: lstPermissionId,
+            };
+
+            dispatch(createRole(newRole)).unwrap()
+                .then(() => {
+                    toast.success(`Tạo role "${roleData.name}" thành công!`);
+                })
+                .catch((error) => {
+                    console.error("Failed to create role:", error);
+                    toast.error("Tạo role thất bại: " + (error.message || "Lỗi không xác định"));
+                });
+        }
+        setIsFormModalOpen(false);
+    };
+
+    // Table columns configuration
+    const columns: TableColumn<Role>[] = [
+        {
+            key: "name",
+            title: "Tên role",
+            render: (_, record) => (
+                <div className="flex items-center">
+                    <Shield className="h-5 w-5 text-gray-400 mr-3" />
+                    <div>
+                        <div className="text-sm font-medium text-gray-900">{record.name}</div>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: "permissions",
+            title: "Số lượng quyền",
+            render: (_, record) => (
+                <div className="text-sm font-medium text-gray-900">
+                    {record.permissions?.length || 0}
+                </div>
+            ),
+        },
+        {
+            key: "actions",
+            title: "Thao tác",
+            render: (_, record) => (
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditRole(record);
+                        }}
+                        title="Chỉnh sửa"
+                    >
+                        <Edit className="h-4 w-4 text-blue-600" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewRole(record);
+                        }}
+                        title="Xem chi tiết"
+                    >
+                        <Eye className="h-4 w-4 text-gray-600" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRole(record.id);
+                        }}
+                        title="Xóa"
+                    >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                </div>
+            ),
+            className: "text-right",
+        },
+    ];
+
+    if (loading) {
+        return (
+            <div className="p-6 text-center text-gray-600">Đang tải dữ liệu...</div>
+        );
     }
-  };
 
-  const handleSaveRole = (roleData: any) => {
-    if (selectedRole) {
-      // Update existing role
-      setRoles(prev => prev.map(r => 
-        r.id === selectedRole.id ? { ...r, ...roleData } : r
-      ));
-    } else {
-      // Create new role
-      const newRole: Role = {
-        id: Date.now().toString(),
-        ...roleData
-      };
-      setRoles(prev => [...prev, newRole]);
-    }
-    setIsFormModalOpen(false);
-  };
+    return (
+        <div className="p-6">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Quản lý Role</h1>
+                    <p className="text-gray-600">Quản lý các vai trò và quyền hạn trong hệ thống</p>
+                </div>
+                <Button
+                    onClick={handleCreateRole}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                    <Plus className="h-4 w-4" />
+                    Thêm
+                </Button>
+            </div>
 
-  // Table columns configuration
-  const columns: TableColumn<Role>[] = [
-    {
-      key: "name",
-      title: "Tên role",
-      render: (_, record) => (
-        <div className="flex items-center">
-          <Shield className="h-5 w-5 text-gray-400 mr-3" />
-          <div>
-            <div className="text-sm font-medium text-gray-900">{record.name}</div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "permissions",
-      title: "Quyền hạn",
-      render: (_, record) => (
-        <Badge variant="outline" className="bg-blue-100 text-blue-800">
-          {record.permissions?.length || 0} quyền
-        </Badge>
-      ),
-    },
-    {
-      key: "status",
-      title: "Trạng thái",
-      render: () => (
-        <Badge className="bg-green-100 text-green-800">
-          Đang hoạt động
-        </Badge>
-      ),
-    },
-    {
-      key: "actions",
-      title: "Thao tác",
-      render: (_, record) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditRole(record);
-            }}
-            title="Chỉnh sửa"
-          >
-            <Edit className="h-4 w-4 text-blue-600" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewRole(record);
-            }}
-            title="Xem chi tiết"
-          >
-            <Eye className="h-4 w-4 text-gray-600" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteRole(record.id);
-            }}
-            title="Xóa"
-          >
-            <Trash2 className="h-4 w-4 text-red-600" />
-          </Button>
-        </div>
-      ),
-      className: "text-right",
-    },
-  ];
+            {/* Filters */}
+            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+                <div className="flex flex-col lg:flex-row gap-4">
+                    {/* Search */}
+                    <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                            placeholder="Tìm kiếm theo tên role..."
+                            className="pl-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
+            </div>
 
-  return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý Role</h1>
-          <p className="text-gray-600">Quản lý các vai trò và quyền hạn trong hệ thống</p>
-        </div>
-        <Button 
-          onClick={handleCreateRole} 
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <Plus className="h-4 w-4" />
-          Thêm
-        </Button>
-      </div>
+            {/* Results count */}
+            <div className="text-sm text-gray-600 mb-4">
+                Hiển thị {filteredRoles.length} trên tổng số {allRoles.length} role
+            </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input 
-              placeholder="Tìm kiếm theo tên role..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+            {/* Roles Table */}
+            <Table
+                columns={columns}
+                data={filteredRoles}
+                emptyText="Không tìm thấy role nào"
+                emptyIcon={<Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
+                onRowClick={(record) => handleViewRole(record)}
             />
-          </div>
+
+            {/* Role Form Modal */}
+            <RoleFormModal
+                isOpen={isFormModalOpen}
+                onClose={() => setIsFormModalOpen(false)}
+                role={selectedRole}
+                managerPermissions={allPermission}
+                onSave={handleSaveRole}
+            />
+
+            {/* Role Detail Modal */}
+            <RoleDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                role={selectedRole}
+                managerPermissions={allPermission}
+            />
         </div>
-      </div>
-
-      {/* Results count */}
-      <div className="text-sm text-gray-600 mb-4">
-        Hiển thị {filteredRoles.length} trên tổng số {roles.length} role
-      </div>
-
-      {/* Roles Table */}
-      <Table
-        columns={columns}
-        data={filteredRoles}
-        emptyText="Không tìm thấy role nào"
-        emptyIcon={<Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
-        onRowClick={(record) => handleViewRole(record)}
-      />
-
-      {/* Role Form Modal */}
-      <RoleFormModal
-        isOpen={isFormModalOpen}
-        onClose={() => setIsFormModalOpen(false)}
-        role={selectedRole}
-        managerPermissions={mockManagerPermissions}
-        onSave={handleSaveRole}
-      />
-
-      {/* Role Detail Modal */}
-      <RoleDetailModal
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        role={selectedRole}
-        managerPermissions={mockManagerPermissions}
-      />
-    </div>
-  );
+    );
 }
