@@ -19,114 +19,15 @@ import RoleDetailModal from "@/components/role/RoleDetailModal";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
 import { useRouter } from "next/navigation";
-import { findAllRoles } from "@/lib/store/slices/roleSlice";
-
-// Mock data cho demonstration
-const mockManagerPermissions: ManagerPermission[] = [
-    {
-        id: "1",
-        name: "Kiểm kê",
-        permissions: [
-            { id: "inv_view", name: "Xem kiểm kê", code: "INVENTORY_VIEW" },
-            { id: "inv_create", name: "Tạo kiểm kê", code: "INVENTORY_CREATE" },
-            { id: "inv_approve", name: "Duyệt kiểm kê", code: "INVENTORY_APPROVE" },
-            { id: "inv_manage", name: "Quản lý kiểm kê", code: "INVENTORY_MANAGE" },
-        ]
-    },
-    {
-        id: "2",
-        name: "Tài sản",
-        permissions: [
-            { id: "asset_view", name: "Xem tài sản", code: "ASSET_VIEW" },
-            { id: "asset_create", name: "Thêm tài sản", code: "ASSET_CREATE" },
-            { id: "asset_edit", name: "Sửa tài sản", code: "ASSET_EDIT" },
-            { id: "asset_delete", name: "Xóa tài sản", code: "ASSET_DELETE" },
-            { id: "asset_handover", name: "Bàn giao tài sản", code: "ASSET_HANDOVER" },
-        ]
-    },
-    {
-        id: "3",
-        name: "Thanh lý",
-        permissions: [
-            { id: "liq_view", name: "Xem thanh lý", code: "LIQUIDATION_VIEW" },
-            { id: "liq_create", name: "Tạo thanh lý", code: "LIQUIDATION_CREATE" },
-            { id: "liq_approve", name: "Duyệt thanh lý", code: "LIQUIDATION_APPROVE" },
-        ]
-    },
-    {
-        id: "4",
-        name: "Người dùng",
-        permissions: [
-            { id: "user_view", name: "Xem người dùng", code: "USER_VIEW" },
-            { id: "user_create", name: "Tạo người dùng", code: "USER_CREATE" },
-            { id: "user_edit", name: "Sửa người dùng", code: "USER_EDIT" },
-            { id: "user_delete", name: "Xóa người dùng", code: "USER_DELETE" },
-        ]
-    },
-    {
-        id: "5",
-        name: "Đơn vị",
-        permissions: [
-            { id: "unit_view", name: "Xem đơn vị", code: "UNIT_VIEW" },
-            { id: "unit_create", name: "Tạo đơn vị", code: "UNIT_CREATE" },
-            { id: "unit_edit", name: "Sửa đơn vị", code: "UNIT_EDIT" },
-            { id: "unit_delete", name: "Xóa đơn vị", code: "UNIT_DELETE" },
-        ]
-    }
-];
-
-const mockRoles: Role[] = [
-    {
-        id: "1",
-        name: "Quản trị viên",
-        code: "ADMIN",
-        permissions: [
-            ...mockManagerPermissions[0].permissions!,
-            ...mockManagerPermissions[1].permissions!,
-            ...mockManagerPermissions[2].permissions!,
-            ...mockManagerPermissions[3].permissions!,
-            ...mockManagerPermissions[4].permissions!,
-        ]
-    },
-    {
-        id: "2",
-        name: "Kế toán",
-        code: "ACCOUNTANT",
-        permissions: [
-            mockManagerPermissions[1].permissions![0], // asset_view
-            mockManagerPermissions[1].permissions![1], // asset_create
-            mockManagerPermissions[1].permissions![2], // asset_edit
-            mockManagerPermissions[0].permissions![0], // inv_view
-        ]
-    },
-    {
-        id: "3",
-        name: "Nhân viên kiểm kê",
-        code: "INVENTORY_STAFF",
-        permissions: [
-            mockManagerPermissions[0].permissions![0], // inv_view
-            mockManagerPermissions[0].permissions![1], // inv_create
-            mockManagerPermissions[1].permissions![0], // asset_view
-        ]
-    },
-    {
-        id: "4",
-        name: "Trưởng phòng",
-        code: "DEPARTMENT_HEAD",
-        permissions: [
-            mockManagerPermissions[0].permissions![0], // inv_view
-            mockManagerPermissions[0].permissions![2], // inv_approve
-            mockManagerPermissions[1].permissions![0], // asset_view
-            mockManagerPermissions[2].permissions![0], // liq_view
-            mockManagerPermissions[2].permissions![2], // liq_approve
-        ]
-    }
-];
+import { createRole, CreateRoleRequest, deleteRole, findAllRoles, updateRole, UpdateRoleRequest } from "@/lib/store/slices/roleSlice";
+import { findAllPermissions } from "@/lib/store/slices/permissionSlice";
+import toast from "react-hot-toast";
 
 export default function RolePage() {
     const router = useRouter();
     const dispatch = useAppDispatch();
     const { allRoles, loading } = useAppSelector((state: RootState) => state.role);
+    const { allPermission } = useAppSelector((state: RootState) => state.permission);
     const [searchTerm, setSearchTerm] = useState("");
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -136,6 +37,7 @@ export default function RolePage() {
         const fetchData = async () => {
             try {
                 await dispatch(findAllRoles()).unwrap();
+                await dispatch(findAllPermissions()).unwrap();
             } catch (error) {
                 console.error("Failed to fetch roles:", error);
             }
@@ -166,17 +68,49 @@ export default function RolePage() {
 
     const handleDeleteRole = (roleId: string) => {
         if (confirm("Bạn có chắc chắn muốn xóa role này?")) {
+            dispatch(deleteRole(roleId)).unwrap()
+                .then(() => {
+                    toast.success("Xóa role thành công!");
+                })
+                .catch((error) => {
+                    console.error("Failed to delete role:", error);
+                    toast.error("Xóa role thất bại: " + (error.message || "Lỗi không xác định"));
+                });
         }
     };
 
     const handleSaveRole = (roleData: any) => {
+        const lstPermission = roleData.permissions;
+        const lstPermissionId = lstPermission.map((p: ManagerPermission) => p.id);
         if (selectedRole) {
-        } else {
-            // Create new role
-            const newRole: Role = {
-                id: Date.now().toString(),
-                ...roleData
+            
+            const newRole: UpdateRoleRequest = {
+                name: roleData.name,
+                permissionIds: lstPermissionId,
             };
+
+            dispatch(updateRole({ roleId: selectedRole.id, roleData: newRole })).unwrap()
+                .then(() => {
+                    toast.success(`Cập nhật role "${roleData.name}" thành công!`);
+                })
+                .catch((error) => {
+                    console.error("Failed to update role:", error);
+                    toast.error("Cập nhật role thất bại: " + (error.message || "Lỗi không xác định"));
+                });
+        } else {
+            const newRole: CreateRoleRequest = {
+                name: roleData.name,
+                permissionIds: lstPermissionId,
+            };
+
+            dispatch(createRole(newRole)).unwrap()
+                .then(() => {
+                    toast.success(`Tạo role "${roleData.name}" thành công!`);
+                })
+                .catch((error) => {
+                    console.error("Failed to create role:", error);
+                    toast.error("Tạo role thất bại: " + (error.message || "Lỗi không xác định"));
+                });
         }
         setIsFormModalOpen(false);
     };
@@ -197,20 +131,11 @@ export default function RolePage() {
         },
         {
             key: "permissions",
-            title: "Quyền hạn",
+            title: "Số lượng quyền",
             render: (_, record) => (
-                <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                    {record.permissions?.length || 0} quyền
-                </Badge>
-            ),
-        },
-        {
-            key: "status",
-            title: "Trạng thái",
-            render: () => (
-                <Badge className="bg-green-100 text-green-800">
-                    Đang hoạt động
-                </Badge>
+                <div className="text-sm font-medium text-gray-900">
+                    {record.permissions?.length || 0}
+                </div>
             ),
         },
         {
@@ -315,7 +240,7 @@ export default function RolePage() {
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
                 role={selectedRole}
-                managerPermissions={mockManagerPermissions}
+                managerPermissions={allPermission}
                 onSave={handleSaveRole}
             />
 
@@ -324,7 +249,7 @@ export default function RolePage() {
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
                 role={selectedRole}
-                managerPermissions={mockManagerPermissions}
+                managerPermissions={allPermission}
             />
         </div>
     );
