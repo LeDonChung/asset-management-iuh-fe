@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { 
@@ -50,6 +50,29 @@ export default function SubCommitteeModal({
   const [members, setMembers] = useState<InventorySubCommitteeMember[]>(
     subCommittee?.members || []
   );
+
+  // Reset form data when subCommittee changes or modal opens/closes
+  useEffect(() => {
+    if (subCommittee) {
+      // Editing existing sub-committee
+      setFormData({
+        name: subCommittee.name || "",
+        inventorySessionUnitId: subCommittee.inventorySessionUnitId || "",
+        leaderId: subCommittee.members?.find(m => m.role === "LEADER")?.userId || "",
+        secretaryId: subCommittee.members?.find(m => m.role === "SECRETARY")?.userId || ""
+      });
+      setMembers(subCommittee.members || []);
+    } else {
+      // Creating new sub-committee - reset form
+      setFormData({
+        name: "",
+        inventorySessionUnitId: "",
+        leaderId: "",
+        secretaryId: ""
+      });
+      setMembers([]);
+    }
+  }, [subCommittee, isOpen]);
 
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [editingMember, setEditingMember] = useState<InventorySubCommitteeMember | null>(null);
@@ -199,7 +222,7 @@ export default function SubCommitteeModal({
             </div>
 
             {/* Session Unit Selection */}
-            {!subCommittee && availableSessionUnits.length > 0 && (
+            {availableSessionUnits.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Cơ sở tham gia
@@ -210,6 +233,7 @@ export default function SubCommitteeModal({
                     onChange={(e) => handleChange("inventorySessionUnitId", e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors appearance-none"
                     required
+                    disabled={!!subCommittee} // Disable when editing existing sub-committee
                   >
                     <option value="">-- Chọn cơ sở tham gia --</option>
                     {availableSessionUnits.map(unit => (
@@ -220,6 +244,11 @@ export default function SubCommitteeModal({
                   </select>
                   <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
+                {subCommittee && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Không thể thay đổi cơ sở tham gia khi chỉnh sửa tiểu ban
+                  </p>
+                )}
               </div>
             )}
 
