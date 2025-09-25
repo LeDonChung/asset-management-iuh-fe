@@ -253,7 +253,7 @@ export const deletedUser = createAsyncThunk(
     'user/deleteUser',
     async (userId: string, { rejectWithValue }) => {
         try {
-            const response = await axiosInstance.patch(`/api/v1/users/${userId}/deleted`);
+            const response = await axiosInstance.delete(`/api/v1/users/${userId}`);
             return response.data;
         } catch (error: any) {
             return rejectWithValue(error.response.data);
