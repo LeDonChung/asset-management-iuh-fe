@@ -283,7 +283,9 @@ export interface AssetBookItem {
 // Alert Management
 export enum AlertStatus {
   PENDING = "PENDING",
-  RESOLVED = "RESOLVED"
+  CONFIRMED = "CONFIRMED", // Đã xác minh
+  FALSE_ALARM = "FALSE_ALARM", // Sai phạm
+  SYSTEM_ERROR = "SYSTEM_ERROR" // Lỗi hệ thống
 }
 
 export enum AlertType {
@@ -293,31 +295,17 @@ export enum AlertType {
 export interface Alert {
   id: string;
   assetId: string;
-  detectedAt: string; // datetime - Thời gian phát hiện
   roomId: string;
   type: AlertType; // Di chuyển không hợp lệ
   status: AlertStatus;
   createdAt: string; // datetime
   asset?: Asset;
   room?: Room;
-  resolution?: AlertResolution;
-}
-
-export enum AlertResolutionStatus {
-  CONFIRMED = "CONFIRMED", // Đã xác minh
-  FALSE_ALARM = "FALSE_ALARM", // Sai phạm
-  SYSTEM_ERROR = "SYSTEM_ERROR" // Lỗi hệ thống
-}
-
-export interface AlertResolution {
-  id: string;
-  alertId: string;
-  resolverId: string;
-  resolution: AlertResolutionStatus;
-  note?: string;
-  resolvedAt: string; // datetime
-  alert?: Alert;
-  resolver?: User;
+  image?: string; // URL ảnh chụp
+  deviceId?: string; // ID thiết bị phát hiện
+  resolver?: User; // Người xử lý cảnh báo
+  resolvedAt?: string; // datetime - Thời gian xử lý
+  note?: string; // Ghi chú xử lý
 }
 
 // Damage Report Management  

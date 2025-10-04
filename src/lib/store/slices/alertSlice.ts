@@ -1,10 +1,10 @@
 import axiosInstance from "@/lib/api";
-import { Alert, AlertResolutionStatus, User, UserStatus } from "@/types/asset";
+import { Alert, AlertStatus, User, UserStatus } from "@/types/asset";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
-export interface CreateAlertResolution {
+export interface UpdateAlert {
     alertId: string;
-    resolution: AlertResolutionStatus;
+    status: AlertStatus;
     note?: string;
     
 }
@@ -33,9 +33,12 @@ export const fetchAllAlert = createAsyncThunk(
 
 export const createAlertResolution = createAsyncThunk(
     "alerts/createAlertResolution",
-    async (data: CreateAlertResolution, { rejectWithValue }) => {
+    async (data: UpdateAlert, { rejectWithValue }) => {
         try {
-            const response = await axiosInstance.post("/api/v1/alerts/resolve", data);
+            const response = await axiosInstance.post(`/api/v1/alerts/${data.alertId}/resolve`, {
+                status: data.status,
+                note: data.note
+            });
             return response.data;
         } catch (error: any) {
             return rejectWithValue(error.response.data);
