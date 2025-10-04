@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import {
     AlertCircle,
-    Bell,
     Clock,
     Search,
     Filter,
@@ -11,21 +10,16 @@ import {
     CheckCircle,
     XCircle,
     AlertTriangle,
-    Calendar,
     MapPin,
     Package,
     X,
-    FileText,
     Save,
-    Plus,
     Workflow,
 } from "lucide-react";
-import Link from "next/link";
 import {
     Alert,
     AlertStatus,
     AlertType,
-    AlertResolutionStatus,
 } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,16 +35,7 @@ import toast from "react-hot-toast";
 
 interface AlertFilter {
     search?: string;
-    status?: AlertStatus;
-    type?: AlertType;
-    dateFrom?: string;
-    dateTo?: string;
-}
-
-
-interface AlertFilter {
-    search?: string;
-    status?: AlertStatus;
+    status?: AlertStatus | "Đã xử lý";
     type?: AlertType;
     dateFrom?: string;
     dateTo?: string;
@@ -142,7 +127,7 @@ interface AlertDetailModalProps {
     alert: Alert;
     isOpen: boolean;
     onClose: () => void;
-    onResolve: (alertId: string, resolution: AlertResolutionStatus, note: string) => void;
+    onResolve: (alertId: string, status: AlertStatus, note: string) => void;
 }
 
 const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
@@ -151,7 +136,7 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
     onClose,
     onResolve,
 }) => {
-    const [selectedResolution, setSelectedResolution] = useState<AlertResolutionStatus | null>(null);
+    const [selectedResolution, setSelectedResolution] = useState<AlertStatus | null>(null);
     const [note, setNote] = useState("");
 
     const handleResolve = () => {
@@ -166,17 +151,17 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
 
     const resolutionOptions = [
         {
-            value: AlertResolutionStatus.CONFIRMED,
+            value: AlertStatus.CONFIRMED,
             label: "Đã xác minh (hợp lệ)",
             icon: <CheckCircle className="h-4 w-4 text-green-500" />,
         },
         {
-            value: AlertResolutionStatus.FALSE_ALARM,
+            value: AlertStatus.FALSE_ALARM,
             label: "Sai phạm",
             icon: <XCircle className="h-4 w-4 text-red-500" />,
         },
         {
-            value: AlertResolutionStatus.SYSTEM_ERROR,
+            value: AlertStatus.SYSTEM_ERROR,
             label: "Lỗi hệ thống",
             icon: <AlertCircle className="h-4 w-4 text-blue-500" />,
         },
@@ -220,7 +205,7 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
                                 <label className="text-sm font-medium text-gray-700">Trạng thái:</label>
                                 <div className="mt-1">
                                     <Badge className={alert.status === AlertStatus.PENDING ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}>
-                                        {statusLabels[alert.status as keyof typeof statusLabels]}
+                                        {alert.status === AlertStatus.PENDING ? "Chưa xử lý" : "Đã xử lý"}
                                     </Badge>
                                 </div>
                             </div>
@@ -245,7 +230,7 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
                                             name="resolution"
                                             value={option.value}
                                             checked={selectedResolution === option.value}
-                                            onChange={(e) => setSelectedResolution(e.target.value as AlertResolutionStatus)}
+                                            onChange={(e) => setSelectedResolution(e.target.value as AlertStatus)}
                                             className="mr-3"
                                         />
                                         {option.icon}
@@ -270,7 +255,7 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
                     )}
 
                     {/* Existing Resolution */}
-                    {alert.status === AlertStatus.RESOLVED && alert.resolution && (
+                    {alert.status !== AlertStatus.PENDING && (
                         <div className="border border-green-200 bg-green-50 rounded-lg p-4">
                             <h3 className="text-lg font-medium text-green-900 mb-4">
                                 ✅ Đã xử lý cảnh báo
@@ -279,21 +264,21 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
                                 <div>
                                     <span className="text-sm font-medium text-green-700">Loại xử lý:</span>
                                     <span className="ml-2 text-gray-800">
-                                        {alert.resolution.resolution === AlertResolutionStatus.CONFIRMED && "Đã xác minh (hợp lệ)"}
-                                        {alert.resolution.resolution === AlertResolutionStatus.FALSE_ALARM && "Sai phạm"}
-                                        {alert.resolution.resolution === AlertResolutionStatus.SYSTEM_ERROR && "Lỗi hệ thống"}
+                                        {alert.status === AlertStatus.CONFIRMED && "Đã xác minh (hợp lệ)"}
+                                        {alert.status === AlertStatus.FALSE_ALARM && "Sai phạm"}
+                                        {alert.status === AlertStatus.SYSTEM_ERROR && "Lỗi hệ thống"}
                                     </span>
                                 </div>
                                 <div>
                                     <span className="text-sm font-medium text-green-700">Thời gian xử lý:</span>
                                     <span className="ml-2 text-gray-800">
-                                        {new Date(alert.resolution.resolvedAt).toLocaleString("vi-VN")}
+                                        {alert.resolvedAt && new Date(alert.resolvedAt).toLocaleString("vi-VN")}
                                     </span>
                                 </div>
-                                {alert.resolution.note && (
+                                {alert.note && (
                                     <div>
                                         <span className="text-sm font-medium text-green-700">Ghi chú:</span>
-                                        <p className="ml-2 text-gray-800">{alert.resolution.note}</p>
+                                        <p className="ml-2 text-gray-800">{alert.note}</p>
                                     </div>
                                 )}
                             </div>
@@ -322,16 +307,6 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
             )}
         </Modal>
     );
-};
-
-const statusColors = {
-    [AlertStatus.PENDING]: "bg-red-100 text-red-800",
-    [AlertStatus.RESOLVED]: "bg-green-100 text-green-800",
-};
-
-const statusLabels = {
-    [AlertStatus.PENDING]: "CHỜ XỬ LÝ",
-    [AlertStatus.RESOLVED]: "ĐÃ XỬ LÝ",
 };
 
 export default function AlertPage() {
@@ -376,7 +351,9 @@ export default function AlertPage() {
         }
 
         if (filter.status) {
-            filtered = filtered.filter((alert) => alert.status === filter.status);
+            filtered = filtered.filter((alert) => 
+            (alert.status === filter.status) || (filter.status === "Đã xử lý" && alert.status !== AlertStatus.PENDING)
+            );
         }
 
         if (filter.type) {
@@ -434,8 +411,8 @@ export default function AlertPage() {
         }
     };
 
-    const handleResolveAlert = async (alertId: string, resolution: AlertResolutionStatus, note: string) => {
-        await dispatch(createAlertResolution({ alertId, resolution, note })).unwrap()
+    const handleResolveAlert = async (alertId: string, status: AlertStatus, note: string) => {
+        await dispatch(createAlertResolution({ alertId, status, note })).unwrap()
             .then(() => {
                 toast.success("Cảnh báo đã được xử lý");
             })
@@ -497,8 +474,8 @@ export default function AlertPage() {
             title: "Trạng thái",
             width: "120px",
             render: (_, alert) => (
-                <Badge className={statusColors[alert.status as keyof typeof statusColors]}>
-                    {statusLabels[alert.status as keyof typeof statusLabels]}
+                <Badge className={alert.status === AlertStatus.PENDING ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}>
+                    {alert.status === AlertStatus.PENDING ? "CHỜ XỬ LÝ" : "ĐÃ XỬ LÝ"}
                 </Badge>
             ),
         },
@@ -646,7 +623,7 @@ export default function AlertPage() {
                     >
                         <option value="">Tất cả trạng thái</option>
                         <option value={AlertStatus.PENDING}>Chờ xử lý</option>
-                        <option value={AlertStatus.RESOLVED}>Đã xử lý</option>
+                        <option value={"Đã xử lý"}>Đã xử lý</option>
                     </select>
                     <input
                         type="date"
