@@ -32,6 +32,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
 import { createAlertResolution, fetchAllAlert } from "@/lib/store/slices/alertSlice";
 import toast from "react-hot-toast";
+import { useSocket } from "@/contexts/SocketContext";
 
 interface AlertFilter {
     search?: string;
@@ -312,6 +313,7 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
 export default function AlertPage() {
     const dispatch = useAppDispatch();
     const { lstAllAlert, loading } = useAppSelector((state: RootState) => state.alert);
+    const { socket, isConnected, on, off } = useSocket();
 
     const [alerts, setAlerts] = useState<Alert[]>([]);
     const [filteredAlerts, setFilteredAlerts] = useState<Alert[]>([]);
@@ -321,60 +323,116 @@ export default function AlertPage() {
     const [showUrgentModal, setShowUrgentModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+    const [pendingAlertsFromSocket, setPendingAlertsFromSocket] = useState<Alert[]>([]);
     const router = useRouter();
 
-    // Get pending alerts for urgent notifications
-    const pendingAlerts = lstAllAlert.filter(alert => (
-        (alert.status === AlertStatus.PENDING) &&
-        (new Date(alert.createdAt).getFullYear() === new Date().getFullYear()) &&
-        (new Date(alert.createdAt).getMonth() === new Date().getMonth()) &&
-        (new Date(alert.createdAt).getDate() === new Date().getDate())
-    ));
-    // Filter alerts
-    useEffect(() => {
+    // Get pending alerts for urgent notifications (combine from store and socket)
+    const pendingAlerts = [
+        ...lstAllAlert.filter(alert => (
+            (alert.status === AlertStatus.PENDING) &&
+            (new Date(alert.createdAt).getFullYear() === new Date().getFullYear()) &&
+            (new Date(alert.createdAt).getMonth() === new Date().getMonth()) &&
+            (new Date(alert.createdAt).getDate() === new Date().getDate())
+        )),
+        ...pendingAlertsFromSocket
+    ];
 
+    useEffect(() => {
         const fetchData = async () => {
             await dispatch(fetchAllAlert());
+            setFilteredAlerts(lstAllAlert);
         };
         fetchData();
+    }, [dispatch]);
 
-        let filtered = [...lstAllAlert];
+    // Socket listener for receiving new alerts
+    useEffect(() => {
+        if (!socket || !isConnected) return;
 
-        if (filter.search) {
-            const searchLower = filter.search.toLowerCase();
-            filtered = filtered.filter(
-                (alert) =>
-                    alert.asset?.name.toLowerCase().includes(searchLower) ||
-                    alert.asset?.fixedCode.toLowerCase().includes(searchLower) ||
-                    (alert.room ? MockDataHelper.formatRoomLocation(alert.room).toLowerCase().includes(searchLower) : false)
-            );
-        }
+        const handleReceiveAlert = (alertDatas: any) => {
+            console.log('Received new alerts via socket:', alertDatas);
+            // For simplicity, handle one alert at a time
+            alertDatas.forEach((alertData: any) => {
+                // Add to pending alerts from socket
+                setPendingAlertsFromSocket((prev) => {
+                    // Check if alert already exists to avoid duplicates
+                    const exists = prev.some((alert) => alert.id === alertData.id);
+                    if (exists) return prev;
+                
+                return [...prev, alertData];
+            });
+            
+            // Show toast notification
+            toast.success(`🚨 Cảnh báo mới: ${alertData.asset?.name} - ${alertData.room?.name || 'N/A'}`, {
+                duration: 5000,
+                icon: '🚨',
+            });
+            
+            // Show urgent modal for new alert if it's really urgent (within last minute)
+            const now = new Date();
+            const alertTime = new Date(alertData.createdAt);
+            const diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
+            
+            if (diffMinutes <= 1) {
+                setSelectedAlert(alertData);
+                setShowUrgentModal(true);
+            }
+        });
+        };
 
-        if (filter.status) {
-            filtered = filtered.filter((alert) => 
-            (alert.status === filter.status) || (filter.status === "Đã xử lý" && alert.status !== AlertStatus.PENDING)
-            );
-        }
+        // Register socket listener
+        on('receive_alert', handleReceiveAlert);
 
-        if (filter.type) {
-            filtered = filtered.filter((alert) => alert.type === filter.type);
-        }
+        // Cleanup on unmount
+        return () => {
+            off('receive_alert', handleReceiveAlert);
+        };
+    }, [socket, isConnected, on, off, dispatch]);
+    // // Filter alerts
+    // useEffect(() => {
 
-        if (filter.dateFrom) {
-            filtered = filtered.filter(
-                (alert) => new Date(alert.createdAt) >= new Date(filter.dateFrom!)
-            );
-        }
+    //     const fetchData = async () => {
+    //         await dispatch(fetchAllAlert());
+    //     };
+    //     fetchData();
 
-        if (filter.dateTo) {
-            filtered = filtered.filter(
-                (alert) => new Date(alert.createdAt) <= new Date(filter.dateTo!)
-            );
-        }
+    //     let filtered = [...lstAllAlert];
 
-        setFilteredAlerts(filtered);
-        setCurrentPage(1);
-    }, [filter, lstAllAlert, dispatch]);
+    //     if (filter.search) {
+    //         const searchLower = filter.search.toLowerCase();
+    //         filtered = filtered.filter(
+    //             (alert) =>
+    //                 alert.asset?.name.toLowerCase().includes(searchLower) ||
+    //                 alert.asset?.fixedCode.toLowerCase().includes(searchLower) ||
+    //                 (alert.room ? MockDataHelper.formatRoomLocation(alert.room).toLowerCase().includes(searchLower) : false)
+    //         );
+    //     }
+
+    //     if (filter.status) {
+    //         filtered = filtered.filter((alert) => 
+    //         (alert.status === filter.status) || (filter.status === "Đã xử lý" && alert.status !== AlertStatus.PENDING)
+    //         );
+    //     }
+
+    //     if (filter.type) {
+    //         filtered = filtered.filter((alert) => alert.type === filter.type);
+    //     }
+
+    //     if (filter.dateFrom) {
+    //         filtered = filtered.filter(
+    //             (alert) => new Date(alert.createdAt) >= new Date(filter.dateFrom!)
+    //         );
+    //     }
+
+    //     if (filter.dateTo) {
+    //         filtered = filtered.filter(
+    //             (alert) => new Date(alert.createdAt) <= new Date(filter.dateTo!)
+    //         );
+    //     }
+
+    //     setFilteredAlerts(filtered);
+    //     setCurrentPage(1);
+    // }, [filter]);
 
     // Show urgent alert modal for new pending alerts
     useEffect(() => {
@@ -398,6 +456,7 @@ export default function AlertPage() {
 
     const handleAcknowledge = (alertId: string) => {
         // Just close the modal, don't change status
+        // But keep the alert in pending list for processing later
         setShowUrgentModal(false);
         setSelectedAlert(null);
     };
@@ -415,6 +474,11 @@ export default function AlertPage() {
         await dispatch(createAlertResolution({ alertId, status, note })).unwrap()
             .then(() => {
                 toast.success("Cảnh báo đã được xử lý");
+                
+                // Remove from pending alerts from socket if exists
+                setPendingAlertsFromSocket(prev => 
+                    prev.filter(alert => alert.id !== alertId)
+                );
             })
             .catch((error) => {
                 toast.error("Có lỗi xảy ra khi xử lý cảnh báo: " + error.message);
@@ -671,14 +735,14 @@ export default function AlertPage() {
             {/* Alerts Table */}
             <Table
                 columns={columns}
-                data={filteredAlerts}
+                data={lstAllAlert}
                 emptyText="Không có cảnh báo nào"
                 emptyIcon={<AlertCircle className="mx-auto h-12 w-12 text-gray-400" />}
                 rowKey="id"
                 pagination={{
                     current: currentPage,
                     pageSize: itemsPerPage,
-                    total: filteredAlerts.length,
+                    total: lstAllAlert.length,
                     onChange: (page, pageSize) => {
                         setCurrentPage(page);
                         if (pageSize !== itemsPerPage) {
