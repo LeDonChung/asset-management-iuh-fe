@@ -328,12 +328,6 @@ export default function AlertPage() {
 
     // Get pending alerts for urgent notifications (combine from store and socket)
     const pendingAlerts = [
-        ...lstAllAlert.filter(alert => (
-            (alert.status === AlertStatus.PENDING) &&
-            (new Date(alert.createdAt).getFullYear() === new Date().getFullYear()) &&
-            (new Date(alert.createdAt).getMonth() === new Date().getMonth()) &&
-            (new Date(alert.createdAt).getDate() === new Date().getDate())
-        )),
         ...pendingAlertsFromSocket
     ];
 
@@ -479,6 +473,11 @@ export default function AlertPage() {
                 setPendingAlertsFromSocket(prev => 
                     prev.filter(alert => alert.id !== alertId)
                 );
+
+                // Gửi lệnh dừng buzzer đến thiết bị
+                if (selectedAlert?.deviceId && socket) {
+                    socket.emit('send_stop_buzzer', selectedAlert.deviceId);
+                }
             })
             .catch((error) => {
                 toast.error("Có lỗi xảy ra khi xử lý cảnh báo: " + error.message);
