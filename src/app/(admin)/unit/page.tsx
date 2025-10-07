@@ -1,7 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
-import { Search, Plus, Edit, Trash2, Building, Phone, Mail, Eye } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import {
+  Search,
+  Plus,
+  Edit,
+  Trash2,
+  Building,
+  Phone,
+  Mail,
+  Eye,
+} from "lucide-react";
 import Link from "next/link";
 import { Unit, UnitType, UnitStatus } from "@/types/asset";
 import { useRouter } from "next/navigation";
@@ -9,82 +18,65 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
+import { RootState } from "@/lib/store";
+import { useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import { useAppDispatch } from "@/lib/store/hooks";
+import {
+  filterUnit,
+  UnitFilterRequest,
+} from "@/lib/store/slices/unitSlice";
 
-// Mock data
-const mockUnits: Unit[] = [
-  {
-    id: "unit1",
-    name: "Phòng Kế hoạch Đầu tư",
-    phone: "0234567890",
-    email: "kehoach@iuh.edu.vn",
-    type: UnitType.PHONG_KE_HOACH_DAU_TU,
-    representativeId: "user1",
-    status: UnitStatus.ACTIVE,
-    createdBy: "admin",
-    createdAt: "2024-01-10T08:00:00Z",
-    updatedAt: "2024-01-10T08:00:00Z"
-  },
-  {
-    id: "unit2",
-    name: "Phòng Quản trị",
-    phone: "0234567891",
-    email: "quantri@iuh.edu.vn",
-    type: UnitType.PHONG_QUAN_TRI,
-    representativeId: "user2",
-    status: UnitStatus.ACTIVE,
-    createdBy: "admin",
-    createdAt: "2024-01-11T08:00:00Z",
-    updatedAt: "2024-01-11T08:00:00Z"
-  },
-  {
-    id: "unit3",
-    name: "Khoa Công nghệ Thông tin",
-    phone: "0234567892",
-    email: "cntt@iuh.edu.vn",
-    type: UnitType.DON_VI_SU_DUNG,
-    representativeId: "user3",
-    status: UnitStatus.ACTIVE,
-    createdBy: "admin",
-    createdAt: "2024-01-12T08:00:00Z",
-    updatedAt: "2024-01-12T08:00:00Z"
-  },
-  {
-    id: "unit4",
-    name: "Khoa Kế toán",
-    phone: "0234567893",
-    email: "ketoan@iuh.edu.vn",
-    type: UnitType.DON_VI_SU_DUNG,
-    representativeId: "user4",
-    status: UnitStatus.INACTIVE,
-    createdBy: "admin",
-    createdAt: "2024-01-13T08:00:00Z",
-    updatedAt: "2024-01-13T08:00:00Z"
-  }
+// Unit type options for filter dropdown
+const unitTypeOptions = [
+  { value: "", label: "Tất cả loại đơn vị" },
+  { value: UnitType.ADMIN_DEPT, label: "Phòng quản trị" },
+  { value: UnitType.USER_DEPT, label: "Đơn vị sử dụng" },
+  { value: UnitType.CAMPUS, label: "Cơ sở" },
 ];
 
-const unitTypeLabels = {
-  [UnitType.PHONG_KE_HOACH_DAU_TU]: "Phòng kế hoạch đầu tư",
-  [UnitType.PHONG_QUAN_TRI]: "Phòng quản trị",
-  [UnitType.DON_VI_SU_DUNG]: "Đơn vị sử dụng"
-};
-
-const statusLabels = {
-  [UnitStatus.ACTIVE]: "Đang hoạt động",
-  [UnitStatus.INACTIVE]: "Ngừng hoạt động"
-};
+// Unit status options for filter dropdown
+const unitStatusOptions = [
+  { value: "", label: "Tất cả trạng thái" },
+  { value: UnitStatus.ACTIVE, label: "Đang hoạt động" },
+  { value: UnitStatus.INACTIVE, label: "Ngừng hoạt động" },
+];
 
 export default function UnitsPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState<UnitType | "">("");
-  const [statusFilter, setStatusFilter] = useState<UnitStatus | "">("");
+  const [typeFilter, setTypeFilter] = useState<UnitType>();
+  const [statusFilter, setStatusFilter] = useState<UnitStatus>();
   const router = useRouter();
-  
-  const filteredUnits = mockUnits.filter(unit => {
-    const matchesSearch = unit.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = !typeFilter || unit.type === typeFilter;
-    const matchesStatus = !statusFilter || unit.status === statusFilter;
-    return matchesSearch && matchesType && matchesStatus;
-  });
+
+  const { currentFilter, filteredUnits } = useSelector(
+    (state: RootState) => state.unit
+  );
+
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    const loadData = () => {
+      try {
+        dispatch(filterUnit(currentFilter));
+      } catch (e: any) {
+        toast.error(e.message || "Có lỗi xảy ra.");
+      }
+    };
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    handlerRender({
+      ...currentFilter,
+      search: searchTerm || undefined,
+      unitTypeFilter: typeFilter || undefined,
+      statusFilter: statusFilter || undefined,
+    });
+  }, [searchTerm, typeFilter, statusFilter]);
+
+  const handlerRender = (currentFilter: UnitFilterRequest) => {
+    dispatch(filterUnit(currentFilter));
+  };
 
   const handleEditUnit = (unit: Unit) => {
     router.push(`/unit/${unit.id}/edit`);
@@ -96,69 +88,71 @@ export default function UnitsPage() {
 
   const handleDeleteUnit = (unit: Unit) => {
     if (confirm(`Bạn có chắc chắn muốn xóa đơn vị "${unit.name}"?`)) {
-      // Handle delete logic here
-      console.log("Delete unit:", unit.id);
     }
   };
 
   const columns: TableColumn<Unit>[] = [
     {
-      key: 'name',
-      title: 'Tên đơn vị',
+      key: "name",
+      title: "Tên đơn vị",
       render: (_, record) => (
         <div className="flex items-center">
           <Building className="h-5 w-5 text-gray-400 mr-3" />
           <div>
-            <div className="text-sm font-medium text-gray-900">{record.name}</div>
-            <div className="text-sm text-gray-500">ID: {record.id}</div>
+            <div className="text-sm font-medium text-gray-900">
+              {record.name}
+            </div>
           </div>
         </div>
       ),
+      sortable: true,
     },
     {
-      key: 'contact',
-      title: 'Liên hệ',
+      key: "email",
+      title: "Liên hệ",
       render: (_, record) => (
         <div className="text-sm text-gray-900">
           <div className="flex items-center mb-1">
             <Phone className="h-4 w-4 text-gray-400 mr-1" />
-            {record.phone}
+            {record.phone || 'Chưa cập nhật'}
           </div>
           <div className="flex items-center">
             <Mail className="h-4 w-4 text-gray-400 mr-1" />
-            {record.email}
+            {record.email || 'Chưa cập nhật'}
           </div>
         </div>
       ),
+      sortable: true,
     },
     {
-      key: 'type',
-      title: 'Loại đơn vị',
+      key: "type",
+      title: "Loại đơn vị",
       render: (_, record) => (
         <Badge variant="outline" className="bg-blue-100 text-blue-800">
-          {unitTypeLabels[record.type]}
+          <span>{record.type}</span>
         </Badge>
       ),
+      sortable: true,
     },
     {
-      key: 'status',
-      title: 'Trạng thái',
+      key: "status",
+      title: "Trạng thái",
       render: (_, record) => (
-        <Badge 
-          className={record.status === UnitStatus.ACTIVE ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+        <Badge
+          className={
+            record.status === UnitStatus.ACTIVE
+              ? "bg-green-100 text-green-800"
+              : "bg-red-100 text-red-800"
+          }
         >
-          {statusLabels[record.status]}
+          <span>{record.status}</span>
         </Badge>
       ),
+      sortable: true,
     },
     {
-      key: 'createdAt',
-      title: 'Ngày tạo',
-      render: (_, record) => new Date(record.createdAt).toLocaleDateString('vi-VN'),
-    },
-    {
-      key: 'actions',
-      title: 'Thao tác',
+      key: "actions",
+      title: "Thao tác",
       render: (_, record) => (
         <div className="flex items-center gap-2">
           <Button
@@ -197,7 +191,6 @@ export default function UnitsPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý Đơn vị</h1>
-          <p className="text-gray-600">Quản lý thông tin các đơn vị trong trường</p>
         </div>
         <Link href="/unit/create">
           <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
@@ -225,38 +218,63 @@ export default function UnitsPage() {
           <select
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as UnitType | "")}
+            onChange={(e) => setTypeFilter(e.target.value as UnitType)}
           >
-            <option value="">Tất cả loại đơn vị</option>
-            <option value={UnitType.PHONG_KE_HOACH_DAU_TU}>Phòng kế hoạch đầu tư</option>
-            <option value={UnitType.PHONG_QUAN_TRI}>Phòng quản trị</option>
-            <option value={UnitType.DON_VI_SU_DUNG}>Đơn vị sử dụng</option>
+            {unitTypeOptions.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
 
           {/* Status Filter */}
           <select
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as UnitStatus | "")}
+            onChange={(e) => setStatusFilter(e.target.value as UnitStatus)}
           >
-            <option value="">Tất cả trạng thái</option>
-            <option value={UnitStatus.ACTIVE}>Đang hoạt động</option>
-            <option value={UnitStatus.INACTIVE}>Ngừng hoạt động</option>
+            {unitStatusOptions.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
         </div>
-      </div>
-
-      {/* Results count */}
-      <div className="text-sm text-gray-600 mb-4">
-        Hiển thị {filteredUnits.length} trên tổng số {mockUnits.length} đơn vị
       </div>
 
       {/* Units Table */}
       <Table<Unit>
         columns={columns}
-        data={filteredUnits}
+        data={filteredUnits.data}
         emptyText="Không tìm thấy đơn vị"
-        emptyIcon={<Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
+        emptyIcon={
+          <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        }
+        multiSort={true}
+        sortConfigs={currentFilter.sorting}
+        onSortChange={(sortConfigs) => {
+          handlerRender({
+            ...currentFilter,
+            sorting: sortConfigs,
+          });
+        }}
+        pagination={{
+          current: filteredUnits?.pagination.page || 1,
+          pageSize: filteredUnits?.pagination.limit || 5,
+          total: filteredUnits?.pagination.total || 0,
+          onChange: (page, pageSize) => {
+            handlerRender({
+              ...currentFilter,
+              pagination: {
+                currentPage: page,
+                itemsPerPage: pageSize,
+              },
+            });
+          },
+          showSizeChanger: true,
+          pageSizeOptions: [5, 10, 20, 50],
+          serverSide: true,
+        }}
       />
     </div>
   );

@@ -171,35 +171,7 @@ export default function LoginPage() {
                 </button>
               </div>
             </form>
-
-            {/* Demo Accounts */}
-            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-              <h4 className="text-sm font-semibold text-blue-800 mb-3">
-                Tài khoản demo:
-              </h4>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-blue-700 font-medium">Admin:</span>
-                  <span className="text-blue-600">admin / admin123</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-blue-700 font-medium">Quản Trị:</span>
-                  <span className="text-blue-600">quantri / quantri123</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-blue-700 font-medium">Kế Hoạch:</span>
-                  <span className="text-blue-600">kehoach / kehoach123</span>
-                </div>
-              </div>
-            </div>
           </div>
-        </div>
-        
-        {/* Footer */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-white/80">
-            
-          </p>
         </div>
       </div>
     </div>
