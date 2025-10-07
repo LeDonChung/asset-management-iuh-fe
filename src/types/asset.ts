@@ -3,26 +3,26 @@
 export enum AssetType {
   TSCD = "TSCD", // Tài sản cố định
   CCDC = "CCDC", // Công cụ dụng cụ
-  FIXED_ASSET = 'FIXED_ASSET', // Tài sản cố định
-  TOOLS_EQUIPMENT = 'TOOLS_EQUIPMENT', // Công cụ dụng cụ
+  FIXED_ASSET = "FIXED_ASSET", // Tài sản cố định
+  TOOLS_EQUIPMENT = "TOOLS_EQUIPMENT", // Công cụ dụng cụ
 }
 
 export enum AssetStatus {
   CHO_CHUYEN_GIAO = "chờ_bàn_giao",
   CHO_TIEP_NHAN = "chờ_tiếp_nhận",
   CHO_PHAN_BO = "chờ_phân_bổ",
-  DANG_SU_DUNG = "đang_sử_dụng", 
+  DANG_SU_DUNG = "đang_sử_dụng",
   HU_HONG = "hư_hỏng",
   DE_XUAT_THANH_LY = "đề_xuất_thanh_lý",
-  DA_THANH_LY = "đã_thanh_lý"
+  DA_THANH_LY = "đã_thanh_lý",
 }
 
 // Asset Log Types
 export enum AssetLogStatus {
   PENDING = "PENDING",
-  IN_PROGRESS = "IN_PROGRESS", 
+  IN_PROGRESS = "IN_PROGRESS",
   COMPLETED = "COMPLETED",
-  CANCELLED = "CANCELLED"
+  CANCELLED = "CANCELLED",
 }
 
 export interface AssetLog {
@@ -43,7 +43,7 @@ export enum TransactionType {
   ALLOCATE = "ALLOCATE", // Phân bổ
   HANDOVER = "HANDOVER", // Bàn giao
   RETURN = "RETURN", // Hoàn trả
-  LIQUIDATE = "LIQUIDATE" // Thanh lý
+  LIQUIDATE = "LIQUIDATE", // Thanh lý
 }
 
 export enum TransactionStatus {
@@ -88,7 +88,7 @@ export enum UserStatus {
   ACTIVE = "ACTIVE",
   INACTIVE = "INACTIVE",
   LOCKED = "LOCKED",
-  DELETED = "DELETED"
+  DELETED = "DELETED",
 }
 
 export interface Role {
@@ -130,14 +130,13 @@ export interface User {
 // Unit Management
 export enum UnitStatus {
   ACTIVE = "ACTIVE",
-  INACTIVE = "INACTIVE"
+  INACTIVE = "INACTIVE",
 }
 
 export enum UnitType {
-  CO_SO = "cơ_sở",
-  PHONG_KE_HOACH_DAU_TU = "phòng_kế_hoạch_đầu_tư",
-  PHONG_QUAN_TRI = "phòng_quản_trị", 
-  DON_VI_SU_DUNG = "đơn_vị_sử_dụng"
+  CAMPUS = "CAMPUS",                    // Cơ sở (root level)
+  ADMIN_DEPT = "ADMIN_DEPT",           // Phòng quản trị
+  USER_DEPT = "USER_DEPT",             // Đơn vị sử dụng
 }
 
 export interface Unit {
@@ -157,8 +156,8 @@ export interface Unit {
 
 // Room Management
 export enum RoomStatus {
-  ACTIVE = "ACTIVE", 
-  INACTIVE = "INACTIVE"
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
 }
 
 export interface Room {
@@ -180,7 +179,7 @@ export interface Room {
 export interface Asset {
   id: string;
   ktCode: string; // Mã kế toán: xx-yyyy/nn
-  fixedCode: string; // Mã tài sản cố định xxxx.yyyy  
+  fixedCode: string; // Mã tài sản cố định xxxx.yyyy
   name: string;
   specs?: string; // Thông số kỹ thuật
   entryDate: string; // Ngày nhập (date)
@@ -198,13 +197,13 @@ export interface Asset {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
-  
+
   // Thông tin bàn giao (cho sổ tài sản)
   assignedDate?: string; // Ngày bàn giao
   assignedTo?: string; // Người được bàn giao
   department?: string; // Phòng ban
   location?: string; // Vị trí cụ thể
-  
+
   // Relations
   category?: Category;
   room?: Room;
@@ -229,17 +228,15 @@ export interface RfidTag {
   asset?: Asset;
 }
 
-
-
 // Asset Book Management
 export enum BookStatus {
   OPEN = "OPEN",
-  CLOSE = "CLOSE"
+  CLOSE = "CLOSE",
 }
 
 export enum AssetBookStatus {
   OPEN = "OPEN",
-  CLOSED = "CLOSED"
+  CLOSED = "CLOSED",
 }
 
 export interface AssetBook {
@@ -261,7 +258,7 @@ export enum AssetBookItemStatus {
   IN_USE = "IN_USE", // Đang sử dụng
   TRANSFERRED = "TRANSFERRED", // Đã được di chuyển đi chỗ khác
   LIQUIDATED = "LIQUIDATED", // Đã được thanh lý
-  MISSING = "MISSING" // Đã thất lạc
+  MISSING = "MISSING", // Đã thất lạc
 }
 
 export interface AssetBookItem {
@@ -276,20 +273,16 @@ export interface AssetBookItem {
   room?: Room;
 }
 
-
-
-
-
 // Alert Management
 export enum AlertStatus {
   PENDING = "PENDING",
   CONFIRMED = "CONFIRMED", // Đã xác minh
   FALSE_ALARM = "FALSE_ALARM", // Sai phạm
-  SYSTEM_ERROR = "SYSTEM_ERROR" // Lỗi hệ thống
+  SYSTEM_ERROR = "SYSTEM_ERROR", // Lỗi hệ thống
 }
 
 export enum AlertType {
-  UNAUTHORIZED_MOVEMENT = "UNAUTHORIZED_MOVEMENT" // Di chuyển không hợp lệ
+  UNAUTHORIZED_MOVEMENT = "UNAUTHORIZED_MOVEMENT", // Di chuyển không hợp lệ
 }
 
 export interface Alert {
@@ -308,12 +301,12 @@ export interface Alert {
   note?: string; // Ghi chú xử lý
 }
 
-// Damage Report Management  
+// Damage Report Management
 export enum DamageReportStatus {
   REPORTED = "REPORTED",
   IN_REVIEW = "IN_REVIEW",
   APPROVED = "APPROVED",
-  REJECTED = "REJECTED"
+  REJECTED = "REJECTED",
 }
 
 export interface DamageReport {
@@ -334,7 +327,7 @@ export interface DamageReport {
 export enum LiquidationStatus {
   PROPOSED = "PROPOSED", // Đề xuất thanh lý
   APPROVED = "APPROVED", // Chấp nhận
-  REJECTED = "REJECTED" // Từ chối
+  REJECTED = "REJECTED", // Từ chối
 }
 
 export interface LiquidationProposal {
@@ -353,7 +346,7 @@ export interface LiquidationProposal {
 
 export enum LiquidationProposalItemCondition {
   DAMAGED = "DAMAGED", // Hư hỏng
-  UNUSABLE = "UNUSABLE" // Không thể sử dụng
+  UNUSABLE = "UNUSABLE", // Không thể sử dụng
 }
 
 export interface LiquidationProposalItem {
@@ -378,7 +371,7 @@ export interface AssetFilter {
   isHandOver?: boolean; // Thêm trường lọc theo trạng thái bàn giao
   hasRfid?: boolean;
   entryDateFrom?: string; // Thêm trường lọc theo ngày từ
-  entryDateTo?: string;   // Thêm trường lọc theo ngày đến
+  entryDateTo?: string; // Thêm trường lọc theo ngày đến
 }
 
 export interface AssetFormData {
@@ -426,9 +419,9 @@ export interface UserPermissions {
 // Inventory Session Status
 export enum InventorySessionStatus {
   PLANNED = "PLANNED",
-  IN_PROGRESS = "IN_PROGRESS", 
+  IN_PROGRESS = "IN_PROGRESS",
   COMPLETED = "COMPLETED",
-  CLOSED = "CLOSED"
+  CLOSED = "CLOSED",
 }
 
 export interface FileUrl {
@@ -522,7 +515,7 @@ export interface InventoryCommitteeMember {
 export enum InventorySubCommitteeRole {
   LEADER = "LEADER", // Trưởng tiểu ban
   SECRETARY = "SECRETARY", // Thư ký
-  MEMBER = "MEMBER" // Thành viên
+  MEMBER = "MEMBER", // Thành viên
 }
 
 // Thành viên tiểu ban (Backend: SubInventoryMember)
@@ -570,7 +563,7 @@ export interface InventoryGroup {
 export enum InventoryGroupRole {
   LEADER = "LEADER",
   SECRETARY = "SECRETARY",
-  MEMBER = "MEMBER"
+  MEMBER = "MEMBER",
 }
 
 // Thành viên nhóm (Backend: InventoryGroupMember)
@@ -613,7 +606,7 @@ export enum InventoryResultStatus {
   EXCESS = "EXCESS", // Thừa
   BROKEN = "BROKEN", // Hư hỏng
   NEEDS_REPAIR = "NEEDS_REPAIR", // Cần sửa chữa
-  LIQUIDATION_PROPOSED = "LIQUIDATION_PROPOSED" // Đề xuất thanh lý
+  LIQUIDATION_PROPOSED = "LIQUIDATION_PROPOSED", // Đề xuất thanh lý
 }
 
 // Kết quả kiểm kê
@@ -708,4 +701,79 @@ export interface InventoryResultFormData {
   scanMethod?: ScanMethod;
   status: InventoryResultStatus;
   note?: string;
+}
+
+// Backend filter enums and types (matching AdvancedFilter)
+export enum FilterOperator {
+  EQUALS = "equals",
+  CONTAINS = "contains",
+  STARTS_WITH = "startsWith",
+  ENDS_WITH = "endsWith",
+  GREATER_THAN = "gt",
+  GREATER_THAN_OR_EQUAL = "gte",
+  LESS_THAN = "lt",
+  LESS_THAN_OR_EQUAL = "lte",
+  IN = "in",
+  NOT_IN = "notIn",
+  BETWEEN = "between",
+}
+
+export enum FieldType {
+  TEXT = "text",
+  NUMBER = "number",
+  DATE = "date",
+  SELECT = "select",
+  BOOLEAN = "boolean",
+}
+
+export enum ConditionLogic {
+  AND = "and",
+  OR = "or",
+  CONTAINS = "contains",
+}
+
+// Types for filter system
+export interface SortConfig {
+  field?: string;
+  direction?: string;
+  priority?: number;
+}
+
+export interface Panigation {
+  currentPage?: number;
+  totalItems?: number;
+  itemsPerPage?: number;
+  totalPages?: number;
+}
+export interface FilterCondition {
+  field: string;
+  fieldType: FieldType;
+  operator: FilterOperator;
+  value: any[];
+  dateFrom?: string;
+  dateTo?: string;
+  sort?: "asc" | "desc";
+}
+
+export interface BaseFilterRequest {
+  conditionLogic?: ConditionLogic;
+  conditions?: FilterCondition[];
+  pagination?: Panigation;
+  sorting?: Array<SortConfig>;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page?: number;
+    limit?: number;
+    total?: number;
+    totalPages?: number;
+    hasNext?: boolean;
+    hasPrev?: boolean;
+    nextPage?: number | null;
+    prevPage?: number | null;
+    firstPage?: number;
+    lastPage?: number;
+  };
 }

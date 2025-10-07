@@ -2,15 +2,10 @@
 
 import React, { useState, useMemo, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { SortConfig } from "@/types/asset";
 
 // Sort interfaces
 export type SortOrder = 'asc' | 'desc';
-
-export interface SortConfig {
-  key: string;
-  order: SortOrder;
-  priority: number; // For multi-column sorting
-}
 
 export interface SortFunction<T = any> {
   (a: T, b: T, sortOrder: SortOrder): number;
@@ -98,8 +93,8 @@ export function Table<T = any>({
   const [internalSortConfigs, setInternalSortConfigs] = useState<SortConfig[]>(
     sortConfigs.length > 0 ? sortConfigs : 
     columns.filter(col => col.defaultSortOrder).map((col, index) => ({
-      key: col.key,
-      order: col.defaultSortOrder!,
+      field: col.key,
+      direction: col.defaultSortOrder!,
       priority: index
     }))
   );
@@ -190,9 +185,9 @@ export function Table<T = any>({
   };
 
   // Sort functions
-  const defaultSorter = <T,>(a: T, b: T, key: string, order: SortOrder): number => {
-    const aVal = (a as any)[key];
-    const bVal = (b as any)[key];
+  const defaultSorter = <T,>(a: T, b: T, field: string, direction: string): number => {
+    const aVal = (a as any)[field];
+    const bVal = (b as any)[field];
     
     if (aVal === bVal) return 0;
     if (aVal == null) return 1;
@@ -209,7 +204,7 @@ export function Table<T = any>({
       result = String(aVal).localeCompare(String(bVal), 'vi', { numeric: true });
     }
     
-    return order === 'asc' ? result : -result;
+    return direction === 'asc' ? result : -result;
   };
 
   const handleSort = (columnKey: string) => {
@@ -217,41 +212,41 @@ export function Table<T = any>({
     if (!column?.sortable) return;
 
     let newSortConfigs: SortConfig[] = [];
-    const existingSortIndex = currentSortConfigs.findIndex(config => config.key === columnKey);
+    const existingSortIndex = currentSortConfigs.findIndex(config => config.field === columnKey);
     
     if (multiSort) {
       // Multi-column sorting
       if (existingSortIndex >= 0) {
         const existingSort = currentSortConfigs[existingSortIndex];
-        if (existingSort.order === 'asc') {
+        if (existingSort.direction === 'asc') {
           // Change to desc
           newSortConfigs = currentSortConfigs.map(config => 
-            config.key === columnKey 
-              ? { ...config, order: 'desc' as SortOrder }
+            config.field === columnKey 
+              ? { ...config, direction: 'desc' }
               : config
           );
         } else {
           // Remove this sort
-          newSortConfigs = currentSortConfigs.filter(config => config.key !== columnKey);
+          newSortConfigs = currentSortConfigs.filter(config => config.field !== columnKey);
         }
       } else {
         // Add new sort
         newSortConfigs = [
           ...currentSortConfigs,
-          { key: columnKey, order: 'asc', priority: currentSortConfigs.length }
+          { field: columnKey, direction: 'asc', priority: currentSortConfigs.length }
         ];
       }
     } else {
       // Single column sorting
       if (existingSortIndex >= 0) {
         const existingSort = currentSortConfigs[existingSortIndex];
-        if (existingSort.order === 'asc') {
-          newSortConfigs = [{ key: columnKey, order: 'desc', priority: 0 }];
+        if (existingSort.direction === 'asc') {
+          newSortConfigs = [{ field: columnKey, direction: 'desc', priority: 0 }];
         } else {
           newSortConfigs = [];
         }
       } else {
-        newSortConfigs = [{ key: columnKey, order: 'asc', priority: 0 }];
+        newSortConfigs = [{ field: columnKey, direction: 'asc', priority: 0 }];
       }
     }
 
@@ -268,17 +263,19 @@ export function Table<T = any>({
 
     return [...data].sort((a, b) => {
       // Sort by priority (lowest first)
-      const sortedConfigs = [...currentSortConfigs].sort((x, y) => x.priority - y.priority);
+      const sortedConfigs = [...currentSortConfigs].sort((x, y) => (x.priority || 0) - (y.priority || 0));
       
       for (const sortConfig of sortedConfigs) {
-        const column = columns.find(col => col.key === sortConfig.key);
+        if (!sortConfig.field) continue;
+        
+        const column = columns.find(col => col.key === sortConfig.field);
         if (!column) continue;
 
         let result = 0;
         if (typeof column.sorter === 'function') {
-          result = column.sorter(a, b, sortConfig.order);
+          result = column.sorter(a, b, sortConfig.direction as SortOrder);
         } else if (column.sorter === true || column.sortable) {
-          result = defaultSorter(a, b, sortConfig.key, sortConfig.order);
+          result = defaultSorter(a, b, sortConfig.field, sortConfig.direction || 'asc');
         }
 
         if (result !== 0) return result;
@@ -302,9 +299,9 @@ export function Table<T = any>({
   const displayData = pagination ? paginatedData : sortedData;
   
   const getSortIcon = (columnKey: string) => {
-    const sortConfig = currentSortConfigs.find(config => config.key === columnKey);
+    const sortConfig = currentSortConfigs.find(config => config.field === columnKey);
     const priority = multiSort && currentSortConfigs.length > 1 ? 
-      (sortConfig ? sortConfig.priority + 1 : null) : null;
+      (sortConfig ? (sortConfig.priority || 0) + 1 : null) : null;
     
     if (!sortConfig) {
       // No sorting - show neutral sort icon
@@ -319,7 +316,7 @@ export function Table<T = any>({
     
     return (
       <div className="flex items-center ml-1">
-        {sortConfig.order === 'asc' ? (
+        {sortConfig.direction === 'asc' ? (
           // Ascending - triangle pointing up with solid fill
           <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
             <path d="M7 14l5-5 5 5H7z"/>
