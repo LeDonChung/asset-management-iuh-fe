@@ -266,7 +266,37 @@ const userSlice = createSlice({
     initialState,
     reducers: {
         clearError: (state) => {
-        }
+        },
+        // Filter actions
+        updateFilter: (state, action) => {
+            state.currentFilter = { ...state.currentFilter, ...action.payload };
+        },
+        resetFilter: (state) => {
+            state.currentFilter = {
+                conditionLogic: ConditionLogic.AND,
+                conditions: [],
+                pagination: {
+                    currentPage: 1,
+                    itemsPerPage: 10,
+                    totalItems: 0,
+                    totalPages: 0,
+                },
+                sorting: [],
+                search: null,
+            };
+            state.filteredSessions = null;
+        },
+        updatePagination: (state, action) => {
+            if (state.currentFilter?.pagination) {
+                state.currentFilter.pagination = {
+                    ...state.currentFilter.pagination,
+                    ...action.payload,
+                };
+            }
+        },
+        clearFilterError: (state) => {
+            state.filterError = null;
+        },
     },
     extraReducers: (builder) => {
         // get danh sach user voi dieu kien loc
@@ -372,5 +402,11 @@ const userSlice = createSlice({
     }
 })
 
-export const { } = userSlice.actions
+export const { 
+    clearError,
+    updateFilter, 
+    resetFilter, 
+    updatePagination, 
+    clearFilterError 
+} = userSlice.actions
 export default userSlice.reducer
