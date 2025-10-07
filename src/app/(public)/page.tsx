@@ -7,12 +7,7 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to login after a short delay for better UX
-    const timer = setTimeout(() => {
       router.push('/login');
-    }, 100);
-
-    return () => clearTimeout(timer);
   }, [router]);
 
   return (
