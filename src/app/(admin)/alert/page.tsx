@@ -5,14 +5,12 @@ import {
     AlertCircle,
     Clock,
     Search,
-    Filter,
     Eye,
     CheckCircle,
     XCircle,
     AlertTriangle,
     MapPin,
     Package,
-    X,
     Save,
     Workflow,
 } from "lucide-react";
@@ -30,17 +28,23 @@ import { MockDataHelper } from "@/lib/mockData";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
-import { createAlertResolution, fetchAllAlert } from "@/lib/store/slices/alertSlice";
+import {
+  createAlertResolution,
+  fetchAllAlert,
+  filterAlert,
+  AlertFilterRequest,
+} from "@/lib/store/slices/alertSlice";
 import toast from "react-hot-toast";
 import { useSocket } from "@/contexts/SocketContext";
 
-interface AlertFilter {
-    search?: string;
-    status?: AlertStatus | "Đã xử lý";
-    type?: AlertType;
-    dateFrom?: string;
-    dateTo?: string;
-}
+// Alert status options for filter dropdown
+const alertStatusOptions = [
+  { value: "", label: "Tất cả trạng thái" },
+  { value: AlertStatus.PENDING, label: "Chờ xử lý" },
+  { value: AlertStatus.CONFIRMED, label: "Đã xác minh" },
+  { value: AlertStatus.FALSE_ALARM, label: "Sai phạm" },
+  { value: AlertStatus.SYSTEM_ERROR, label: "Lỗi hệ thống" },
+];
 
 // Urgent Alert Modal Component
 interface UrgentAlertModalProps {
@@ -259,7 +263,7 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
                     {alert.status !== AlertStatus.PENDING && (
                         <div className="border border-green-200 bg-green-50 rounded-lg p-4">
                             <h3 className="text-lg font-medium text-green-900 mb-4">
-                                ✅ Đã xử lý cảnh báo
+                                Đã xử lý cảnh báo
                             </h3>
                             <div className="space-y-2">
                                 <div>
@@ -312,14 +316,13 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
 
 export default function AlertPage() {
     const dispatch = useAppDispatch();
-    const { lstAllAlert, loading } = useAppSelector((state: RootState) => state.alert);
+    const { lstAllAlert, filteredAlerts, currentFilter, loading } = useAppSelector((state: RootState) => state.alert);
     const { socket, isConnected, on, off } = useSocket();
 
-    const [alerts, setAlerts] = useState<Alert[]>([]);
-    const [filteredAlerts, setFilteredAlerts] = useState<Alert[]>([]);
-    const [filter, setFilter] = useState<AlertFilter>({});
-    const [currentPage, setCurrentPage] = useState<number>(1);
-    const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState<AlertStatus>();
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
     const [showUrgentModal, setShowUrgentModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
@@ -332,12 +335,29 @@ export default function AlertPage() {
     ];
 
     useEffect(() => {
-        const fetchData = async () => {
-            await dispatch(fetchAllAlert());
-            setFilteredAlerts(lstAllAlert);
+        const loadData = () => {
+            try {
+                dispatch(filterAlert(currentFilter));
+            } catch (e: any) {
+                toast.error(e.message || "Có lỗi xảy ra.");
+            }
         };
-        fetchData();
-    }, [dispatch]);
+        loadData();
+    }, []);
+
+    useEffect(() => {
+        handlerRender({
+            ...currentFilter,
+            search: searchTerm || undefined,
+            statusFilter: statusFilter || undefined,
+            createdFrom: dateFrom || undefined,
+            createdTo: dateTo || undefined,
+        });
+    }, [searchTerm, statusFilter, dateFrom, dateTo]);
+
+    const handlerRender = (currentFilter: AlertFilterRequest) => {
+        dispatch(filterAlert(currentFilter));
+    };
 
     // Socket listener for receiving new alerts
     useEffect(() => {
@@ -382,51 +402,6 @@ export default function AlertPage() {
             off('receive_alert', handleReceiveAlert);
         };
     }, [socket, isConnected, on, off, dispatch]);
-    // // Filter alerts
-    // useEffect(() => {
-
-    //     const fetchData = async () => {
-    //         await dispatch(fetchAllAlert());
-    //     };
-    //     fetchData();
-
-    //     let filtered = [...lstAllAlert];
-
-    //     if (filter.search) {
-    //         const searchLower = filter.search.toLowerCase();
-    //         filtered = filtered.filter(
-    //             (alert) =>
-    //                 alert.asset?.name.toLowerCase().includes(searchLower) ||
-    //                 alert.asset?.fixedCode.toLowerCase().includes(searchLower) ||
-    //                 (alert.room ? MockDataHelper.formatRoomLocation(alert.room).toLowerCase().includes(searchLower) : false)
-    //         );
-    //     }
-
-    //     if (filter.status) {
-    //         filtered = filtered.filter((alert) => 
-    //         (alert.status === filter.status) || (filter.status === "Đã xử lý" && alert.status !== AlertStatus.PENDING)
-    //         );
-    //     }
-
-    //     if (filter.type) {
-    //         filtered = filtered.filter((alert) => alert.type === filter.type);
-    //     }
-
-    //     if (filter.dateFrom) {
-    //         filtered = filtered.filter(
-    //             (alert) => new Date(alert.createdAt) >= new Date(filter.dateFrom!)
-    //         );
-    //     }
-
-    //     if (filter.dateTo) {
-    //         filtered = filtered.filter(
-    //             (alert) => new Date(alert.createdAt) <= new Date(filter.dateTo!)
-    //         );
-    //     }
-
-    //     setFilteredAlerts(filtered);
-    //     setCurrentPage(1);
-    // }, [filter]);
 
     // Show urgent alert modal for new pending alerts
     useEffect(() => {
@@ -456,40 +431,53 @@ export default function AlertPage() {
     };
 
     const handleViewDetail = (alertId: string) => {
-        const alert = lstAllAlert.find(a => a.id === alertId);
+        // First try to find in filtered alerts (table data)
+        let alert = filteredAlerts.data.find(a => a.id === alertId);
+        
+        // If not found, try to find in pending alerts from socket
+        if (!alert) {
+            alert = pendingAlertsFromSocket.find(a => a.id === alertId);
+        }
+        
+        // If still not found, try to find in all alerts
+        if (!alert) {
+            alert = lstAllAlert.find(a => a.id === alertId);
+        }
+        
         if (alert) {
             setSelectedAlert(alert);
             setShowUrgentModal(false);
             setShowDetailModal(true);
+        } else {
+            toast.error("Không tìm thấy thông tin cảnh báo");
         }
     };
 
     const handleResolveAlert = async (alertId: string, status: AlertStatus, note: string) => {
-        await dispatch(createAlertResolution({ alertId, status, note })).unwrap()
-            .then(() => {
-                toast.success("Cảnh báo đã được xử lý");
-                
-                // Remove from pending alerts from socket if exists
-                setPendingAlertsFromSocket(prev => 
-                    prev.filter(alert => alert.id !== alertId)
-                );
+        try {
+            await dispatch(createAlertResolution({ alertId, status, note })).unwrap();
+            
+            toast.success("Cảnh báo đã được xử lý");
+            
+            // Remove from pending alerts from socket if exists
+            setPendingAlertsFromSocket(prev => 
+                prev.filter(alert => alert.id !== alertId)
+            );
 
-                // Gửi lệnh dừng buzzer đến thiết bị
-                if (selectedAlert?.deviceId && socket) {
-                    socket.emit('send_stop_buzzer', selectedAlert.deviceId);
-                }
-            })
-            .catch((error) => {
-                toast.error("Có lỗi xảy ra khi xử lý cảnh báo: " + error.message);
-            });
+            // Gửi lệnh dừng buzzer đến thiết bị
+            if (selectedAlert?.deviceId && socket) {
+                socket.emit('send_stop_buzzer', selectedAlert.deviceId);
+            }
+            
+            // Refresh the alerts list to get updated data
+            dispatch(filterAlert(currentFilter));
+            
+        } catch (error: any) {
+            toast.error("Có lỗi xảy ra khi xử lý cảnh báo: " + (error.message || "Unknown error"));
+        }
+        
         setShowDetailModal(false);
         setSelectedAlert(null);
-    };
-
-    const resetFilters = () => {
-        setFilter({});
-        setFilteredAlerts(alerts);
-        setCurrentPage(1);
     };
 
     // Define table columns
@@ -545,27 +533,36 @@ export default function AlertPage() {
         {
             key: "actions",
             title: "Hành động",
-            width: "120px",
+            width: "80px",
             render: (_, alert) => (
-                <div className="flex space-x-2">
+                <div className="flex items-center gap-2">
                     {alert.status === AlertStatus.PENDING ? (
                         <Button
-                            size="sm"
-                            onClick={() => handleViewDetail(alert.id)}
-                            className="flex items-center"
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('Processing alert:', alert.id);
+                                handleViewDetail(alert.id);
+                            }}
+                            title="Xử lý"
                         >
-                            <Workflow className="h-3 w-3 mr-1" />
-                            Xử lý
+                            <Workflow className="h-4 w-4 text-blue-600" />
                         </Button>
                     ) : (
                         <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleViewDetail(alert.id)}
-                            className="flex items-center"
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('Viewing alert:', alert.id);
+                                handleViewDetail(alert.id);
+                            }}
+                            title="Xem"
                         >
-                            <Eye className="h-3 w-3 mr-1" />
-                            Xem
+                            <Eye className="h-4 w-4 text-gray-600" />
                         </Button>
                     )}
                 </div>
@@ -667,90 +664,83 @@ export default function AlertPage() {
             )}
 
             {/* Filters */}
-            <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-4">
-                <div className="flex items-center space-x-4">
+            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+                <div className="flex flex-col lg:flex-row gap-4">
+                    {/* Search */}
                     <div className="flex-1 relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                         <Input
-                            type="text"
                             placeholder="Tìm kiếm theo tên tài sản, mã tài sản hoặc vị trí..."
-                            value={filter.search || ""}
-                            onChange={(e) => setFilter(prev => ({ ...prev, search: e.target.value }))}
                             className="pl-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+
+                    {/* Status Filter */}
                     <select
-                        value={filter.status || ""}
-                        onChange={(e) => setFilter(prev => ({ ...prev, status: e.target.value as AlertStatus || undefined }))}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={statusFilter || ""}
+                        onChange={(e) => setStatusFilter(e.target.value as AlertStatus)}
                     >
-                        <option value="">Tất cả trạng thái</option>
-                        <option value={AlertStatus.PENDING}>Chờ xử lý</option>
-                        <option value={"Đã xử lý"}>Đã xử lý</option>
+                        {alertStatusOptions.map(({ value, label }) => (
+                            <option key={value} value={value}>
+                                {label}
+                            </option>
+                        ))}
                     </select>
+
+                    {/* Date From Filter */}
                     <input
                         type="date"
-                        value={filter.dateFrom || ""}
-                        onChange={(e) => setFilter(prev => ({ ...prev, dateFrom: e.target.value }))}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Từ ngày"
                     />
+
+                    {/* Date To Filter */}
                     <input
                         type="date"
-                        value={filter.dateTo || ""}
-                        onChange={(e) => setFilter(prev => ({ ...prev, dateTo: e.target.value }))}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Đến ngày"
                     />
-                    {(filter.search || filter.status || filter.dateFrom || filter.dateTo) && (
-                        <Button variant="outline" onClick={resetFilters}>
-                            <X className="h-4 w-4 mr-2" />
-                            Xóa bộ lọc
-                        </Button>
-                    )}
                 </div>
             </div>
 
-            {/* Filter Results Info */}
-            {(filter.search || filter.status || filter.dateFrom || filter.dateTo) && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                            <Filter className="h-4 w-4 text-blue-600" />
-                            <span className="text-sm font-medium text-blue-900">
-                                Kết quả lọc: {filteredAlerts.length} / {alerts.length} cảnh báo
-                            </span>
-                        </div>
-                        <button
-                            onClick={resetFilters}
-                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                            Xóa bộ lọc
-                        </button>
-                    </div>
-                </div>
-            )}
-
             {/* Alerts Table */}
-            <Table
+            <Table<Alert>
                 columns={columns}
-                data={lstAllAlert}
+                data={filteredAlerts.data}
                 emptyText="Không có cảnh báo nào"
                 emptyIcon={<AlertCircle className="mx-auto h-12 w-12 text-gray-400" />}
                 rowKey="id"
+                multiSort={true}
+                sortConfigs={currentFilter.sorting}
+                onSortChange={(sortConfigs) => {
+                    handlerRender({
+                        ...currentFilter,
+                        sorting: sortConfigs,
+                    });
+                }}
                 pagination={{
-                    current: currentPage,
-                    pageSize: itemsPerPage,
-                    total: lstAllAlert.length,
+                    current: filteredAlerts?.pagination.page || 1,
+                    pageSize: filteredAlerts?.pagination.limit || 10,
+                    total: filteredAlerts?.pagination.total || 0,
                     onChange: (page, pageSize) => {
-                        setCurrentPage(page);
-                        if (pageSize !== itemsPerPage) {
-                            setItemsPerPage(pageSize);
-                            setCurrentPage(1);
-                        }
+                        handlerRender({
+                            ...currentFilter,
+                            pagination: {
+                                currentPage: page,
+                                itemsPerPage: pageSize,
+                            },
+                        });
                     },
                     showSizeChanger: true,
-                    pageSizeOptions: [5, 10, 20, 50]
+                    pageSizeOptions: [5, 10, 20, 50],
+                    serverSide: true,
                 }}
                 title="Danh sách cảnh báo"
             />
