@@ -94,9 +94,7 @@ export default function CreateInventorySessionPage() {
     (state) => state.file
   );
 
-  const { createSessionLoading } = useAppSelector(
-    (state) => state.inventory
-  );
+  const { createSessionLoading } = useAppSelector((state) => state.inventory);
   const { canCreateInventorySession } = usePermissions();
   const [evidenceFiles, setEvidenceFiles] = useState<
     { name: string; url: string; size: number }[]
@@ -261,7 +259,6 @@ export default function CreateInventorySessionPage() {
         toast.success("Tạo kỳ kiểm kê thành công!");
         router.push("/inventory");
       }
-      
     } catch (error: any) {
       toast.error(error.message || "Có lỗi xảy ra khi tạo kỳ kiểm kê");
     }
@@ -275,8 +272,13 @@ export default function CreateInventorySessionPage() {
       label: unit.name,
     }));
 
+  useEffect(() => {
+    setValue("name", `Kiểm kê tài sản đợt ${period} năm ${year}`, {
+      shouldValidate: true,
+    });
+  }, [year, period]);
   return (
-    <div className="max-w-7xl mx-auto w-full space-y-8">
+    <div className="mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center space-x-4">
         <Link href="/inventory">
@@ -289,9 +291,6 @@ export default function CreateInventorySessionPage() {
           <h1 className="text-2xl font-bold text-gray-900">
             Tạo kỳ kiểm kê mới
           </h1>
-          <p className="text-gray-600">
-            Tạo kỳ kiểm kê tài sản cho trường hoặc đơn vị cụ thể
-          </p>
         </div>
       </div>
 
@@ -299,7 +298,6 @@ export default function CreateInventorySessionPage() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center space-x-2">
-            <FileText className="h-6 w-6 text-blue-600" />
             <h2 className="text-xl font-semibold text-gray-900">
               Thông tin kỳ kiểm kê
             </h2>

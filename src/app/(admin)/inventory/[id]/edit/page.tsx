@@ -177,7 +177,9 @@ export default function EditInventorySessionPage() {
       fetchSession();
     }
   }, [params.id, router, reset]);
-
+  useEffect(() => {
+    setValue("name", `Kiểm kê tài sản đợt ${period} năm ${year}`, { shouldValidate: true });
+  }, [year, period]);
   // Redirect if not authorized
   useEffect(() => {
     if (!canCreateInventorySession) {
@@ -383,7 +385,7 @@ export default function EditInventorySessionPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full space-y-8">
+    <div className="mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center space-x-4">
         <Link href="/inventory">
@@ -396,9 +398,6 @@ export default function EditInventorySessionPage() {
           <h1 className="text-2xl font-bold text-gray-900">
             Chỉnh sửa kỳ kiểm kê
           </h1>
-          <p className="text-gray-600">
-            Cập nhật thông tin kỳ kiểm kê: {session.name}
-          </p>
         </div>
       </div>
 

@@ -6,8 +6,7 @@ import {
 } from "lucide-react";
 import { useAppSelector } from "@/lib/store/hooks";
 import InventoryCommitteeManager from "./InventoryCommitteeManager";
-import InventorySubCommitteeManagerNew from "./InventorySubCommitteeManagerNew";
-import InventoryAssignmentManager from "./InventoryAssignmentManager";
+import InventorySubCommitteeManager from "./InventorySubCommitteeManager";
 
 interface InventorySessionTabsProps {
   // Remove props since we'll use Redux
@@ -51,7 +50,7 @@ export default function InventorySessionTabs({}: InventorySessionTabsProps) {
       case "groups":
         return (
           <div className="mt-6">
-            <InventorySubCommitteeManagerNew />
+            <InventorySubCommitteeManager />
           </div>
         );
       default:

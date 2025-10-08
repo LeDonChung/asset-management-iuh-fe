@@ -9,6 +9,9 @@ import {
   BaseFilterRequest,
   ConditionLogic,
   PaginatedResponse,
+  InventoryResultStatus,
+  Asset,
+  FileUrl,
 } from "@/types/asset";
 import { 
   SubmitInventoryResultRequest, 
@@ -23,7 +26,55 @@ export interface InventoryFilterRequest extends BaseFilterRequest {
   yearFilter?: number[];
   statusFilter?: InventorySessionStatus[];
 }
+export interface InventoryResultResponseDto {
+  id: string;
 
+  systemQuantity: number;
+
+  assetId: string;
+
+  assignmentId: string;
+
+  roomId: string;
+
+  countedQuantity: number;
+
+  scanMethod: ScanMethod;
+
+  status: InventoryResultStatus;
+
+  note: string;
+
+  fileUrls?: FileUrl[];
+
+  createdBy: string;
+
+  createdAt: Date;
+
+  asset: Asset;
+
+  room: Room;
+
+  imageUrls?: string[];
+
+  isSubmitted?: boolean;
+}
+export interface RoomInventoryResultResponseDto {
+  roomId: string;
+  fixedAssets: InventoryResultResponseDto[];
+  toolsEquipment: InventoryResultResponseDto[];
+  summary: {
+    totalAssets: number;
+    totalFixedAssets: number;
+    totalToolsEquipment: number;
+    matchedAssets: number;
+    missingAssets: number;
+    excessAssets: number;
+    brokenAssets: number;
+    needsRepairAssets: number;
+    liquidationProposedAssets: number;
+  };
+}
 interface InventoryState {
   // List and filter state
   sessions: any[];
@@ -32,7 +83,7 @@ interface InventoryState {
   filterError: string | null;
 
   // Current session state
-  currentSession: any | null; 
+  currentSession: InventorySession | null;
 
   // Current filter state
   currentFilter: InventoryFilterRequest;
@@ -69,7 +120,10 @@ interface InventoryState {
   submitResultLoading: boolean;
   submitResultError: string | null;
   lastSubmittedResult: any | null;
-}
+
+  // Room inventory results states
+  roomInventoryResults: RoomInventoryResultResponseDto | null;
+};
 
 const initialState: InventoryState = {
   // List and filter state
@@ -122,6 +176,9 @@ const initialState: InventoryState = {
   submitResultLoading: false,
   submitResultError: null,
   lastSubmittedResult: null,
+
+  // Room inventory results states
+  roomInventoryResults: null,
 };
 
 export interface CreateInventorySession {
@@ -571,6 +628,18 @@ export const submitInventoryResult = createAsyncThunk(
   }
 );
 
+export const getRoomInventoryResults = createAsyncThunk(
+  "inventory/getRoomInventoryResults",
+  async (roomId: string, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(`/api/v1/inventories/room-inventory-results/${roomId}`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 const inventorySlice = createSlice({
   name: "inventory",
   initialState,
@@ -615,7 +684,7 @@ const inventorySlice = createSlice({
 
       // Update currentSession if it matches
       if (state.currentSession?.id === id) {
-        state.currentSession.status = status;
+        state.currentSession!.status = status;
       }
     },
     resetFilter: (state) => {
@@ -1114,6 +1183,14 @@ const inventorySlice = createSlice({
       .addCase(submitInventoryResult.rejected, (state, action) => {
         state.submitResultLoading = false;
         state.submitResultError = (action.payload as any)?.message || "Submit failed";
+      })
+      .addCase(getRoomInventoryResults.pending, (state) => {
+      })
+      .addCase(getRoomInventoryResults.fulfilled, (state, action) => {
+        state.roomInventoryResults = action.payload;
+      })
+      .addCase(getRoomInventoryResults.rejected, (state, action) => {
+        console.log('Failed to get room inventory results', action.payload);
       })
   },
 });
