@@ -26,7 +26,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
   const dispatch = useAppDispatch()
-  const { userLogin, loading, error, loginSuccess } = useAppSelector((state) => state.auth)
+  const { userLogin, error, loginSuccess } = useAppSelector((state) => state.auth)
+  const [loading, setLoading] = useState(false)
   const {
     register,
     handleSubmit,
@@ -54,9 +55,12 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     try {
+      setLoading(true)
       await dispatch(login(data)).unwrap()
     } catch (error) {
       console.error('Login error:', error)
+    } finally {
+      setLoading(false)
     }
   }
 

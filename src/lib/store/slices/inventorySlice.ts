@@ -6,6 +6,12 @@ import {
   InventorySession,
   InventoryGroupAssignment,
   Room,
+  BaseFilterRequest,
+  ConditionLogic,
+  PaginatedResponse,
+  InventoryResultStatus,
+  Asset,
+  FileUrl,
 } from "@/types/asset";
 import { 
   SubmitInventoryResultRequest, 
@@ -15,91 +21,69 @@ import {
 } from "@/lib/api/inventoryApi";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
-// Backend filter enums and types (matching AdvancedFilter)
-export enum FilterOperator {
-  EQUALS = "equals",
-  CONTAINS = "contains",
-  STARTS_WITH = "startsWith",
-  ENDS_WITH = "endsWith",
-  GREATER_THAN = "gt",
-  GREATER_THAN_OR_EQUAL = "gte",
-  LESS_THAN = "lt",
-  LESS_THAN_OR_EQUAL = "lte",
-  IN = "in",
-  NOT_IN = "notIn",
-  BETWEEN = "between",
-}
-
-export enum FieldType {
-  TEXT = "text",
-  NUMBER = "number",
-  DATE = "date",
-  SELECT = "select",
-  BOOLEAN = "boolean",
-}
-
-export enum ConditionLogic {
-  AND = "and",
-  OR = "or",
-  CONTAINS = "contains",
-}
-
-// Types for filter system
-export interface FilterCondition {
-  field: string;
-  fieldType: FieldType;
-  operator: FilterOperator;
-  value: any[];
-  dateFrom?: string;
-  dateTo?: string;
-  sort?: "asc" | "desc";
-}
-
-export interface InventoryFilterRequest {
-  conditionLogic?: ConditionLogic;
-  conditions?: FilterCondition[];
-  pagination?: {
-    currentPage?: number;
-    totalItems?: number;
-    itemsPerPage?: number;
-    totalPages?: number;
-  };
-  sorting?: Array<{
-    field: string;
-    direction: string;
-    priority: number;
-  }>;
+export interface InventoryFilterRequest extends BaseFilterRequest {
   search?: string | null;
-  statusFilter?: string[];
   yearFilter?: number[];
-  isGlobalFilter?: boolean;
+  statusFilter?: InventorySessionStatus[];
 }
+export interface InventoryResultResponseDto {
+  id: string;
 
-export interface PaginatedInventoryResponse {
-  data: any[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-    nextPage: number | null;
-    prevPage: number | null;
-    firstPage: number;
-    lastPage: number;
+  systemQuantity: number;
+
+  assetId: string;
+
+  assignmentId: string;
+
+  roomId: string;
+
+  countedQuantity: number;
+
+  scanMethod: ScanMethod;
+
+  status: InventoryResultStatus;
+
+  note: string;
+
+  fileUrls?: FileUrl[];
+
+  createdBy: string;
+
+  createdAt: Date;
+
+  asset: Asset;
+
+  room: Room;
+
+  imageUrls?: string[];
+
+  isSubmitted?: boolean;
+}
+export interface RoomInventoryResultResponseDto {
+  roomId: string;
+  fixedAssets: InventoryResultResponseDto[];
+  toolsEquipment: InventoryResultResponseDto[];
+  summary: {
+    totalAssets: number;
+    totalFixedAssets: number;
+    totalToolsEquipment: number;
+    matchedAssets: number;
+    missingAssets: number;
+    excessAssets: number;
+    brokenAssets: number;
+    needsRepairAssets: number;
+    liquidationProposedAssets: number;
   };
 }
-
 interface InventoryState {
   // List and filter state
   sessions: any[];
-  filteredSessions: PaginatedInventoryResponse | null;
+  filteredSessions: PaginatedResponse<InventorySession> | null;
   filterLoading: boolean;
   filterError: string | null;
 
   // Current session state
-  currentSession: any | null;
+  currentSession: InventorySession | null;
 
   // Current filter state
   currentFilter: InventoryFilterRequest;
@@ -136,7 +120,10 @@ interface InventoryState {
   submitResultLoading: boolean;
   submitResultError: string | null;
   lastSubmittedResult: any | null;
-}
+
+  // Room inventory results states
+  roomInventoryResults: RoomInventoryResultResponseDto | null;
+};
 
 const initialState: InventoryState = {
   // List and filter state
@@ -151,16 +138,11 @@ const initialState: InventoryState = {
 
   // Current filter state
   currentFilter: {
-    conditionLogic: ConditionLogic.AND,
-    conditions: [],
     pagination: {
       currentPage: 1,
       itemsPerPage: 5,
-      totalItems: 0,
-      totalPages: 0,
     },
     sorting: [],
-    search: null,
   },
 
   // Sub committee state
@@ -194,6 +176,9 @@ const initialState: InventoryState = {
   submitResultLoading: false,
   submitResultError: null,
   lastSubmittedResult: null,
+
+  // Room inventory results states
+  roomInventoryResults: null,
 };
 
 export interface CreateInventorySession {
@@ -440,7 +425,7 @@ export const filterInventorySessions = createAsyncThunk(
         "/api/v1/inventories/filter",
         filterRequest
       );
-      return response.data as PaginatedInventoryResponse;
+      return response.data as PaginatedResponse<InventorySession>;
     } catch (error: any) {
       return rejectWithValue(error.response?.data || error.message);
     }
@@ -643,6 +628,18 @@ export const submitInventoryResult = createAsyncThunk(
   }
 );
 
+export const getRoomInventoryResults = createAsyncThunk(
+  "inventory/getRoomInventoryResults",
+  async (roomId: string, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(`/api/v1/inventories/room-inventory-results/${roomId}`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 const inventorySlice = createSlice({
   name: "inventory",
   initialState,
@@ -650,6 +647,9 @@ const inventorySlice = createSlice({
     // Filter actions
     updateFilter: (state, action) => {
       state.currentFilter = { ...state.currentFilter, ...action.payload };
+    },
+    currentFilterInventory: (state, action) => {
+      state.currentFilter = action.payload;
     },
     setCurrentSession: (state, action) => {
       state.currentSession = action.payload;
@@ -684,7 +684,7 @@ const inventorySlice = createSlice({
 
       // Update currentSession if it matches
       if (state.currentSession?.id === id) {
-        state.currentSession.status = status;
+        state.currentSession!.status = status;
       }
     },
     resetFilter: (state) => {
@@ -796,8 +796,13 @@ const inventorySlice = createSlice({
         state.filterLoading = false;
         state.filterError = null;
         state.filteredSessions = action.payload;
+        // Cập nhật currentFilter từ request được gửi đi
+        state.currentFilter = {
+          ...state.currentFilter,
+          ...action.meta.arg, // action.meta.arg chứa filterRequest đã gửi
+        };
         // Update pagination in current filter
-        if (state.currentFilter.pagination) {
+        if (state.currentFilter.pagination && action.payload.pagination) {
           state.currentFilter.pagination = {
             ...state.currentFilter.pagination,
             currentPage: action.payload.pagination.page,
@@ -1179,11 +1184,20 @@ const inventorySlice = createSlice({
         state.submitResultLoading = false;
         state.submitResultError = (action.payload as any)?.message || "Submit failed";
       })
+      .addCase(getRoomInventoryResults.pending, (state) => {
+      })
+      .addCase(getRoomInventoryResults.fulfilled, (state, action) => {
+        state.roomInventoryResults = action.payload;
+      })
+      .addCase(getRoomInventoryResults.rejected, (state, action) => {
+        console.log('Failed to get room inventory results', action.payload);
+      })
   },
 });
 
 export const {
   updateFilter,
+  currentFilterInventory,
   resetFilter,
   deleteSessionById,
   updatePagination,
