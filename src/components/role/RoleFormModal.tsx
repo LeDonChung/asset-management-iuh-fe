@@ -277,146 +277,94 @@ export default function RoleFormModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left Panel - Permission Groups */}
-                <div>
-                  {/* Search */}
-                  <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      placeholder="Tìm kiếm quyền..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* Permission Groups */}
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {filteredManagerPermissions.map((group) => {
-                      const isExpanded = expandedGroups.has(group.id);
-                      const groupPermissions = group.permissions || [];
-                      const isAllSelected = isGroupAllSelected(groupPermissions);
-                      const isPartiallySelected = isGroupPartiallySelected(groupPermissions);
-
-                      return (
-                        <div key={group.id} className="border border-gray-200 rounded-xl overflow-hidden">
-                          <div
-                            className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                            onClick={() => toggleGroup(group.id)}
-                          >
-                            <div className="flex items-center gap-3">
-                              {isExpanded ? (
-                                <ChevronDown className="h-4 w-4 text-gray-600" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4 text-gray-600" />
-                              )}
-                              <span className="font-medium text-gray-900">{group.name}</span>
-                              <Badge variant="outline" className="text-xs rounded-full">
-                                {groupPermissions.length}
-                              </Badge>
-                            </div>
-                            
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={isAllSelected}
-                                ref={(input) => {
-                                  if (input) input.indeterminate = isPartiallySelected;
-                                }}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  selectAllInGroup(groupPermissions);
-                                }}
-                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                              />
-                              <span className="text-xs text-gray-500">Tất cả</span>
-                            </div>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="border-t bg-gray-50 p-3 space-y-2">
-                              {groupPermissions.map((permission) => {
-                                const isSelected = selectedPermissions.some(p => p.id === permission.id);
-                                return (
-                                  <div
-                                    key={permission.id}
-                                    className="flex items-center gap-3 p-3 hover:bg-white rounded-lg cursor-pointer transition-colors"
-                                    onClick={() => togglePermission(permission)}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isSelected}
-                                      onChange={() => togglePermission(permission)}
-                                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                    <div className="flex-1">
-                                      <div className="text-sm font-medium text-gray-900">{permission.name}</div>
-                                      <div className="text-xs text-gray-500">{permission.code}</div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {errors.permissions && (
-                    <p className="text-red-500 text-sm mt-3">{errors.permissions}</p>
-                  )}
-                </div>
-
-                {/* Right Panel - Selected Permissions Preview */}
-                <div>
-                  <h4 className="text-base font-semibold text-gray-900 mb-4">Quyền đã chọn</h4>
-
-                  <div className="border border-gray-200 rounded-xl p-4 max-h-96 overflow-y-auto bg-gray-50">
-                    {Object.keys(selectedPermissionsByGroup).length === 0 ? (
-                      <div className="text-center text-gray-500 py-8">
-                        <Users className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                        <p className="text-sm">Chưa chọn quyền nào</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {Object.entries(selectedPermissionsByGroup).map(([groupName, permissions]) => (
-                          <div key={groupName}>
-                            <h5 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
-                              <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                              {groupName}
-                              <Badge variant="outline" className="text-xs rounded-full">
-                                {permissions.length}
-                              </Badge>
-                            </h5>
-                            <div className="space-y-1">
-                              {permissions.map((permission) => (
-                                <div
-                                  key={permission.id}
-                                  className="flex items-center justify-between bg-white p-2 rounded-lg border border-gray-200 text-sm"
-                                >
-                                  <span className="font-medium text-gray-900">{permission.name}</span>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => removePermission(permission.id)}
-                                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+              {/* Search */}
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Tìm kiếm quyền..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                />
               </div>
+
+              {/* Permission Groups */}
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {filteredManagerPermissions.map((group) => {
+                  const isExpanded = expandedGroups.has(group.id);
+                  const groupPermissions = group.permissions || [];
+                  const isAllSelected = isGroupAllSelected(groupPermissions);
+                  const isPartiallySelected = isGroupPartiallySelected(groupPermissions);
+
+                  return (
+                    <div key={group.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                      <div
+                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => toggleGroup(group.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-gray-600" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-gray-600" />
+                          )}
+                          <span className="font-medium text-gray-900">{group.name}</span>
+                          <Badge variant="outline" className="text-xs rounded-full">
+                            {groupPermissions.length}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isAllSelected}
+                            ref={(input) => {
+                              if (input) input.indeterminate = isPartiallySelected;
+                            }}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              selectAllInGroup(groupPermissions);
+                            }}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-xs text-gray-500">Chọn tất cả</span>
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="border-t bg-gray-50 p-3 space-y-2">
+                          {groupPermissions.map((permission) => {
+                            const isSelected = selectedPermissions.some(p => p.id === permission.id);
+                            return (
+                              <div
+                                key={permission.id}
+                                className="flex items-center gap-3 p-3 hover:bg-white rounded-lg cursor-pointer transition-colors"
+                                onClick={() => togglePermission(permission)}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => togglePermission(permission)}
+                                  className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <div className="flex-1">
+                                  <div className="text-sm font-medium text-gray-900">{permission.name}</div>
+                                  <div className="text-xs text-gray-500">{permission.code}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {errors.permissions && (
+                <p className="text-red-500 text-sm mt-3">{errors.permissions}</p>
+              )}
             </div>
           </div>
         </ModalBody>

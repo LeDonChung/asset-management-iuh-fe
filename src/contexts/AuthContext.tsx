@@ -7,7 +7,7 @@ interface AuthContextType {
   user: UserLoginResponse | null
   isLoading: boolean
   isAuthenticated: boolean
-  hasPermission: (requiredRoles: string[]) => boolean
+  hasRole: (requiredRoles: string[]) => boolean
   hasAnyPermission: (requiredPermissions: string[]) => boolean
   hasAllPermissions: (requiredPermissions: string[]) => boolean
   getUserPermissions: () => string[]
@@ -103,7 +103,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [])
 
-  const hasPermission = (requiredRoles: string[]): boolean => {
+  const hasRole = (requiredRoles: string[]): boolean => {
     if (!user || !user.roles) return false
     return requiredRoles.some(role => user.roles.includes(role))
   }
@@ -131,7 +131,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     isLoading,
     isAuthenticated: !!user,
-    hasPermission,
+    hasRole,
     hasAnyPermission,
     hasAllPermissions,
     getUserPermissions,
