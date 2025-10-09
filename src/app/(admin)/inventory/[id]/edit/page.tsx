@@ -29,7 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import MultiSelect from "@/components/ui/multi-select";
-import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionConstants, usePermissions } from "@/hooks/usePermissions";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { uploadFileDocument } from "@/lib/store/slices/fileSlice";
@@ -100,7 +100,8 @@ export default function EditInventorySessionPage() {
   const { createSessionLoading, findByIdLoading } = useAppSelector(
     (state) => state.inventory
   );
-  const { canCreateInventorySession } = usePermissions();
+  const { hasAnyPermission } = usePermissions();
+  const canUpdate = hasAnyPermission([PermissionConstants.PERM_UPDATE_INVENTORY]);
   const [evidenceFiles, setEvidenceFiles] = useState<
     { name: string; url: string; size: number }[]
   >([]);
@@ -182,11 +183,11 @@ export default function EditInventorySessionPage() {
   }, [year, period]);
   // Redirect if not authorized
   useEffect(() => {
-    if (!canCreateInventorySession) {
+    if (!canUpdate) {
       router.push("/unauthorized");
       return;
     }
-  }, [canCreateInventorySession, router]);
+  }, [canUpdate, router]);
 
   // Check if session can be edited
   useEffect(() => {

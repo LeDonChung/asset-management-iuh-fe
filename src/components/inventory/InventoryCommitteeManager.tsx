@@ -14,9 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableColumn } from "@/components/ui/table";
 import { User, Role, UserStatus, InventorySessionMember } from "@/types/asset";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import {
-  findAllUserInventory,
-} from "@/lib/store/slices/userSlice";
+import { findAllUserInventory } from "@/lib/store/slices/userSlice";
 import { findAllInventoryRoles } from "@/lib/store/slices/roleSlice";
 import {
   deleteMemberInventorySession,
@@ -24,6 +22,7 @@ import {
 } from "@/lib/store/slices/inventorySlice";
 import toast from "react-hot-toast";
 import MemberModal from "./MemberModal";
+import { PermissionConstants, usePermissions } from "@/hooks/usePermissions";
 
 interface InventoryCommitteeManagerProps {
   showAddMemberModal?: boolean;
@@ -47,7 +46,10 @@ export default function InventoryCommitteeManager({
   // Use external modal state if provided
   const showAddMemberModal = externalShowAddMemberModal ?? false;
   const handleCloseAddMemberModal = onCloseAddMemberModal || (() => {});
-
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission([
+    PermissionConstants.PERM_UPDATE_INVENTORY,
+  ]);
   const handleDeleteMember = async (id: string) => {
     if (!session) return;
 
@@ -136,20 +138,24 @@ export default function InventoryCommitteeManager({
       className: "text-center",
       render: (_, record) => (
         <div className="flex justify-center space-x-2">
-          <button
-            onClick={() => setEditingMember(record)}
-            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-            title="Chỉnh sửa"
-          >
-            <Edit className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => handleDeleteMember(record.id)}
-            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-            title="Xóa"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {canEdit && (
+            <>
+              <button
+                onClick={() => setEditingMember(record)}
+                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                title="Chỉnh sửa"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleDeleteMember(record.id)}
+                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                title="Xóa"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </>
+          )}
         </div>
       ),
     },
@@ -163,7 +169,7 @@ export default function InventoryCommitteeManager({
         dispatch(findAllInventoryRoles());
         usersResult = usersResult.filter(
           (user: User) =>
-            !session.members?.some(
+            session && !session.members?.some(
               (member: InventorySessionMember) => member.userId === user.id
             )
         );

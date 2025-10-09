@@ -16,10 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  InventorySession,
-  InventorySessionStatus,
-} from "@/types/asset";
+import { InventorySession, InventorySessionStatus } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -36,6 +33,8 @@ import {
   deleteInventorySession,
   deleteSessionById,
 } from "@/lib/store/slices/inventorySlice";
+import { useAuth } from "@/contexts/AuthContext";
+import { PermissionConstants } from "@/hooks/usePermissions";
 
 // Status options for filter dropdown
 const statusOptions = [
@@ -84,16 +83,17 @@ export default function InventoryPage() {
   const [statusFilter, setStatusFilter] = useState<InventorySessionStatus>();
   const router = useRouter();
 
-  const { currentFilter, filteredSessions, filterLoading, filterError } = useSelector(
-    (state: RootState) => state.inventory
-  );
+  const { currentFilter, filteredSessions, filterLoading, filterError } =
+    useSelector((state: RootState) => state.inventory);
 
   const dispatch = useAppDispatch();
 
   // Check user roles
-  const isSuperAdmin = true;
-  const isAdmin = true;
-
+  const { hasAnyPermission } = useAuth();
+  const canCreate = hasAnyPermission([PermissionConstants.PERM_CREATE_INVENTORY]);
+  const canEdit = hasAnyPermission([PermissionConstants.PERM_UPDATE_INVENTORY]);
+  const canDelete = hasAnyPermission([PermissionConstants.PERM_REMOVE_INVENTORY]);
+  const canView = hasAnyPermission([PermissionConstants.PERM_VIEW_INVENTORY]);
   useEffect(() => {
     const loadData = () => {
       try {
@@ -126,14 +126,12 @@ export default function InventoryPage() {
     router.push(`/inventory/${session.id}/edit`);
   };
 
-  const handleViewResults = (session: InventorySession) => {
-    router.push(`/inventory/${session.id}/results`);
-  };
-
   const handleDeleteSession = async (session: InventorySession) => {
     if (confirm(`Bạn có chắc chắn muốn xóa kỳ kiểm kê "${session.name}"?`)) {
       try {
-        const result = await dispatch(deleteInventorySession(session.id)).unwrap();
+        const result = await dispatch(
+          deleteInventorySession(session.id)
+        ).unwrap();
         if (result) {
           dispatch(deleteSessionById({ id: session.id }));
           toast.success(`Đã xóa kỳ kiểm kê thành công!`);
@@ -205,7 +203,7 @@ export default function InventoryPage() {
       key: "status",
       title: "Trạng thái",
       render: (_, session) => {
-        if (isAdmin || isSuperAdmin) {
+        if (canEdit) {
           return (
             <select
               value={session.status}
@@ -243,28 +241,19 @@ export default function InventoryPage() {
       key: "actions",
       title: "Thao tác",
       render: (_, session) => {
-        const canEdit = session.status === InventorySessionStatus.PLANNED;
-        const canDelete = session.status === InventorySessionStatus.PLANNED;
-
         return (
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleViewSession(session)}
-              title="Xem chi tiết"
-            >
-              <Eye className="h-4 w-4 text-blue-600" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleViewResults(session)}
-              title="Xem kết quả"
-            >
-              <FileText className="h-4 w-4 text-gray-600" />
-            </Button>
-            {canEdit && (isAdmin || isSuperAdmin) && (
+            {canView && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleViewSession(session)}
+                title="Xem chi tiết"
+              >
+                <Eye className="h-4 w-4 text-blue-600" />
+              </Button>
+            )}
+            {canEdit && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -274,7 +263,7 @@ export default function InventoryPage() {
                 <Edit className="h-4 w-4 text-blue-600" />
               </Button>
             )}
-            {canDelete && (isAdmin || isSuperAdmin) && (
+            {canDelete && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -300,7 +289,7 @@ export default function InventoryPage() {
             Quản lý kỳ kiểm kê
           </h1>
         </div>
-        {(isAdmin || isSuperAdmin) && (
+        {canCreate && (
           <Link href="/inventory/create">
             <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
               <Plus className="h-4 w-4" />
@@ -328,7 +317,11 @@ export default function InventoryPage() {
           <select
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={yearFilter || ""}
-            onChange={(e) => setYearFilter(e.target.value ? parseInt(e.target.value) : undefined)}
+            onChange={(e) =>
+              setYearFilter(
+                e.target.value ? parseInt(e.target.value) : undefined
+              )
+            }
           >
             {getYearOptions().map(({ value, label }) => (
               <option key={value} value={value}>
@@ -341,7 +334,9 @@ export default function InventoryPage() {
           <select
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={statusFilter || ""}
-            onChange={(e) => setStatusFilter(e.target.value as InventorySessionStatus)}
+            onChange={(e) =>
+              setStatusFilter(e.target.value as InventorySessionStatus)
+            }
           >
             {statusOptions.map(({ value, label }) => (
               <option key={value} value={value}>
