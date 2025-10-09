@@ -28,7 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import MultiSelect from "@/components/ui/multi-select";
-import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionConstants, usePermissions } from "@/hooks/usePermissions";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { uploadFileDocument } from "@/lib/store/slices/fileSlice";
@@ -90,12 +90,9 @@ export default function CreateInventorySessionPage() {
     error: unitsError,
   } = useAppSelector((state) => state.unit);
 
-  const { loading: fileLoading, error: fileError } = useAppSelector(
-    (state) => state.file
-  );
-
   const { createSessionLoading } = useAppSelector((state) => state.inventory);
-  const { canCreateInventorySession } = usePermissions();
+  const { hasAnyPermission } = usePermissions();
+  const canCreate = hasAnyPermission([PermissionConstants.PERM_CREATE_INVENTORY]);
   const [evidenceFiles, setEvidenceFiles] = useState<
     { name: string; url: string; size: number }[]
   >([]);
@@ -103,11 +100,11 @@ export default function CreateInventorySessionPage() {
 
   // Redirect if not authorized
   useEffect(() => {
-    if (!canCreateInventorySession) {
+    if (!canCreate) {
       router.push("/unauthorized");
       return;
     }
-  }, [canCreateInventorySession, router]);
+  }, [canCreate, router]);
 
   // Initialize form with useForm
   const {

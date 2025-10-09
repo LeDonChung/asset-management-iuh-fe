@@ -10,12 +10,10 @@ import {
     Plus,
     Edit,
     Trash2,
-    Eye,
     Shield
 } from "lucide-react";
 import { Role, Permission, ManagerPermission } from "@/types/asset";
 import RoleFormModal from "@/components/role/RoleFormModal";
-import RoleDetailModal from "@/components/role/RoleDetailModal";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
 import { useRouter } from "next/navigation";
@@ -30,7 +28,6 @@ export default function RolePage() {
     const { allPermission } = useAppSelector((state: RootState) => state.permission);
     const [searchTerm, setSearchTerm] = useState("");
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
     useEffect(() => {
@@ -59,11 +56,6 @@ export default function RolePage() {
     const handleEditRole = (role: Role) => {
         setSelectedRole(role);
         setIsFormModalOpen(true);
-    };
-
-    const handleViewRole = (role: Role) => {
-        setSelectedRole(role);
-        setIsDetailModalOpen(true);
     };
 
     const handleDeleteRole = (roleId: string) => {
@@ -130,15 +122,6 @@ export default function RolePage() {
             ),
         },
         {
-            key: "permissions",
-            title: "Số lượng quyền",
-            render: (_, record) => (
-                <div className="text-sm font-medium text-gray-900">
-                    {record.permissions?.length || 0}
-                </div>
-            ),
-        },
-        {
             key: "actions",
             title: "Thao tác",
             render: (_, record) => (
@@ -153,17 +136,6 @@ export default function RolePage() {
                         title="Chỉnh sửa"
                     >
                         <Edit className="h-4 w-4 text-blue-600" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewRole(record);
-                        }}
-                        title="Xem chi tiết"
-                    >
-                        <Eye className="h-4 w-4 text-gray-600" />
                     </Button>
                     <Button
                         variant="ghost"
@@ -232,7 +204,6 @@ export default function RolePage() {
                 data={filteredRoles}
                 emptyText="Không tìm thấy role nào"
                 emptyIcon={<Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
-                onRowClick={(record) => handleViewRole(record)}
             />
 
             {/* Role Form Modal */}
@@ -242,14 +213,6 @@ export default function RolePage() {
                 role={selectedRole}
                 managerPermissions={allPermission}
                 onSave={handleSaveRole}
-            />
-
-            {/* Role Detail Modal */}
-            <RoleDetailModal
-                isOpen={isDetailModalOpen}
-                onClose={() => setIsDetailModalOpen(false)}
-                role={selectedRole}
-                managerPermissions={allPermission}
             />
         </div>
     );

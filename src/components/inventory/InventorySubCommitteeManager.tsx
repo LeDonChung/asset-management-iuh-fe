@@ -38,6 +38,7 @@ import {
 import { getAllInventoryCommitteeUsers } from "@/lib/store/slices/userSlice";
 import { getAllUnits, getUnitChildren } from "@/lib/store/slices/unitSlice";
 import toast from "react-hot-toast";
+import { PermissionConstants, usePermissions } from "@/hooks/usePermissions";
 
 export default function InventorySubCommitteeManager() {
   const dispatch = useAppDispatch();
@@ -52,7 +53,8 @@ export default function InventorySubCommitteeManager() {
   const { inventoryCommitteeUsers } = useAppSelector((state) => state.user);
 
   const { allUnits } = useAppSelector((state) => state.unit);
-
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission([PermissionConstants.PERM_UPDATE_INVENTORY]);
   // Get sub-committees from current session's inventory session units
   const getSubCommittees = (): InventorySubCommittee[] => {
     if (!currentSession?.inventorySessionUnits) return [];
@@ -449,19 +451,23 @@ export default function InventorySubCommitteeManager() {
           <h3 className="text-xl font-medium text-gray-700 mb-2">
             Chưa có tiểu ban nào
           </h3>
-          <p className="text-gray-500 mb-6">
-            Hãy tạo tiểu ban đầu tiên để bắt đầu tổ chức nhóm kiểm kê
-          </p>
-          <Button
-            onClick={handleAddSubCommittee}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Tạo tiểu ban đầu tiên
-          </Button>
+          {canEdit && (
+            <>
+              <p className="text-gray-500 mb-6">
+                Hãy tạo tiểu ban đầu tiên để bắt đầu tổ chức nhóm kiểm kê
+              </p>
+              <Button
+                onClick={handleAddSubCommittee}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Tạo tiểu ban đầu tiên
+              </Button>
+            </>
+          )}
         </Card>
       ) : (
-        <div className="flex flex-col lg:flex-row gap-6 min-h-0" >
+        <div className="flex flex-col lg:flex-row gap-6 min-h-0">
           {/* Left Panel - SubCommittees List */}
           <div className="w-full lg:w-2/5 xl:w-5/12 min-h-0">
             <Card className="h-full flex flex-col">
@@ -477,24 +483,26 @@ export default function InventorySubCommitteeManager() {
                       </h3>
                     </div>
                   </div>
-                  <Button
-                    onClick={handleAddSubCommittee}
-                    size="sm"
-                    variant="default"
-                    disabled={
-                      createSubCommitteeLoading ||
-                      getAvailableSessionUnits().length === 0
-                    }
-                    className="flex-shrink-0"
-                  >
-                    {createSubCommitteeLoading ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4 mr-2" />
-                    )}
-                    <span className="hidden sm:inline">Thêm tiểu ban</span>
-                    <span className="sm:hidden">Thêm</span>
-                  </Button>
+                  {canEdit && (
+                    <Button
+                      onClick={handleAddSubCommittee}
+                      size="sm"
+                      variant="default"
+                      disabled={
+                        createSubCommitteeLoading ||
+                        getAvailableSessionUnits().length === 0
+                      }
+                      className="flex-shrink-0"
+                    >
+                      {createSubCommitteeLoading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4 mr-2" />
+                      )}
+                      <span className="hidden sm:inline">Thêm tiểu ban</span>
+                      <span className="sm:hidden">Thêm</span>
+                    </Button>
+                  )}
                 </div>
               </div>
               <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
@@ -513,28 +521,32 @@ export default function InventorySubCommitteeManager() {
                         {subCommittee.name}
                       </h4>
                       <div className="flex items-center space-x-1 flex-shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditSubCommittee(subCommittee);
-                          }}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteSubCommittee(subCommittee);
-                          }}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditSubCommittee(subCommittee);
+                              }}
+                              className="h-6 w-6 p-0"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteSubCommittee(subCommittee);
+                              }}
+                              className="h-6 w-6 p-0"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -634,21 +646,23 @@ export default function InventorySubCommitteeManager() {
                     <h4 className="text-lg font-bold mb-4">
                       Danh sách nhóm kiểm kê
                     </h4>
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={() => handleAddGroup(activeSubCommittee)}
-                      className="border-dashed"
-                      disabled={createGroupLoading}
-                    >
-                      {createGroupLoading ? (
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                      ) : (
-                        <Plus className="h-4 w-4 mr-1" />
-                      )}
-                      <span className="hidden sm:inline">Thêm nhóm</span>
-                      <span className="sm:hidden">Thêm</span>
-                    </Button>
+                    {canEdit && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => handleAddGroup(activeSubCommittee)}
+                        className="border-dashed"
+                        disabled={createGroupLoading}
+                      >
+                        {createGroupLoading ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Plus className="h-4 w-4 mr-1" />
+                        )}
+                        <span className="hidden sm:inline">Thêm nhóm</span>
+                        <span className="sm:hidden">Thêm</span>
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -661,17 +675,21 @@ export default function InventorySubCommitteeManager() {
                       <h5 className="text-base lg:text-lg font-medium text-gray-600 mb-2">
                         Chưa có nhóm nào
                       </h5>
-                      <p className="text-gray-500 mb-4 text-sm lg:text-base">
-                        Hãy thêm nhóm kiểm kê để phân công nhiệm vụ cụ thể
-                      </p>
-                      <Button
-                        size="sm"
-                        onClick={() => handleAddGroup(activeSubCommittee)}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Thêm nhóm đầu tiên
-                      </Button>
+                      {canEdit && (
+                        <>
+                          <p className="text-gray-500 mb-4 text-sm lg:text-base">
+                            Hãy thêm nhóm kiểm kê để phân công nhiệm vụ cụ thể
+                          </p>
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddGroup(activeSubCommittee)}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Thêm nhóm đầu tiên
+                          </Button>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -695,26 +713,34 @@ export default function InventorySubCommitteeManager() {
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 flex-shrink-0">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  handleEditGroup(group, activeSubCommittee)
-                                }
-                                className="text-xs lg:text-sm"
-                              >
-                                <Edit className="h-3 lg:h-4 w-3 lg:w-4 mr-1" />
-                                <span className="hidden sm:inline">Sửa</span>
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDeleteGroup(group)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs lg:text-sm"
-                              >
-                                <Trash2 className="h-3 lg:h-4 w-3 lg:w-4 mr-1" />
-                                <span className="hidden sm:inline">Xóa</span>
-                              </Button>
+                              {canEdit && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleEditGroup(group, activeSubCommittee)
+                                    }
+                                    className="text-xs lg:text-sm"
+                                  >
+                                    <Edit className="h-3 lg:h-4 w-3 lg:w-4 mr-1" />
+                                    <span className="hidden sm:inline">
+                                      Sửa
+                                    </span>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteGroup(group)}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs lg:text-sm"
+                                  >
+                                    <Trash2 className="h-3 lg:h-4 w-3 lg:w-4 mr-1" />
+                                    <span className="hidden sm:inline">
+                                      Xóa
+                                    </span>
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
 
