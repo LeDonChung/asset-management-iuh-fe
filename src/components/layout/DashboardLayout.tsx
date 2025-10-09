@@ -43,87 +43,80 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
       name: "Tài sản",
       href: "/asset",
       icon: Package2,
-      permissions: ["PERM_VIEW_ASSET"],
+      permissions: [PermissionConstants.PERM_VIEW_ASSET],
       children: [
         {
           name: "Danh sách tài sản",
           href: "/asset",
-          permissions: ["PERM_VIEW_ASSET"],
+          permissions: [PermissionConstants.PERM_VIEW_ASSET],
         },
         {
           name: "Tiếp nhận bàn giao",
           href: "/asset/receive",
-          permissions: ["PERM_UPDATE_ASSET"],
+          permissions: [PermissionConstants.PERM_VIEW_ASSET],
         },
         {
           name: "Lịch sử bàn giao",
           href: "/asset/history-transfer",
-          permissions: ["PERM_VIEW_ASSET"],
+          permissions: [PermissionConstants.PERM_VIEW_ASSET],
         },
         {
           name: "Sổ tài sản",
           href: "/asset/asset-book",
-          permissions: ["PERM_VIEW_ASSET"],
+          permissions: [PermissionConstants.PERM_VIEW_ASSET],
         }
       ],
-    },
-    // Báo cáo
-    {
-      name: "Báo cáo",
-      href: "/reports", 
-      icon: BarChart3,
-      permissions: [], // Tất cả user có thể xem báo cáo
     },
     // Kiểm kê
     {
       name: "Kiểm kê",
       href: "/inventory",
       icon: ClipboardList,
-      permissions: ["PERM_VIEW_INVENTORY"],
+      permissions: [PermissionConstants.PERM_VIEW_INVENTORY],
       children: [
         {
           name: "Kỳ kiểm kê",
           href: "/inventory",
-          permissions: ["PERM_VIEW_INVENTORY"],
+          permissions: [PermissionConstants.PERM_VIEW_INVENTORY],
         },
         {
           name: "Thực hiện kiểm kê",
           href: "/inventory/perform",
-          permissions: [],
+          permissions: [PermissionConstants.PERM_PERFORM_INVENTORY],
         }
       ]
     },
     // Thanh lý tài sản
-    {
-      name: "Thanh lý",
-      href: "/liquidation",
-      icon: Trash2,
-      permissions: ["PERM_VIEW_ASSET"], // Cần xem asset để thanh lý
-      children: [
-        {
-          name: "Danh sách đề xuất",
-          href: "/liquidation",
-          permissions: ["PERM_VIEW_ASSET"],
-        },
-        {
-          name: "Tạo đề xuất thanh lý",
-          href: "/liquidation/create",
-          permissions: ["PERM_UPDATE_ASSET"],
-        },
-      ],
-    }, // Quản lý cảnh báo
+    // {
+    //   name: "Thanh lý",
+    //   href: "/liquidation",
+    //   icon: Trash2,
+    //   permissions: [PermissionConstants.PERM_VIEW_ASSET],
+    //   children: [
+    //     {
+    //       name: "Danh sách đề xuất",
+    //       href: "/liquidation",
+    //       permissions: [PermissionConstants.PERM_VIEW_ASSET],
+    //     },
+    //     {
+    //       name: "Tạo đề xuất thanh lý",
+    //       href: "/liquidation/create",
+    //       permissions: [PermissionConstants.PERM_UPDATE_ASSET],
+    //     },
+    //   ],
+    // }, // Quản lý cảnh báo
     {
       name: "Cảnh báo",
       href: "/alert",
       icon: AlertTriangle,
       permissions: []
-    }, 
+    },
     // Quản lý đơn vị
     {
       name: "Đơn vị",
       href: "/unit",
       icon: Building,
-      permissions: []
+      permissions: [PermissionConstants.PERM_VIEW_UNIT]
     },
     // User
     {
@@ -143,7 +136,7 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
 
   // Filter navigation dựa trên permissions
   return baseNavigation.filter((item) => {
-    if (item.permissions?.length === 0) return true; // Không yêu cầu permission
+    if (item.permissions?.length === 0) return true; 
     return item.permissions?.some(permission => userPermissions.includes(permission));
   }).map(item => ({
     ...item,
@@ -152,72 +145,6 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
       return child.permissions?.some(permission => userPermissions.includes(permission));
     })
   }));
-};
-
-// Helper: Greeting
-const getGreeting = () => {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) {
-    return {
-      text: "Chào buổi sáng",
-      icon: (
-        <svg
-          className="w-8 h-8 text-orange-400 animate-pulse"
-          fill="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
-        </svg>
-      ),
-    };
-  } else if (hour >= 12 && hour < 13) {
-    return {
-      text: "Chào buổi trưa",
-      icon: (
-        <svg
-          className="w-8 h-8 text-yellow-500"
-          fill="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
-        </svg>
-      ),
-    };
-  } else if (hour >= 13 && hour < 18) {
-    return {
-      text: "Chào buổi chiều",
-      icon: (
-        <svg
-          className="w-8 h-8 text-amber-500"
-          fill="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            fillRule="evenodd"
-            d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z"
-            clipRule="evenodd"
-          />
-        </svg>
-      ),
-    };
-  } else {
-    return {
-      text: "Chào buổi tối",
-      icon: (
-        <svg
-          className="w-8 h-8 text-indigo-400"
-          fill="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            fillRule="evenodd"
-            d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z"
-            clipRule="evenodd"
-          />
-        </svg>
-      ),
-    };
-  }
 };
 
 // Sidebar User Section

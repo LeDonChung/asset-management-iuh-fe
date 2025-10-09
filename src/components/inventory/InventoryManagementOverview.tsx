@@ -28,7 +28,7 @@ import {
   Building2,
   PlusCircle,
   Search,
-  Filter
+  Filter,
 } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
 import { Card } from "@/components/ui/card";
@@ -37,14 +37,17 @@ import { getAllInventoryCommitteeUsers } from "@/lib/store/slices/userSlice";
 import { getAllUnits } from "@/lib/store/slices/unitSlice";
 import InventoryCommitteeManager from "./InventoryCommitteeManager";
 import InventorySubCommitteeManager from "./InventorySubCommitteeManager";
+import { PermissionConstants, usePermissions } from "@/hooks/usePermissions";
 export default function InventoryManagementOverview() {
-  const { currentSession } = useAppSelector(state => state.inventory);
-  const { inventoryCommitteeUsers } = useAppSelector(state => state.user);
-  const { allUnits } = useAppSelector(state => state.unit);
+  const { currentSession } = useAppSelector((state) => state.inventory);
+  const { inventoryCommitteeUsers } = useAppSelector((state) => state.user);
+  const { allUnits } = useAppSelector((state) => state.unit);
   const dispatch = useAppDispatch();
 
   // State for expand/collapse
-  const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({
+  const [expandedSections, setExpandedSections] = useState<{
+    [key: string]: boolean;
+  }>({
     committee: true,
     subcommittees: true,
   });
@@ -61,13 +64,13 @@ export default function InventoryManagementOverview() {
       dispatch(getAllUnits());
     }
   }, [dispatch, inventoryCommitteeUsers, allUnits]);
-
-
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission([PermissionConstants.PERM_UPDATE_INVENTORY]);
   // Toggle section expansion
   const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({
+    setExpandedSections((prev) => ({
       ...prev,
-      [section]: !prev[section]
+      [section]: !prev[section],
     }));
   };
 
@@ -84,22 +87,25 @@ export default function InventoryManagementOverview() {
     return (
       <div className="text-center py-12">
         <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Không có phiên kiểm kê</h3>
-        <p className="text-gray-500">Vui lòng chọn phiên kiểm kê để xem thông tin quản lý.</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          Không có phiên kiểm kê
+        </h3>
+        <p className="text-gray-500">
+          Vui lòng chọn phiên kiểm kê để xem thông tin quản lý.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-
       {/* Committee Section */}
       <Card>
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <button
-                onClick={() => toggleSection('committee')}
+                onClick={() => toggleSection("committee")}
                 className="flex items-center space-x-2 text-lg font-semibold text-gray-900 hover:text-blue-600"
               >
                 {expandedSections.committee ? (
@@ -111,22 +117,24 @@ export default function InventoryManagementOverview() {
                 <span>Ban kiểm kê chính</span>
               </button>
             </div>
-            <Button
-              size="sm"
-              className="flex items-center gap-2"
-              onClick={handleAddCommitteeMember}
-            >
-              <Plus className="h-4 w-4" />
-              Thêm thành viên
-            </Button>
+            {canEdit && (
+              <Button
+                size="sm"
+                className="flex items-center gap-2"
+                onClick={handleAddCommitteeMember}
+              >
+                <Plus className="h-4 w-4" />
+                Thêm thành viên
+              </Button>
+            )}
           </div>
         </div>
-        
+
         {expandedSections.committee && (
-            <InventoryCommitteeManager
-              showAddMemberModal={showCommitteeMemberForm}
-              onCloseAddMemberModal={handleCloseCommitteeMemberForm}
-            />
+          <InventoryCommitteeManager
+            showAddMemberModal={showCommitteeMemberForm}
+            onCloseAddMemberModal={handleCloseCommitteeMemberForm}
+          />
         )}
       </Card>
       {/* Sub-Committees Section */}
@@ -135,7 +143,7 @@ export default function InventoryManagementOverview() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <button
-                onClick={() => toggleSection('subcommittees')}
+                onClick={() => toggleSection("subcommittees")}
                 className="flex items-center space-x-2 text-lg font-semibold text-gray-900 hover:text-blue-600"
               >
                 {expandedSections.subcommittees ? (
@@ -149,10 +157,8 @@ export default function InventoryManagementOverview() {
             </div>
           </div>
         </div>
-        
-        {expandedSections.subcommittees && (
-            <InventorySubCommitteeManager />
-        )}
+
+        {expandedSections.subcommittees && <InventorySubCommitteeManager />}
       </Card>
     </div>
   );
