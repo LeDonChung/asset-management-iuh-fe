@@ -27,8 +27,11 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm install -g pnpm'
-                sh 'pnpm install'
+                sh '''
+                    npm install -g pnpm
+                    export PATH="$PATH:$(npm config get prefix)/bin"
+                    pnpm install
+                '''
             }
         }
 
