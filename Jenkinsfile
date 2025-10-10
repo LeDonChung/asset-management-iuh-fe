@@ -29,15 +29,14 @@ pipeline {
             steps {
                 sh '''
                     npm install -g pnpm
-                    export PATH="$PATH:$(npm config get prefix)/bin"
-                    pnpm install
+                    npx pnpm install
                 '''
             }
         }
 
         stage('Build Application') {
             steps {
-                sh 'pnpm run build'
+                sh 'npx pnpm run build'
             }
         }
 
