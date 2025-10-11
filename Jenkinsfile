@@ -27,11 +27,13 @@ pipeline {
 
         stage('Debug Environment') {
             steps {
-                sh '''
+                sh '''#!/bin/bash
                     echo "=== Contents of .env file ==="
                     cat .env
                     echo "=== Environment variables that will be used ==="
-                    source .env
+                    set -a
+                    . .env
+                    set +a
                     echo "NEXT_PUBLIC_API_URL: $NEXT_PUBLIC_API_URL"
                     echo "NEXT_PUBLIC_WS_URL: $NEXT_PUBLIC_WS_URL"
                     echo "NEXT_PUBLIC_SOCKET_URL: $NEXT_PUBLIC_SOCKET_URL"
@@ -54,13 +56,27 @@ pipeline {
             }
         }
 
+        stage('Verify Build Args') {
+            steps {
+                sh '''#!/bin/bash
+                    echo "=== Preparing Docker build arguments ==="
+                    set -a
+                    . .env
+                    set +a
+                    echo "NEXT_PUBLIC_API_URL will be: $NEXT_PUBLIC_API_URL"
+                    echo "NEXT_PUBLIC_WS_URL will be: $NEXT_PUBLIC_WS_URL"
+                    echo "NEXT_PUBLIC_SOCKET_URL will be: $NEXT_PUBLIC_SOCKET_URL"
+                '''
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 script {
                     // Load environment variables from .env file and pass to Docker build
-                    sh '''
+                    sh '''#!/bin/bash
                         set -a
-                        source .env
+                        . .env
                         set +a
                         
                         docker build -f Dockerfile -t ${DOCKER_HUB_REPO}/${APP_NAME}:${BUILD_NUMBER} \
