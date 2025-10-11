@@ -25,6 +25,20 @@ pipeline {
             }
         }
 
+        stage('Debug Environment') {
+            steps {
+                sh '''
+                    echo "=== Contents of .env file ==="
+                    cat .env
+                    echo "=== Environment variables that will be used ==="
+                    source .env
+                    echo "NEXT_PUBLIC_API_URL: $NEXT_PUBLIC_API_URL"
+                    echo "NEXT_PUBLIC_WS_URL: $NEXT_PUBLIC_WS_URL"
+                    echo "NEXT_PUBLIC_SOCKET_URL: $NEXT_PUBLIC_SOCKET_URL"
+                '''
+            }
+        }
+
         stage('Install Dependencies') {
             steps {
                 sh '''
@@ -43,7 +57,20 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -f Dockerfile -t ${DOCKER_HUB_REPO}/${APP_NAME}:${env.BUILD_NUMBER} --build-arg BUILD_NUMBER=${env.BUILD_NUMBER} ."
+                    // Load environment variables from .env file and pass to Docker build
+                    sh '''
+                        set -a
+                        source .env
+                        set +a
+                        
+                        docker build -f Dockerfile -t ${DOCKER_HUB_REPO}/${APP_NAME}:${BUILD_NUMBER} \
+                            --build-arg BUILD_NUMBER=${BUILD_NUMBER} \
+                            --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
+                            --build-arg NEXT_PUBLIC_WS_URL="$NEXT_PUBLIC_WS_URL" \
+                            --build-arg NEXT_PUBLIC_SOCKET_URL="$NEXT_PUBLIC_SOCKET_URL" \
+                            --build-arg NODE_ENV="production" \
+                            .
+                    '''
                     sh "docker tag ${DOCKER_HUB_REPO}/${APP_NAME}:${env.BUILD_NUMBER} ${DOCKER_HUB_REPO}/${APP_NAME}:latest"
                 }
             }
