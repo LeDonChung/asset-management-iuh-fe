@@ -30,6 +30,13 @@ ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 ENV NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL}
 ENV NODE_ENV=${NODE_ENV}
 
+# Debug - print environment variables during build
+RUN echo "=== Build-time environment variables ===" && \
+    echo "NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}" && \
+    echo "NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}" && \
+    echo "NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}" && \
+    echo "NODE_ENV: ${NODE_ENV}"
+
 # Build the Next.js application
 RUN pnpm run build
 
