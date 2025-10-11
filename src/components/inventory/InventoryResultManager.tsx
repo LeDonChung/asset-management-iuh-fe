@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@/lib/store";
 import {
@@ -38,6 +39,7 @@ interface ViewModalData {
   title: string;
   note?: string;
   imageUrls?: string[];
+  fileUrls?: Array<{id: string; url: string}>;
 }
 
 export const InventoryResultManager = () => {
@@ -114,7 +116,8 @@ export const InventoryResultManager = () => {
     isOpen: false,
     title: '',
     note: '',
-    imageUrls: []
+    imageUrls: [],
+    fileUrls: []
   });
 
   const [sessionUnits, setSessionUnits] = useState<InventorySessionUnit[]>(
@@ -128,12 +131,13 @@ export const InventoryResultManager = () => {
   );
 
   // Open modal to view note and images
-  const openViewModal = (title: string, note?: string, imageUrls?: string[]) => {
+  const openViewModal = (title: string, note?: string, fileUrls?: Array<{id: string; url: string}>) => {
     setViewModal({
       isOpen: true,
       title,
       note,
-      imageUrls
+      imageUrls: fileUrls?.map(file => file.url) || [],
+      fileUrls: fileUrls || []
     });
   };
 
@@ -143,7 +147,8 @@ export const InventoryResultManager = () => {
       isOpen: false,
       title: '',
       note: '',
-      imageUrls: []
+      imageUrls: [],
+      fileUrls: []
     });
   };
 
@@ -292,7 +297,7 @@ export const InventoryResultManager = () => {
       title: "Thao tác",
       width: "100px",
       render: (_, result) => {
-        const hasNoteOrImages = result.note || (result.imageUrls && result.imageUrls.length > 0);
+        const hasNoteOrImages = result.note || (result.fileUrls && result.fileUrls.length > 0);
         
         if (!hasNoteOrImages) {
           return <span className="text-gray-400 text-sm">-</span>;
@@ -305,7 +310,7 @@ export const InventoryResultManager = () => {
             onClick={() => openViewModal(
               result.asset?.name || 'Tài sản', 
               result.note, 
-              result.imageUrls
+              result.fileUrls
             )}
             className="text-blue-600 hover:text-blue-700"
           >
@@ -635,31 +640,39 @@ export const InventoryResultManager = () => {
       </div>
 
       {/* Modal hiển thị ghi chú và hình ảnh */}
-      {viewModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      {viewModal.isOpen && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Chi tiết: {viewModal.title}
-              </h3>
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">Chi tiết tài sản</h2>
+                  <p className="text-sm text-gray-500">{viewModal.title}</p>
+                </div>
+              </div>
               <button
                 onClick={closeViewModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5" />
               </button>
             </div>
             
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)] space-y-6">
               {/* Ghi chú */}
               {viewModal.note && (
-                <div className="mb-6">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <FileText className="h-4 w-4 mr-2" />
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                    <FileText className="h-4 w-4 mr-2 text-blue-500" />
                     Ghi chú
                   </h4>
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                       {viewModal.note}
                     </p>
                   </div>
@@ -670,22 +683,22 @@ export const InventoryResultManager = () => {
               {viewModal.imageUrls && viewModal.imageUrls.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                    <Camera className="h-4 w-4 mr-2" />
+                    <Camera className="h-4 w-4 mr-2 text-green-500" />
                     Hình ảnh ({viewModal.imageUrls.length})
                   </h4>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {viewModal.imageUrls.map((url, index) => (
-                      <div key={index} className="relative">
+                      <div key={index} className="relative group">
                         <img
                           src={url}
                           alt={`Hình ảnh ${index + 1}`}
-                          className="w-full h-40 object-cover rounded-lg border border-gray-200"
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200 transition-transform duration-200 group-hover:scale-105"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE2MCIgdmlld0JveD0iMCAwIDIwMCAxNjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTYwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCA2MEw5MCA1MEwxMTAgNzBMMTIwIDYwTDE0MCA4MEwxNDAgMTIwSDYwVjgwTDgwIDYwWiIgZmlsbD0iI0Q1REFERiIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjgwIiByPSI1IiBmaWxsPSIjOUNBM0FGIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTQwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM2QjczODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPktow7RuZyB0YWkgxJHGsOG7o2MgaMOsbmggYW5oPC90ZXh0Pgo8L3N2Zz4K';
+                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDIwMCAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTkyIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCA3Mkw5MCA2MkwxMTAgODJMMTIwIDcyTDE0MCA5MkwxNDAgMTMySDYwVjkyTDgwIDcyWiIgZmlsbD0iI0Q1REFERiIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjkyIiByPSI2IiBmaWxsPSIjOUNBM0FGIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM2QjczODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPktow7RuZyB0YWkgxJHGsOG7o2MgaMOsbmggYW5oPC90ZXh0Pgo8L3N2Zz4K';
                           }}
                         />
-                        <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                        <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md backdrop-blur-sm">
                           {index + 1}/{viewModal.imageUrls?.length || 0}
                         </div>
                       </div>
@@ -696,25 +709,29 @@ export const InventoryResultManager = () => {
 
               {/* Trường hợp không có ghi chú và hình ảnh */}
               {!viewModal.note && (!viewModal.imageUrls || viewModal.imageUrls.length === 0) && (
-                <div className="text-center py-8">
-                  <div className="text-gray-400 mb-2">
-                    <FileText className="h-12 w-12 mx-auto" />
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="h-8 w-8 text-gray-400" />
                   </div>
-                  <p className="text-gray-500">Không có ghi chú hoặc hình ảnh</p>
+                  <h3 className="text-lg font-medium text-gray-700 mb-2">Không có thông tin chi tiết</h3>
+                  <p className="text-gray-500">Không có ghi chú hoặc hình ảnh cho tài sản này</p>
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end p-6 border-t border-gray-200">
+            {/* Footer */}
+            <div className="flex justify-end p-6 border-t border-gray-200 bg-gray-50">
               <Button
                 onClick={closeViewModal}
-                className="bg-gray-600 hover:bg-gray-700 text-white"
+                variant="outline"
+                className="min-w-[100px]"
               >
                 Đóng
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
