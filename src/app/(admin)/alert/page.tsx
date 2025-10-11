@@ -75,6 +75,20 @@ const UrgentAlertModal: React.FC<UrgentAlertModalProps> = ({
                         <AlertTriangle className="h-12 w-12 text-red-500" />
                     </div>
 
+                    {/* Alert Image if available */}
+                    {alert.image && (
+                        <div className="mb-4">
+                            <img 
+                                src={alert.image} 
+                                alt="Hình ảnh cảnh báo"
+                                className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                }}
+                            />
+                        </div>
+                    )}
+
                     <div className="border-t border-b border-gray-200 py-4 space-y-3">
                         <div className="flex items-center">
                             <Package className="h-4 w-4 text-gray-400 mr-2" />
@@ -181,6 +195,21 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
         >
             <ModalBody>
                 <div className="space-y-6">
+                    {/* Alert Image if available */}
+                    {alert.image && (
+                        <div className="border border-gray-200 rounded-lg p-4">
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Hình ảnh cảnh báo:</label>
+                            <img 
+                                src={alert.image} 
+                                alt="Hình ảnh cảnh báo"
+                                className="w-full max-w-md h-64 object-cover rounded-lg border border-gray-200 mx-auto"
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                }}
+                            />
+                        </div>
+                    )}
+
                     {/* Alert Details */}
                     <div className="border border-gray-200 rounded-lg p-4">
                         <div className="grid grid-cols-2 gap-4">
@@ -510,6 +539,27 @@ export default function AlertPage() {
             ),
         },
         {
+            key: "image",
+            title: "Hình ảnh",
+            width: "100px",
+            render: (_, alert) => (
+                alert.image ? (
+                    <img 
+                        src={alert.image} 
+                        alt="Ảnh cảnh báo"
+                        className="w-16 h-12 object-cover rounded border border-gray-200"
+                        onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                        }}
+                    />
+                ) : (
+                    <div className="w-16 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
+                        <span className="text-xs text-gray-400">Không có</span>
+                    </div>
+                )
+            ),
+        },
+        {
             key: "location",
             title: "Vị trí",
             sortable: true,
@@ -604,6 +654,20 @@ export default function AlertPage() {
                                     onClick={() => handleViewDetail(alert.id)}
                                 >
                                     <div className="space-y-3">
+                                        {/* Alert Image if available */}
+                                        {alert.image && (
+                                            <div className="mb-3">
+                                                <img 
+                                                    src={alert.image} 
+                                                    alt="Hình ảnh cảnh báo"
+                                                    className="w-full h-24 object-cover rounded-md border border-gray-200"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center space-x-2">
                                                 <Clock className="h-4 w-4 text-gray-500" />
