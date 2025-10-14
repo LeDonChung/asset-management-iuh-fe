@@ -10,7 +10,8 @@ import {
     Plus,
     Edit,
     Trash2,
-    Shield
+    Shield,
+    MoreHorizontal
 } from "lucide-react";
 import { Role, Permission, ManagerPermission } from "@/types/asset";
 import RoleFormModal from "@/components/role/RoleFormModal";
@@ -20,7 +21,14 @@ import { useRouter } from "next/navigation";
 import { createRole, CreateRoleRequest, deleteRole, findAllRoles, updateRole, UpdateRoleRequest } from "@/lib/store/slices/roleSlice";
 import { findAllPermissions } from "@/lib/store/slices/permissionSlice";
 import toast from "react-hot-toast";
-
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 export default function RolePage() {
     const router = useRouter();
     const dispatch = useAppDispatch();
@@ -41,12 +49,6 @@ export default function RolePage() {
         };
         fetchData();
     }, [dispatch]);
-
-    // Filter roles based on search term
-    const filteredRoles = allRoles.filter(role =>
-        role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        role.code.toLowerCase().includes(searchTerm.toLowerCase())
-    );
 
     const handleCreateRole = () => {
         setSelectedRole(null);
@@ -114,7 +116,6 @@ export default function RolePage() {
             title: "Tên role",
             render: (_, record) => (
                 <div className="flex items-center">
-                    <Shield className="h-5 w-5 text-gray-400 mr-3" />
                     <div>
                         <div className="text-sm font-medium text-gray-900">{record.name}</div>
                     </div>
@@ -125,29 +126,39 @@ export default function RolePage() {
             key: "actions",
             title: "Thao tác",
             render: (_, record) => (
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditRole(record);
-                        }}
-                        title="Chỉnh sửa"
-                    >
-                        <Edit className="h-4 w-4 text-blue-600" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteRole(record.id);
-                        }}
-                        title="Xóa"
-                    >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
+                <div className="flex justify-start">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="default"
+                                size="sm"
+                                className="h-8 px-3 text-sm"
+                            >
+                                Hành động
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditRole(record);
+                                }}
+                                className="flex items-center gap-2 cursor-pointer"
+                            >
+                                <span>Chỉnh sửa</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteRole(record.id);
+                                }}
+                                className="flex items-center gap-2 cursor-pointer"
+                            >
+                                <span>Xóa</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             ),
             className: "text-right",
@@ -177,31 +188,10 @@ export default function RolePage() {
                 </Button>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-                <div className="flex flex-col lg:flex-row gap-4">
-                    {/* Search */}
-                    <div className="flex-1 relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <Input
-                            placeholder="Tìm kiếm theo tên role..."
-                            className="pl-10"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Results count */}
-            <div className="text-sm text-gray-600 mb-4">
-                Hiển thị {filteredRoles.length} trên tổng số {allRoles.length} role
-            </div>
-
             {/* Roles Table */}
             <Table
                 columns={columns}
-                data={filteredRoles}
+                data={allRoles}
                 emptyText="Không tìm thấy role nào"
                 emptyIcon={<Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
             />
