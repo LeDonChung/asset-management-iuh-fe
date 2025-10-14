@@ -442,7 +442,7 @@ export function Table<T = any>({
       )}
       <div className="overflow-x-auto">
         <table ref={tableRef} className="w-full table-fixed">
-          <thead className="bg-gray-50">
+          <thead className="border-b border-gray-200">
             <tr>
               {rowSelection && (
                 <th className="px-4 py-3 text-left w-16 relative">

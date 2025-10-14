@@ -60,24 +60,6 @@ export default function UsersPage() {
         dispatch(getAllUser());
     }, [dispatch]);
 
-    // Filter users based on search and filters
-    const filteredUsers = lstUser.filter(user => {
-        const matchesSearch =
-            user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.email.toLowerCase().includes(searchTerm.toLowerCase());
-
-        const matchesUnit = !unitFilter || user.unitId === unitFilter;
-        const matchesStatus = !statusFilter || user.status === statusFilter;
-
-        return matchesSearch && matchesUnit && matchesStatus;
-    });
-
-    const handleViewUser = (user: User) => {
-        setSelectedUser(user);
-        setIsDetailModalOpen(true);
-    };
-
     const handleDeleteUser = (userId: string) => {
         if (confirm("Bạn có chắc chắn muốn xóa người dùng này?")) {
             dispatch(deletedUser(userId)).unwrap()
@@ -128,17 +110,10 @@ export default function UsersPage() {
             key: "fullname",
             title: "Họ và tên",
             render: (_, record) => (
+                <>
                 <div className="text-sm text-gray-900">{record.fullName}</div>
-            ),
-        },
-        {
-            key: "contact",
-            title: "Liên hệ",
-            render: (_, record) => (
-                <div className="text-sm text-gray-900">
-                    <div className="mb-1">{record.email}</div>
-                    <div className="text-gray-500">{record.phoneNumber}</div>
-                </div>
+                <div className="text-sm text-gray-500">{record.email}</div>
+                </>
             ),
         },
         {
@@ -284,15 +259,10 @@ export default function UsersPage() {
                 </div>
             </div>
 
-            {/* Results count */}
-            <div className="text-sm text-gray-600 mb-4">
-                Hiển thị {filteredUsers.length} trên tổng số {lstUser.length} người dùng
-            </div>
-
             {/* Users Table */}
             <Table<User>
                 columns={columns}
-                data={filteredUsers}
+                data={lstUser}
                 emptyText="Không tìm thấy người dùng"
                 emptyIcon={<Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
             />
