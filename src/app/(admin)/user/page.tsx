@@ -25,7 +25,19 @@ import UserDetailModal from "@/components/user/UserDetailModal";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
-import { deletedUser, getAllUser, updateUserStatus } from "@/lib/store/slices/userSlice";
+import { 
+    deletedUser, 
+    getAllUser, 
+    updateUserStatus, 
+    filterUserSessions,
+    updateFilter,
+    resetFilter,
+    updatePagination,
+    UserFilterRequest,
+    FilterOperator,
+    FieldType,
+    ConditionLogic
+} from "@/lib/store/slices/userSlice";
 import { getAllUnits } from "@/lib/store/slices/unitSlice";
 import toast from "react-hot-toast";
 
@@ -46,7 +58,13 @@ const statusColors = {
 export default function UsersPage() {
     const router = useRouter();
     const dispatch = useAppDispatch();
-    const { lstUser, filteredSessions } = useAppSelector((state: RootState) => state.user);
+    const { 
+        lstUser, 
+        filteredSessions, 
+        filterLoading, 
+        filterError, 
+        currentFilter 
+    } = useAppSelector((state: RootState) => state.user);
     const { allUnits } = useAppSelector((state: RootState) => state.unit);
 
     const [searchTerm, setSearchTerm] = useState("");
@@ -54,29 +72,74 @@ export default function UsersPage() {
     const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [itemsPerPage, setItemsPerPage] = useState<number>(10);
 
     useEffect(() => {
         dispatch(getAllUnits());
         dispatch(getAllUser());
-    }, [dispatch]);
 
-    // Filter users based on search and filters
-    const filteredUsers = lstUser.filter(user => {
-        const matchesSearch =
-            user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.email.toLowerCase().includes(searchTerm.toLowerCase());
+        const conditions: any[] = [];
 
-        const matchesUnit = !unitFilter || user.unitId === unitFilter;
-        const matchesStatus = !statusFilter || user.status === statusFilter;
+        // Add search condition
+        if (searchTerm) {
+            conditions.push({
+                field: "fullName",
+                fieldType: FieldType.TEXT,
+                operator: FilterOperator.CONTAINS,
+                value: [searchTerm]
+            });
+        }
 
-        return matchesSearch && matchesUnit && matchesStatus;
-    });
+        // Add unit filter condition
+        if (unitFilter) {
+            conditions.push({
+                field: "unitId",
+                fieldType: FieldType.SELECT,
+                operator: FilterOperator.EQUALS,
+                value: [unitFilter]
+            });
+        }
 
-    const handleViewUser = (user: User) => {
-        setSelectedUser(user);
-        setIsDetailModalOpen(true);
-    };
+        // Add status filter condition
+        if (statusFilter) {
+            conditions.push({
+                field: "status",
+                fieldType: FieldType.SELECT,
+                operator: FilterOperator.EQUALS,
+                value: [statusFilter]
+            });
+        }
+
+        const filterRequest: UserFilterRequest = {
+            conditionLogic: ConditionLogic.AND,
+            conditions,
+            pagination: {
+                currentPage,
+                itemsPerPage,
+                totalItems: 0,
+                totalPages: 0,
+            },
+            sorting: [
+                {
+                    field: "createdAt",
+                    direction: "desc",
+                    priority: 1
+                }
+            ],
+            search: searchTerm || null,
+        };
+
+        dispatch(updateFilter(filterRequest));
+        dispatch(filterUserSessions(filterRequest));
+    }, [searchTerm, unitFilter, statusFilter, currentPage, itemsPerPage, dispatch]);
+
+    // Get users data from filtered sessions or fallback to original list
+    const usersData = filteredSessions?.data || lstUser;
+    const totalUsers = filteredSessions?.pagination?.total || lstUser.length;
+    console.log(usersData);
+    console.log(totalUsers);
+    
 
     const handleDeleteUser = (userId: string) => {
         if (confirm("Bạn có chắc chắn muốn xóa người dùng này?")) {
@@ -156,12 +219,12 @@ export default function UsersPage() {
             title: "Vai trò",
             render: (_, record) => (
                 <div className="text-sm text-gray-900">
-                    {record.roles?.map(role => (
+                    {record.roles ? record.roles.map(role => (
                         <>
                             {role.name}
                             <br />
                         </>
-                    )) || <span className="text-gray-500 text-sm">Chưa có vai trò</span>}
+                    )) : <span className="text-gray-500 text-sm">Chưa có vai trò</span>}
                 </div>
             ),
             sortable: true,
@@ -286,15 +349,31 @@ export default function UsersPage() {
 
             {/* Results count */}
             <div className="text-sm text-gray-600 mb-4">
-                Hiển thị {filteredUsers.length} trên tổng số {lstUser.length} người dùng
+                Hiển thị {usersData.length} trên tổng số {totalUsers} người dùng
             </div>
 
             {/* Users Table */}
             <Table<User>
                 columns={columns}
-                data={filteredUsers}
+                data={usersData}
                 emptyText="Không tìm thấy người dùng"
                 emptyIcon={<Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
+                pagination={{
+                    current: currentPage,
+                    pageSize: itemsPerPage,
+                    total: totalUsers,
+                    onChange: (page, pageSize) => {
+                        setCurrentPage(page);
+                        if (pageSize !== itemsPerPage) {
+                            setItemsPerPage(pageSize);
+                            setCurrentPage(1);
+                        }
+                    },
+                    showSizeChanger: true,
+                    pageSizeOptions: [5, 10, 20, 50]
+                }}
+                title="Danh sách người dùng"
+                loading={filterLoading}
             />
             <UserDetailModal
                 isOpen={isDetailModalOpen}
