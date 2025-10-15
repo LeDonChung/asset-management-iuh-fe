@@ -2,68 +2,29 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Save, Building, Phone, Mail, User } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { Unit, UnitType, UnitStatus, User as UserType } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import {
+  getUnitById,
+  updateUnit,
+  UpdateUnitRequest,
+  getUnitCampus,
+} from "@/lib/store/slices/unitSlice";
+import { getUsersWithoutUnit } from "@/lib/store/slices/userSlice";
+import toast from "react-hot-toast";
 
-// Mock data
-const mockUnit: Unit = {
-  id: "unit1",
-  name: "Phòng Kế hoạch Đầu tư",
-  phone: "0234567890",
-  email: "kehoach@iuh.edu.vn",
-  type: UnitType.PHONG_KE_HOACH_DAU_TU,
-  representativeId: "user1",
-  status: UnitStatus.ACTIVE,
-  createdBy: "admin",
-  createdAt: "2024-01-10T08:00:00Z",
-  updatedAt: "2024-01-10T08:00:00Z"
-};
-
-const mockUsers: UserType[] = [
-  {
-    id: "user1",
-    username: "nguyen.van.a",
-    email: "nguyen.van.a@iuh.edu.vn",
-    fullName: "Nguyễn Văn A",
-    phoneNumber: "0901234567",
-    birthDate: "1980-01-15",
-    status: "ACTIVE" as any,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "user2", 
-    username: "tran.thi.b",
-    email: "tran.thi.b@iuh.edu.vn",
-    fullName: "Trần Thị B",
-    phoneNumber: "0901234568",
-    birthDate: "1985-03-20",
-    status: "ACTIVE" as any,
-    createdAt: "2024-01-01T00:00:00Z", 
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "user3",
-    username: "le.van.c",
-    email: "le.van.c@iuh.edu.vn", 
-    fullName: "Lê Văn C",
-    phoneNumber: "0901234569",
-    birthDate: "1978-07-10",
-    status: "ACTIVE" as any,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  }
-];
 
 interface UnitFormData {
   name: string;
   phone: string;
   email: string;
-  type: UnitType;
+  type: UnitType | "";
   representativeId: string;
+  parentUnitId: string;
   status: UnitStatus;
 }
 
@@ -73,68 +34,138 @@ interface FormErrors {
   email?: string;
   type?: string;
   representativeId?: string;
+  parentUnitId?: string;
 }
 
 export default function EditUnitPage() {
   const params = useParams();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const unitId = params.id as string;
 
+  const { currentUnit, updateUnitLoading, campuses, loading } = useAppSelector(
+    (state) => state.unit
+  );
+
+  const { usersWithoutUnit, usersWithoutUnitLoading } = useAppSelector(
+    (state) => state.user
+  );
+
   const [formData, setFormData] = useState<UnitFormData>({
-    name: mockUnit.name,
-    phone: mockUnit.phone || '',
-    email: mockUnit.email || '',
-    type: mockUnit.type,
-    representativeId: mockUnit.representativeId,
-    status: mockUnit.status
+    name: "",
+    phone: "",
+    email: "",
+    type: "",
+    representativeId: "",
+    parentUnitId: "",
+    status: UnitStatus.ACTIVE,
   });
   
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    dispatch(getUnitById(unitId));
+    dispatch(getUsersWithoutUnit());
+    dispatch(getUnitCampus());
+  }, [dispatch, unitId]);
+
+  useEffect(() => {
+    if (currentUnit) {
+      setFormData({
+        name: currentUnit.name,
+        phone: currentUnit.phone || "",
+        email: currentUnit.email || "",
+        type: currentUnit.type,
+        representativeId: currentUnit.representativeId || "",
+        parentUnitId: currentUnit.parentUnitId || "",
+        status: currentUnit.status,
+      });
+    }
+  }, [currentUnit]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     const newErrors: FormErrors = {};
     if (!formData.name.trim()) newErrors.name = "Tên đơn vị là bắt buộc";
-    if (!formData.phone.trim()) newErrors.phone = "Số điện thoại là bắt buộc";
-    if (!formData.email.trim()) newErrors.email = "Email là bắt buộc";
-    if (!formData.representativeId) newErrors.representativeId = "Người đại diện là bắt buộc";
+    if (!formData.type) newErrors.type = "Loại đơn vị là bắt buộc";
+    if (!formData.representativeId)
+      newErrors.representativeId = "Người đại diện là bắt buộc";
 
-    // Email validation
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Email không đúng định dạng";
-    }
-
-    // Phone validation
-    if (formData.phone && !/^[0-9]{10,11}$/.test(formData.phone)) {
-      newErrors.phone = "Số điện thoại phải có 10-11 số";
+    // Chỉ require parentUnitId nếu type không phải CAMPUS
+    if (
+      formData.type &&
+      formData.type !== UnitType.CAMPUS &&
+      !formData.parentUnitId
+    ) {
+      newErrors.parentUnitId = "Đơn vị cha là bắt buộc";
     }
 
     setErrors(newErrors);
-    
+
     if (Object.keys(newErrors).length === 0) {
-      setIsSubmitting(true);
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log("Updating unit:", formData);
-        router.push("/admin/unit");
-      } catch (error) {
-        console.error("Error updating unit:", error);
-      } finally {
-        setIsSubmitting(false);
+        const unitData: UpdateUnitRequest = {
+          name: formData.name,
+          phone: formData.phone,
+          email: formData.email,
+          type: formData.type as UnitType,
+          representativeId: formData.representativeId,
+          status: formData.status,
+        };
+
+        // Chỉ thêm parentUnitId nếu type không phải CAMPUS
+        if (formData.type !== UnitType.CAMPUS && formData.parentUnitId) {
+          unitData.parentUnitId = formData.parentUnitId;
+        }
+
+        const result = await dispatch(updateUnit({ id: unitId, unitData })).unwrap();
+        if (result) {
+          toast.success("Cập nhật đơn vị thành công!");
+          router.push("/unit");
+        }
+      } catch (error: any) {
+        toast.error(error.message || "Có lỗi xảy ra khi cập nhật đơn vị!");
       }
     }
   };
 
-  const handleChange = (field: keyof UnitFormData, value: string | UnitType | UnitStatus) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleChange = (field: keyof UnitFormData, value: string) => {
+    setFormData((prev) => {
+      const newData = { ...prev, [field]: value };
+
+      // Nếu chọn type là CAMPUS, clear parentUnitId
+      if (field === "type" && value === UnitType.CAMPUS) {
+        newData.parentUnitId = "";
+      }
+
+      return newData;
+    });
+
     if (field in errors) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
+
+  if (loading && !currentUnit) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Đang tải thông tin đơn vị...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUnit) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-600">Không tìm thấy thông tin đơn vị</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -147,7 +178,7 @@ export default function EditUnitPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Cập nhật đơn vị</h1>
-          <p className="text-gray-600">Chỉnh sửa thông tin đơn vị: {mockUnit.name}</p>
+          <p className="text-gray-600">Chỉnh sửa thông tin đơn vị: {currentUnit?.name}</p>
         </div>
       </div>
 
@@ -157,11 +188,6 @@ export default function EditUnitPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Information */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                <Building className="h-5 w-5" />
-                Thông tin cơ bản
-              </h3>
-              
               <div className="grid grid-cols-1 gap-4">
                 {/* Unit Name */}
                 <div>
@@ -170,10 +196,10 @@ export default function EditUnitPage() {
                   </label>
                   <Input
                     type="text"
-                    className={errors.name ? 'border-red-500' : ''}
+                    className={errors.name ? "border-red-500" : ""}
                     placeholder="Nhập tên đơn vị"
                     value={formData.name}
-                    onChange={(e) => handleChange('name', e.target.value)}
+                    onChange={(e) => handleChange("name", e.target.value)}
                   />
                   {errors.name && (
                     <p className="text-red-500 text-sm mt-1">{errors.name}</p>
@@ -183,25 +209,99 @@ export default function EditUnitPage() {
                 {/* Unit Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Loại đơn vị
+                    Loại đơn vị *
                   </label>
-                  <div className="relative">
+                  <div
+                    className={`relative ${
+                      errors.type ? "border-red-500" : "border-gray-300"
+                    }`}
+                  >
                     <select
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       value={formData.type}
-                      onChange={(e) => handleChange('type', e.target.value as UnitType)}
+                      onChange={(e) => handleChange("type", e.target.value)}
                     >
-                      <option value={UnitType.PHONG_KE_HOACH_DAU_TU}>Phòng kế hoạch đầu tư</option>
-                      <option value={UnitType.PHONG_QUAN_TRI}>Phòng quản trị</option>
-                      <option value={UnitType.DON_VI_SU_DUNG}>Đơn vị sử dụng</option>
+                      <option value="">Chọn loại đơn vị</option>
+                      <option value={UnitType.ADMIN_DEPT}>
+                        Phòng quản trị
+                      </option>
+                      <option value={UnitType.USER_DEPT}>Đơn vị sử dụng</option>
+                      <option value={UnitType.CAMPUS}>Cơ sở</option>
                     </select>
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
-                      <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <svg
+                        className="h-4 w-4 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
                       </svg>
                     </div>
                   </div>
+                  {errors.type && (
+                    <p className="text-red-500 text-sm mt-1">{errors.type}</p>
+                  )}
                 </div>
+
+                {/* Parent Unit - chỉ hiện khi type không phải CAMPUS */}
+                {formData.type && formData.type !== UnitType.CAMPUS && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Đơn vị cha *
+                    </label>
+                    <div
+                      className={`relative ${
+                        errors.parentUnitId
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      <select
+                        className="w-full px-3 py-2 border rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={formData.parentUnitId}
+                        onChange={(e) =>
+                          handleChange("parentUnitId", e.target.value)
+                        }
+                        disabled={loading}
+                      >
+                        <option value="">
+                          {loading ? "Đang tải..." : "Chọn đơn vị cha"}
+                        </option>
+                        {campuses.map((campus) => (
+                          <option key={campus.id} value={campus.id}>
+                            {campus.name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
+                        <svg
+                          className="h-4 w-4 text-gray-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    {errors.parentUnitId && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {errors.parentUnitId}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Status */}
                 <div>
@@ -212,14 +312,28 @@ export default function EditUnitPage() {
                     <select
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       value={formData.status}
-                      onChange={(e) => handleChange('status', e.target.value as UnitStatus)}
+                      onChange={(e) =>
+                        handleChange("status", e.target.value as UnitStatus)
+                      }
                     >
                       <option value={UnitStatus.ACTIVE}>Đang hoạt động</option>
-                      <option value={UnitStatus.INACTIVE}>Ngừng hoạt động</option>
+                      <option value={UnitStatus.INACTIVE}>
+                        Ngừng hoạt động
+                      </option>
                     </select>
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
-                      <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <svg
+                        className="h-4 w-4 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
                       </svg>
                     </div>
                   </div>
@@ -229,80 +343,91 @@ export default function EditUnitPage() {
 
             {/* Contact Information */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                <Phone className="h-5 w-5" />
-                Thông tin liên hệ
-              </h3>
-              
               <div className="grid grid-cols-1 gap-4">
                 {/* Phone */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Số điện thoại *
+                    Số điện thoại
                   </label>
                   <Input
                     type="tel"
-                    className={errors.phone ? 'border-red-500' : ''}
+                    className=""
                     placeholder="Nhập số điện thoại"
+                    required={false}
                     value={formData.phone}
-                    onChange={(e) => handleChange('phone', e.target.value)}
+                    onChange={(e) => handleChange("phone", e.target.value)}
                   />
-                  {errors.phone && (
-                    <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
-                  )}
                 </div>
 
                 {/* Email */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
+                    Email
                   </label>
                   <Input
                     type="email"
-                    className={errors.email ? 'border-red-500' : ''}
+                    required={false}
+                    className=""
                     placeholder="Nhập email"
                     value={formData.email}
-                    onChange={(e) => handleChange('email', e.target.value)}
+                    onChange={(e) => handleChange("email", e.target.value)}
                   />
-                  {errors.email && (
-                    <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-                  )}
                 </div>
               </div>
             </div>
 
             {/* Representative */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Người đại diện
-              </h3>
-              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Chọn người đại diện *
                 </label>
-                <div className={`relative ${errors.representativeId ? 'border-red-500' : 'border-gray-300'}`}>
+                <div
+                  className={`relative ${
+                    errors.representativeId
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
+                >
                   <select
                     className="w-full px-3 py-2 border rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={formData.representativeId}
-                    onChange={(e) => handleChange('representativeId', e.target.value)}
+                    onChange={(e) =>
+                      handleChange("representativeId", e.target.value)
+                    }
+                    disabled={usersWithoutUnitLoading}
                   >
-                    <option value="">Chọn người đại diện</option>
-                    {mockUsers.map(user => (
+                    <option value="">
+                      {usersWithoutUnitLoading
+                        ? "Đang tải..."
+                        : "Chọn người đại diện"}
+                    </option>
+                    {usersWithoutUnit.map((user) => (
                       <option key={user.id} value={user.id}>
                         {user.fullName} - {user.email}
                       </option>
                     ))}
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
-                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    <svg
+                      className="h-4 w-4 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
                     </svg>
                   </div>
                 </div>
                 {errors.representativeId && (
-                  <p className="text-red-500 text-sm mt-1">{errors.representativeId}</p>
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.representativeId}
+                  </p>
                 )}
               </div>
             </div>
@@ -312,41 +437,41 @@ export default function EditUnitPage() {
               <h3 className="text-sm font-medium text-gray-700 mb-2">Thông tin hệ thống</h3>
               <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                 <div>
-                  <span className="font-medium">Mã đơn vị:</span> {mockUnit.id}
+                  <span className="font-medium">Mã đơn vị:</span> {currentUnit?.id}
                 </div>
                 <div>
                   <span className="font-medium">Tạo lúc:</span>{" "}
-                  {new Date(mockUnit.createdAt).toLocaleString('vi-VN')}
+                  {currentUnit?.createdAt && new Date(currentUnit.createdAt).toLocaleString('vi-VN')}
                 </div>
                 <div>
-                  <span className="font-medium">Tạo bởi:</span> {mockUnit.createdBy}
+                  <span className="font-medium">Tạo bởi:</span> {currentUnit?.createdBy}
                 </div>
                 <div>
                   <span className="font-medium">Cập nhật lần cuối:</span>{" "}
-                  {new Date(mockUnit.updatedAt).toLocaleString('vi-VN')}
+                  {currentUnit?.updatedAt && new Date(currentUnit.updatedAt).toLocaleString('vi-VN')}
                 </div>
               </div>
             </div>
 
             {/* Action Buttons */}
             <div className="flex gap-4 pt-6 border-t">
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {isSubmitting ? "Đang cập nhật..." : "Cập nhật đơn vị"}
-              </Button>
-              <Link href="/admin/unit" className="flex-1">
-                <Button 
-                  type="button" 
+              <Link href="/unit" className="flex-1">
+                <Button
+                  type="button"
                   variant="outline"
                   className="w-full bg-gray-100 text-gray-700 hover:bg-gray-200"
                 >
                   Hủy bỏ
                 </Button>
               </Link>
+              <Button
+                type="submit"
+                disabled={updateUnitLoading}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {updateUnitLoading ? "Đang cập nhật..." : "Cập nhật đơn vị"}
+              </Button>
             </div>
           </form>
         </div>
