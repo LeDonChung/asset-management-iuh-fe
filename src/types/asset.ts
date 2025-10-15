@@ -146,12 +146,15 @@ export interface Unit {
   email?: string; // Email
   type: UnitType;
   representativeId: string; // Người đại diện
+  parentUnitId?: string; // ID của đơn vị cha (null nếu là cơ sở root)
   status: UnitStatus;
   createdBy: string;
   createdAt: string; // date
   updatedAt: string; // date
   deletedAt?: string; // date
   representative?: User;
+  parentUnit?: Unit; // Thông tin đơn vị cha
+  childUnits?: Unit[]; // Đơn vị con
 }
 
 // Room Management

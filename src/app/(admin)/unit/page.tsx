@@ -26,6 +26,13 @@ import {
   filterUnit,
   UnitFilterRequest,
 } from "@/lib/store/slices/unitSlice";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Unit type options for filter dropdown
 const unitTypeOptions = [
@@ -129,7 +136,10 @@ export default function UnitsPage() {
       title: "Loại đơn vị",
       render: (_, record) => (
         <Badge variant="outline" className="bg-blue-100 text-blue-800">
-          <span>{record.type}</span>
+          <span>
+            {unitTypeOptions.find((option) => option.value === record.type)
+              ?.label || record.type}
+          </span>
         </Badge>
       ),
       sortable: true,
@@ -145,7 +155,10 @@ export default function UnitsPage() {
               : "bg-red-100 text-red-800"
           }
         >
-          <span>{record.status}</span>
+          <span>
+            {unitStatusOptions.find((option) => option.value === record.status)
+              ?.label || record.status}
+          </span>
         </Badge>
       ),
       sortable: true,
@@ -154,31 +167,44 @@ export default function UnitsPage() {
       key: "actions",
       title: "Thao tác",
       render: (_, record) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleEditUnit(record)}
-            title="Chỉnh sửa"
-          >
-            <Edit className="h-4 w-4 text-blue-600" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleViewRooms(record)}
-            title="Xem phòng"
-          >
-            <Eye className="h-4 w-4 text-gray-600" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleDeleteUnit(record)}
-            title="Xóa"
-          >
-            <Trash2 className="h-4 w-4 text-red-600" />
-          </Button>
+        <div className="flex justify-start">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
+                Hành động
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditUnit(record);
+                }}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <span>Chỉnh sửa</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleViewRooms(record);
+                }}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <span>Xem phòng</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteUnit(record);
+                }}
+                className="flex items-center gap-2 cursor-pointer text-red-600"
+              >
+                <span>Xóa</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
       className: "text-right",
@@ -190,7 +216,8 @@ export default function UnitsPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý Đơn vị</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Quản lý đơn vị</h1>
+          <p className="text-gray-600">Quản lý các đơn vị trong hệ thống</p>
         </div>
         <Link href="/unit/create">
           <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
