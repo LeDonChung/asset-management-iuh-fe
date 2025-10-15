@@ -1,78 +1,20 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Room, RoomStatus } from "@/types/asset";
-import { Building, Edit, Trash2, Plus, ArrowLeftRight } from "lucide-react";
+import { Building, Edit, Trash2, Plus, ArrowLeftRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
-
-// Mock data (có thể thay bằng API sau này)
-const mockRooms: Room[] = [
-  {
-    id: "room1",
-    name: "Phòng IT 09",
-    building: "B",
-    floor: "1",
-    roomNumber: "Phòng IT 09",
-    status: RoomStatus.ACTIVE,
-    unitId: "unit3",
-    createdBy: "admin",
-    createdAt: "2024-01-10T08:00:00Z",
-    updatedAt: "2024-01-10T08:00:00Z"
-  },
-  {
-    id: "room5",
-    name: "Phòng thí nghiệm 01",
-    building: "C",
-    floor: "1",
-    roomNumber: "Phòng thí nghiệm 01",
-    status: RoomStatus.ACTIVE,
-    unitId: "unit3",
-    createdBy: "admin",
-    createdAt: "2024-01-14T08:00:00Z",
-    updatedAt: "2024-01-14T08:00:00Z"
-  },
-  {
-    id: "room2",
-    name: "Phòng Kế toán 10",
-    building: "B",
-    floor: "1",
-    roomNumber: "Phòng Kế toán 10",
-    status: RoomStatus.ACTIVE,
-    unitId: "unit4",
-    createdBy: "admin",
-    createdAt: "2024-01-11T08:00:00Z",
-    updatedAt: "2024-01-11T08:00:00Z"
-  },
-  {
-    id: "room3",
-    name: "Phòng Nhân sự 05",
-    building: "B",
-    floor: "2",
-    roomNumber: "Phòng Nhân sự 05",
-    status: RoomStatus.ACTIVE,
-    unitId: "unit1",
-    createdBy: "admin",
-    createdAt: "2024-01-12T08:00:00Z",
-    updatedAt: "2024-01-12T08:00:00Z"
-  },
-  {
-    id: "room4",
-    name: "Phòng họp 301",
-    building: "A",
-    floor: "3",
-    roomNumber: "Phòng họp 301",
-    status: RoomStatus.INACTIVE,
-    unitId: "unit1",
-    createdBy: "admin",
-    createdAt: "2024-01-13T08:00:00Z",
-    updatedAt: "2024-01-13T08:00:00Z"
-  }
-];
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { filterRoomByUnitId, RoomFilterRequest } from "@/lib/store/slices/unitSlice";
+import toast from "react-hot-toast";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenuSeparator } from "@radix-ui/react-dropdown-menu";
 
 const statusLabels = {
   [RoomStatus.ACTIVE]: "Đang hoạt động",
@@ -84,11 +26,58 @@ const statusVariants = {
   [RoomStatus.INACTIVE]: "destructive"
 };
 
+// Room status options for filter dropdown
+const roomStatusOptions = [
+  { value: "", label: "Tất cả trạng thái" },
+  { value: RoomStatus.ACTIVE, label: "Đang hoạt động" },
+  { value: RoomStatus.INACTIVE, label: "Ngừng hoạt động" },
+];
+
 export default function RoomListPage() {
   const params = useParams();
   const unitId = params?.id as string;
-  const [rooms, setRooms] = useState(mockRooms);
-  const filteredRooms = rooms.filter(room => room.unitId === unitId);
+  const dispatch = useAppDispatch();
+  
+  // Local state for filters
+  const [searchTerm, setSearchTerm] = useState("");
+  const [buildingFilter, setBuildingFilter] = useState("");
+  const [floorFilter, setFloorFilter] = useState("");
+
+  // Redux state
+  const { currentRoomFilter, filteredRooms, roomsLoading } = useAppSelector(state => state.unit);
+
+  // Load rooms on component mount
+  useEffect(() => {
+    if (unitId) {
+      const loadData = () => {
+        try {
+          dispatch(filterRoomByUnitId({ 
+            unitId, 
+            filterRequest: currentRoomFilter 
+          }));
+        } catch (e: any) {
+          toast.error(e.message || "Có lỗi xảy ra khi tải dữ liệu phòng.");
+        }
+      };
+      loadData();
+    }
+  }, [unitId, dispatch]);
+
+  // Handle filter changes
+  useEffect(() => {
+    if (unitId) {
+      handlerRender({
+        ...currentRoomFilter,
+        search: searchTerm || undefined,
+        buildingFilter: buildingFilter || undefined,
+        floorFilter: floorFilter || undefined,
+      });
+    }
+  }, [searchTerm, buildingFilter, floorFilter, unitId]);
+
+  const handlerRender = (filterRequest: RoomFilterRequest) => {
+    dispatch(filterRoomByUnitId({ unitId, filterRequest }));
+  };
 
   const handleEditRoom = (room: Room) => {
     window.location.href = `/unit/${unitId}/room/${room.id}/edit`;
@@ -96,7 +85,9 @@ export default function RoomListPage() {
 
   const handleDeleteRoom = (room: Room) => {
     if (confirm(`Bạn có chắc chắn muốn xóa phòng "${room.name}"?`)) {
-      setRooms(prev => prev.filter(r => r.id !== room.id));
+      // TODO: Implement actual delete API call
+      console.log("Delete room:", room.id);
+      toast.success("Xóa phòng thành công!");
     }
   };
 
@@ -110,9 +101,10 @@ export default function RoomListPage() {
           <span className="font-medium text-gray-900">{record.name}</span>
         </div>
       ),
+      sortable: true,
     },
     {
-      key: 'location',
+      key: 'building',
       title: 'Vị trí',
       render: (_, record) => (
         <div className="text-sm">
@@ -120,6 +112,7 @@ export default function RoomListPage() {
           <div className="text-gray-500">Tầng {record.floor}</div>
         </div>
       ),
+      sortable: true,
     },
     {
       key: 'adjacentRooms',
@@ -127,10 +120,15 @@ export default function RoomListPage() {
       render: (_, record) => (
         record.adjacentRooms && record.adjacentRooms.length > 0 ? (
           <div className="flex items-center gap-1">
-            <ArrowLeftRight className="h-3 w-3 text-gray-400" />
-            <Badge variant="outline" className="text-xs">
-              {record.adjacentRooms.length} phòng
-            </Badge>
+            {
+              record.adjacentRooms.map((adjacentRoom) => (
+                <div key={adjacentRoom.id}>
+                  <Badge variant="outline" className="text-xs">
+                    {adjacentRoom.name}
+                  </Badge>
+                </div>
+              ))
+            }
           </div>
         ) : (
           <span className="text-xs text-gray-400">Không có</span>
@@ -145,38 +143,48 @@ export default function RoomListPage() {
           {statusLabels[record.status]}
         </Badge>
       ),
-    },
-    {
-      key: 'createdAt',
-      title: 'Ngày tạo',
-      render: (_, record) => new Date(record.createdAt).toLocaleDateString('vi-VN'),
+      sortable: true,
     },
     {
       key: 'actions',
       title: 'Thao tác',
       render: (_, record) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleEditRoom(record)}
-            title="Chỉnh sửa"
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleDeleteRoom(record)}
-            className="text-red-600 hover:text-red-800 hover:bg-red-50"
-            title="Xóa"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+        <div className="flex justify-start">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
+                Hành động
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditRoom(record);
+                }}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <span>Chỉnh sửa</span>
+              </DropdownMenuItem>
+    
+              <DropdownMenuSeparator />
+    
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteRoom(record);
+                }}
+                className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-700"
+              >
+                <span>Xóa</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
-      className: "text-right",
-    },
+      className: 'text-right',
+    }
+    
   ];
 
   return (
@@ -203,11 +211,65 @@ export default function RoomListPage() {
         </Link>
       </div>
 
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Search */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Tìm kiếm theo tên phòng, mã phòng..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          {/* Building Filter */}
+          <Input
+            placeholder="Tòa nhà"
+            value={buildingFilter}
+            onChange={(e) => setBuildingFilter(e.target.value)}
+            className="lg:w-48"
+          />
+
+          {/* Floor Filter */}
+          <Input
+            placeholder="Tầng"
+            value={floorFilter}
+            onChange={(e) => setFloorFilter(e.target.value)}
+            className="lg:w-48"
+          />
+        </div>
+      </div>
+
+      {/* Rooms Table */}
       <Table<Room>
         columns={columns}
-        data={filteredRooms}
+        data={filteredRooms.data || []}
         emptyText="Không có phòng nào"
         emptyIcon={<Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
+        loading={roomsLoading}
+        pagination={{
+          current: filteredRooms?.pagination?.page || 1,
+          pageSize: filteredRooms?.pagination?.limit || 10,
+          total: filteredRooms?.pagination?.total || 0,
+          onChange: (page, pageSize) => {
+            handlerRender({
+              ...currentRoomFilter,
+              search: searchTerm || undefined,
+              buildingFilter: buildingFilter || undefined,
+              floorFilter: floorFilter || undefined,
+              pagination: {
+                currentPage: page,
+                itemsPerPage: pageSize,
+              },
+            });
+          },
+          showSizeChanger: true,
+          pageSizeOptions: [5, 10, 20, 50],
+          serverSide: true,
+        }}
       />
     </div>
   );

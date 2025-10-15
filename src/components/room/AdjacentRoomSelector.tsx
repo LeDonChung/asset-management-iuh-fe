@@ -52,7 +52,7 @@ const AdjacentRoomSelector: React.FC<AdjacentRoomSelectorProps> = ({
       {unselectedRooms.length > 0 && (
         <div>
           <h4 className="text-sm font-medium text-gray-700 mb-2">Chọn phòng cạnh bên:</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
             {unselectedRooms.map(room => (
               <button
                 key={room.id}

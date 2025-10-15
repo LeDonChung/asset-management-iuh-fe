@@ -153,7 +153,7 @@ export default function RolePage() {
                                     e.stopPropagation();
                                     handleDeleteRole(record.id);
                                 }}
-                                className="flex items-center gap-2 cursor-pointer"
+                                className="flex items-center gap-2 cursor-pointer text-red-600 "
                             >
                                 <span>Xóa</span>
                             </DropdownMenuItem>
@@ -176,7 +176,7 @@ export default function RolePage() {
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Quản lý Role</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Quản lý vai trò</h1>
                     <p className="text-gray-600">Quản lý các vai trò và quyền hạn trong hệ thống</p>
                 </div>
                 <Button
