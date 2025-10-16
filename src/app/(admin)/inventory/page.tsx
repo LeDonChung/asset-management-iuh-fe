@@ -35,6 +35,7 @@ import {
 } from "@/lib/store/slices/inventorySlice";
 import { useAuth } from "@/contexts/AuthContext";
 import { PermissionConstants } from "@/hooks/usePermissions";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 // Status options for filter dropdown
 const statusOptions = [
@@ -170,7 +171,6 @@ export default function InventoryPage() {
       title: "Tên kỳ kiểm kê",
       render: (_, session) => (
         <div className="flex items-center">
-          <FileText className="h-5 w-5 text-gray-400 mr-3" />
           <div>
             <div className="text-sm font-medium text-gray-900">
               {session.name}
@@ -240,44 +240,63 @@ export default function InventoryPage() {
     {
       key: "actions",
       title: "Thao tác",
-      render: (_, session) => {
-        return (
-          <div className="flex items-center gap-2">
-            {canView && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleViewSession(session)}
-                title="Xem chi tiết"
-              >
-                <Eye className="h-4 w-4 text-blue-600" />
+      render: (_, session) => (
+        <div className="flex justify-start">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
+                Hành động
               </Button>
-            )}
-            {canEdit && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleEditSession(session)}
-                title="Chỉnh sửa"
-              >
-                <Edit className="h-4 w-4 text-blue-600" />
-              </Button>
-            )}
-            {canDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleDeleteSession(session)}
-                title="Xóa"
-              >
-                <Trash2 className="h-4 w-4 text-red-600" />
-              </Button>
-            )}
-          </div>
-        );
-      },
+            </DropdownMenuTrigger>
+    
+            <DropdownMenuContent align="end" className="w-48">
+              {/* Xem chi tiết */}
+              {canView && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewSession(session);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Xem chi tiết</span>
+                </DropdownMenuItem>
+              )}
+    
+              {/* Chỉnh sửa */}
+              {canEdit && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditSession(session);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Chỉnh sửa</span>
+                </DropdownMenuItem>
+              )}
+    
+              {/* Xóa */}
+              {canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteSession(session);
+                    }}
+                    className="flex items-center gap-2 cursor-pointer text-red-600"
+                  >
+                    <span>Xóa</span>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
       className: "text-right",
-    },
+    }
   ];
 
   return (

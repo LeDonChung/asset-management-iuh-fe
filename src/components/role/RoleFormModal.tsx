@@ -5,15 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
-import {
-  ChevronDown,
-  ChevronRight,
-  X,
-  Shield,
-  Users,
-  Check,
-  Search
-} from "lucide-react";
+import { Shield, Search } from "lucide-react";
 import { Role, Permission, ManagerPermission } from "@/types/asset";
 
 interface RoleFormModalProps {
@@ -44,7 +36,7 @@ export default function RoleFormModal({
   });
 
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  // Simplified UI: no expand/collapse – always show all groups
   const [searchTerm, setSearchTerm] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -57,17 +49,6 @@ export default function RoleFormModal({
         description: role.code // assuming description is derived from code for now
       });
       setSelectedPermissions(role.permissions || []);
-      // Expand groups that have selected permissions
-      const groupsWithSelected = new Set<string>();
-      managerPermissions.forEach(group => {
-        const hasSelected = group.permissions?.some(perm => 
-          role.permissions?.some(selected => selected.id === perm.id)
-        );
-        if (hasSelected) {
-          groupsWithSelected.add(group.id);
-        }
-      });
-      setExpandedGroups(groupsWithSelected);
     } else {
       setFormData({
         name: "",
@@ -75,7 +56,6 @@ export default function RoleFormModal({
         description: ""
       });
       setSelectedPermissions([]);
-      setExpandedGroups(new Set());
     }
     setErrors({});
     setSearchTerm("");
@@ -138,18 +118,6 @@ export default function RoleFormModal({
     });
   };
 
-  const toggleGroup = (groupId: string) => {
-    setExpandedGroups(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(groupId)) {
-        newSet.delete(groupId);
-      } else {
-        newSet.add(groupId);
-      }
-      return newSet;
-    });
-  };
-
   const togglePermission = (permission: Permission) => {
     setSelectedPermissions(prev => {
       const isSelected = prev.some(p => p.id === permission.id);
@@ -200,10 +168,6 @@ export default function RoleFormModal({
     return selectedCount > 0 && selectedCount < groupPermissions.length;
   };
 
-  const removePermission = (permissionId: string) => {
-    setSelectedPermissions(prev => prev.filter(p => p.id !== permissionId));
-  };
-
   // Filter permissions based on search term
   const filteredManagerPermissions = managerPermissions.map(group => ({
     ...group,
@@ -223,14 +187,25 @@ export default function RoleFormModal({
     return acc;
   }, {} as Record<string, Permission[]>);
 
+  // Overall select all helpers
+  const allPermissionsFlat: Permission[] = managerPermissions.flatMap(g => g.permissions || []);
+  const isAllSelectedOverall = allPermissionsFlat.length > 0 && allPermissionsFlat.every(perm =>
+    selectedPermissions.some(sel => sel.id === perm.id)
+  );
+  const isPartiallySelectedOverall = !isAllSelectedOverall && selectedPermissions.length > 0;
+  const toggleSelectAllOverall = () => {
+    if (isAllSelectedOverall) {
+      setSelectedPermissions([]);
+    } else {
+      setSelectedPermissions(allPermissionsFlat);
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="2xl">
       <form onSubmit={handleSubmit}>
         <ModalHeader>
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-              <Shield className="h-5 w-5 text-white" />
-            </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">
                 {role ? "Chỉnh sửa vai trò" : "Tạo vai trò mới"}
@@ -243,11 +218,11 @@ export default function RoleFormModal({
         </ModalHeader>
 
         <ModalBody>
-          <div className="space-y-6">
-            {/* Basic Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Basic Information - left */}
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin cơ bản</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Tên vai trò <span className="text-red-500">*</span>
@@ -262,22 +237,29 @@ export default function RoleFormModal({
                     <p className="text-red-500 text-sm mt-1">{errors.name}</p>
                   )}
                 </div>
-
               </div>
             </div>
 
-            {/* Permission Selection */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Chọn quyền hạn</h3>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="rounded-full">
-                    {selectedPermissions.length} đã chọn
-                  </Badge>
-                </div>
+            {/* Permission Selection (simplified) - right */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 md:max-h-[520px] md:overflow-y-auto">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Chọn quyền hạn</h3>
+
+              {/* Global select all */}
+              <div className="flex items-center gap-2 mb-4">
+                <input
+                  type="checkbox"
+                  checked={isAllSelectedOverall}
+                  ref={(input) => {
+                    if (input) input.indeterminate = isPartiallySelectedOverall;
+                  }}
+                  onChange={toggleSelectAllOverall}
+                  className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                />
+                <span className="font-medium text-gray-900">Chọn tất cả</span>
+                <span className="text-xs text-gray-500">({selectedPermissions.length} đã chọn)</span>
               </div>
 
-              {/* Search */}
+              {/* Optional search */}
               <div className="relative mb-4">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
@@ -288,75 +270,42 @@ export default function RoleFormModal({
                 />
               </div>
 
-              {/* Permission Groups */}
-              <div className="space-y-3 max-h-96 overflow-y-auto">
+              {/* Groups with simple lists */}
+              <div className="space-y-4">
                 {filteredManagerPermissions.map((group) => {
-                  const isExpanded = expandedGroups.has(group.id);
                   const groupPermissions = group.permissions || [];
                   const isAllSelected = isGroupAllSelected(groupPermissions);
                   const isPartiallySelected = isGroupPartiallySelected(groupPermissions);
-
                   return (
-                    <div key={group.id} className="border border-gray-200 rounded-xl overflow-hidden">
-                      <div
-                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                        onClick={() => toggleGroup(group.id)}
-                      >
-                        <div className="flex items-center gap-3">
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4 text-gray-600" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-gray-600" />
-                          )}
-                          <span className="font-medium text-gray-900">{group.name}</span>
-                          <Badge variant="outline" className="text-xs rounded-full">
-                            {groupPermissions.length}
-                          </Badge>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isAllSelected}
-                            ref={(input) => {
-                              if (input) input.indeterminate = isPartiallySelected;
-                            }}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              selectAllInGroup(groupPermissions);
-                            }}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-xs text-gray-500">Chọn tất cả</span>
-                        </div>
+                    <div key={group.id}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          ref={(input) => {
+                            if (input) input.indeterminate = isPartiallySelected;
+                          }}
+                          onChange={() => selectAllInGroup(groupPermissions)}
+                          className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                        />
+                        <span className="font-medium text-gray-900">{group.name}</span>
                       </div>
-
-                      {isExpanded && (
-                        <div className="border-t bg-gray-50 p-3 space-y-2">
-                          {groupPermissions.map((permission) => {
-                            const isSelected = selectedPermissions.some(p => p.id === permission.id);
-                            return (
-                              <div
-                                key={permission.id}
-                                className="flex items-center gap-3 p-3 hover:bg-white rounded-lg cursor-pointer transition-colors"
-                                onClick={() => togglePermission(permission)}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => togglePermission(permission)}
-                                  className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <div className="flex-1">
-                                  <div className="text-sm font-medium text-gray-900">{permission.name}</div>
-                                  <div className="text-xs text-gray-500">{permission.code}</div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                      <div className="pl-6 space-y-2">
+                        {groupPermissions.map((permission) => {
+                          const isSelected = selectedPermissions.some(p => p.id === permission.id);
+                          return (
+                            <label key={permission.id} className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => togglePermission(permission)}
+                                className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                              />
+                              <span className="text-sm text-gray-900">{permission.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
@@ -369,13 +318,12 @@ export default function RoleFormModal({
           </div>
         </ModalBody>
 
-        <ModalFooter className="bg-gray-50">
-          <Button type="button" variant="outline" onClick={onClose} className="rounded-xl">
+        <ModalFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
             Hủy
           </Button>
           <Button 
             type="submit" 
-            className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl"
           >
             {role ? "Cập nhật" : "Tạo Role"}
           </Button>
