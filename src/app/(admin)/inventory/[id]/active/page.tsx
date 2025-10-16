@@ -487,6 +487,7 @@ const InventoryActivePage: React.FC<InventoryActivePageProps> = () => {
         countedQuantity: result.quantity,
         scanMethod: ScanMethod.MANUAL, // Default to manual, can be enhanced later
         status: result.status,
+        roomId: roomId,
         note: result.note || '',
         imageUrls: result.imageUrls || [],
       }));

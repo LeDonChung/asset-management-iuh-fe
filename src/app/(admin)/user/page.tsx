@@ -5,28 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import {
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  Users,
-  Lock,
-  Unlock,
-  Key,
-  Download,
-  Upload,
-  X,
-} from "lucide-react";
-import {
-  User,
-  UserStatus,
-  Role,
-  Unit,
-  UnitType,
-  UnitStatus,
-} from "@/types/asset";
+import { Search, Plus, Users } from "lucide-react";
+import { User, UserStatus } from "@/types/asset";
 import Link from "next/link";
 import UserDetailModal from "@/components/user/UserDetailModal";
 import { useRouter } from "next/navigation";
@@ -39,7 +19,7 @@ import {
   updateUserStatus,
   UserFilterRequest,
 } from "@/lib/store/slices/userSlice";
-import { getAllUnits, getUnitCampus } from "@/lib/store/slices/unitSlice";
+import { getUnitCampus } from "@/lib/store/slices/unitSlice";
 import toast from "react-hot-toast";
 import {
   DropdownMenu,
@@ -48,6 +28,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PermissionConstants } from "@/hooks/usePermissions";
+import { useAuth } from "@/contexts/AuthContext";
 
 const statusLabels = {
   [UserStatus.ACTIVE]: "Đang hoạt động",
@@ -76,7 +58,16 @@ export default function UsersPage() {
   const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-
+  const { hasAnyPermission } = useAuth();
+  const canCreate = hasAnyPermission([PermissionConstants.PERM_CREATE_USER]);
+  const canUpdate = hasAnyPermission([PermissionConstants.PERM_UPDATE_USER]);
+  const canDelete = hasAnyPermission([PermissionConstants.PERM_REMOVE_USER]);
+  const canView = hasAnyPermission([PermissionConstants.PERM_VIEW_USER]);
+  useEffect(() => {
+    if (!canCreate && !canUpdate && !canDelete && !canView) {
+      router.push("/unauthorized");
+    }
+  }, [canCreate, canUpdate, canDelete, canView, router]);
   useEffect(() => {
     const loadData = () => {
       try {
@@ -205,7 +196,7 @@ export default function UsersPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {record.status !== UserStatus.LOCKED && (
+              {record.status !== UserStatus.LOCKED && canUpdate && (
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
@@ -216,24 +207,26 @@ export default function UsersPage() {
                   <span>Chỉnh sửa</span>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleLock(record.id);
-                }}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                {record.status === UserStatus.LOCKED ? (
-                  <>
-                    <span>Mở khóa</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Khóa tài khoản</span>
-                  </>
-                )}
-              </DropdownMenuItem>
-              {record.status !== UserStatus.LOCKED && (
+              {canUpdate && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleLock(record.id);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  {record.status === UserStatus.LOCKED ? (
+                    <>
+                      <span>Mở khóa</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Khóa tài khoản</span>
+                    </>
+                  )}
+                </DropdownMenuItem>
+              )}
+              {record.status !== UserStatus.LOCKED && canUpdate && (
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
@@ -245,15 +238,17 @@ export default function UsersPage() {
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteUser(record.id);
-                }}
-                className="flex items-center gap-2 cursor-pointer text-red-600"
-              >
-                <span>Xóa</span>
-              </DropdownMenuItem>
+              {canDelete && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteUser(record.id);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer text-red-600"
+                >
+                  <span>Xóa</span>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -287,12 +282,14 @@ export default function UsersPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/user/create">
-            <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-              <Plus className="h-4 w-4" />
-              Thêm người dùng
-            </Button>
-          </Link>
+          {canCreate && (
+            <Link href="/user/create">
+              <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                <Plus className="h-4 w-4" />
+                Thêm người dùng
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 

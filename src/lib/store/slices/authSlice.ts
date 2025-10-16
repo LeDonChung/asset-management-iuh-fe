@@ -11,6 +11,7 @@ export interface UserLoginResponse {
   fullName: string;
   roles: string[];
   permissions: string[];
+  unitId: string;
 }
 
 export interface UserLogin {
