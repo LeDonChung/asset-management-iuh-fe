@@ -142,11 +142,8 @@ export default function ChangePasswordModalNew({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="relative p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="relative p-6 border-b border-gray-100">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-              <Shield className="h-6 w-6 text-blue-600" />
-            </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Thay đổi mật khẩu</h2>
               <p className="text-sm text-gray-600 mt-1">Cập nhật mật khẩu bảo mật cho tài khoản của bạn</p>
@@ -312,21 +309,6 @@ export default function ChangePasswordModalNew({
             )}
           </div>
 
-          {/* Security Notice */}
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-start space-x-3">
-              <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">Lưu ý bảo mật:</p>
-                <ul className="space-y-1 text-xs">
-                  <li>• Không chia sẻ mật khẩu với bất kỳ ai</li>
-                  <li>• Sử dụng mật khẩu khác với các tài khoản khác</li>
-                  <li>• Thay đổi mật khẩu định kỳ để tăng cường bảo mật</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
           {/* Actions */}
           <div className="flex flex-col-reverse sm:flex-row justify-end space-y-2 space-y-reverse sm:space-y-0 sm:space-x-3 pt-4 border-t border-gray-100">
             <Button
@@ -351,7 +333,7 @@ export default function ChangePasswordModalNew({
               ) : (
                 <div className="flex items-center space-x-2">
                   <Shield className="h-4 w-4" />
-                  <span>Cập nhật mật khẩu</span>
+                  <span>Cập nhật</span>
                 </div>
               )}
             </Button>

@@ -179,11 +179,8 @@ export default function PersonalInfoModalNew({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="relative p-6 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+        <div className="relative p-6 border-b border-gray-100">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <UserCheck className="h-6 w-6 text-green-600" />
-            </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Thông tin cá nhân</h2>
               <p className="text-sm text-gray-600 mt-1">Cập nhật và quản lý thông tin tài khoản của bạn</p>
@@ -317,7 +314,6 @@ export default function PersonalInfoModalNew({
                 <p className="text-sm">Số điện thoại hợp lệ</p>
               </div>
             )}
-            <p className="text-xs text-gray-500">Định dạng: 0XXX XXX XXX</p>
           </div>
 
           {/* Date of Birth */}
@@ -354,21 +350,6 @@ export default function PersonalInfoModalNew({
             )}
           </div>
 
-          {/* Info Notice */}
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-start space-x-3">
-              <UserCheck className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">Lưu ý:</p>
-                <ul className="space-y-1 text-xs">
-                  <li>• Thông tin cá nhân sẽ được sử dụng để liên hệ và xác thực</li>
-                  <li>• Email sẽ được dùng để nhận thông báo quan trọng</li>
-                  <li>• Vui lòng cung cấp thông tin chính xác và đầy đủ</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
           {/* Actions */}
           <div className="flex flex-col-reverse sm:flex-row justify-end space-y-2 space-y-reverse sm:space-y-0 sm:space-x-3 pt-4 border-t border-gray-100">
             <Button
@@ -383,7 +364,8 @@ export default function PersonalInfoModalNew({
             <Button
               type="submit"
               disabled={loading}
-              className="w-full sm:w-auto h-12 px-6 bg-green-600 hover:bg-green-700 text-white font-medium"
+              variant="default"
+              className="w-full sm:w-auto h-12 px-6  text-white font-medium"
             >
               {loading ? (
                 <div className="flex items-center space-x-2">

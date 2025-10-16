@@ -146,12 +146,15 @@ export interface Unit {
   email?: string; // Email
   type: UnitType;
   representativeId: string; // Người đại diện
+  parentUnitId?: string; // ID của đơn vị cha (null nếu là cơ sở root)
   status: UnitStatus;
   createdBy: string;
   createdAt: string; // date
   updatedAt: string; // date
   deletedAt?: string; // date
   representative?: User;
+  parentUnit?: Unit; // Thông tin đơn vị cha
+  childUnits?: Unit[]; // Đơn vị con
 }
 
 // Room Management
@@ -182,7 +185,7 @@ export interface Asset {
   fixedCode: string; // Mã tài sản cố định xxxx.yyyy
   name: string;
   specs?: string; // Thông số kỹ thuật
-  entryDate: string; // Ngày nhập (date)
+  entrydate: string; // Ngày nhập (date)
   currentRoomId?: string; // Vị trí hiện tại, null là đang nhập kho, chưa phân bổ
   unit: string; // Đơn vị tính
   quantity: number; // Số lượng (Với tài sản cố định = 1)
@@ -197,12 +200,13 @@ export interface Asset {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
-
+  note?: string;
   // Thông tin bàn giao (cho sổ tài sản)
   assignedDate?: string; // Ngày bàn giao
   assignedTo?: string; // Người được bàn giao
   department?: string; // Phòng ban
   location?: string; // Vị trí cụ thể
+  currentRoom?: Room;
 
   // Relations
   category?: Category;
