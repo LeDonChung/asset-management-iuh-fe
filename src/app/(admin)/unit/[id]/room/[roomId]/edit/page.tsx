@@ -44,13 +44,13 @@ export default function EditRoomPage() {
   const dispatch = useAppDispatch();
 
   // Redux state
-  const { 
-    currentRoom, 
-    loading, 
-    updateLoading, 
-    updateError, 
-    suggestions, 
-    suggestionsLoading 
+  const {
+    currentRoom,
+    loading,
+    updateLoading,
+    updateError,
+    suggestions,
+    suggestionsLoading,
   } = useAppSelector((state: RootState) => state.room);
 
   const [formData, setFormData] = useState<RoomFormData>({
@@ -62,8 +62,11 @@ export default function EditRoomPage() {
     status: RoomStatus.ACTIVE,
     adjacentRooms: [],
   });
-  
+
   const [errors, setErrors] = useState<FormErrors>({});
+  const [selectedAdjacentRooms, setSelectedAdjacentRooms] = useState<string[]>(
+    []
+  );
 
   // Fetch room data when component mounts
   useEffect(() => {
@@ -76,14 +79,21 @@ export default function EditRoomPage() {
   useEffect(() => {
     if (currentRoom) {
       setFormData({
-        name: currentRoom.name || '',
-        building: currentRoom.building || '',
-        floor: currentRoom.floor || '',
-        roomNumber: currentRoom.roomNumber || currentRoom.name || '',
-        unitId: currentRoom.unitId || '',
+        name: currentRoom.name || "",
+        building: currentRoom.building || "",
+        floor: currentRoom.floor || "",
+        roomNumber: currentRoom.roomNumber || currentRoom.name || "",
+        unitId: currentRoom.unitId || "",
         status: currentRoom.status,
-        adjacentRooms: currentRoom.adjacentRooms?.map(room => room.id) || []
+        adjacentRooms: currentRoom.adjacentRooms
+          ? currentRoom.adjacentRooms.map((r) => r.id)
+          : [],
       });
+      setSelectedAdjacentRooms(
+        currentRoom.adjacentRooms
+          ? currentRoom.adjacentRooms.map((r) => r.id)
+          : []
+      );
     }
   }, [currentRoom]);
 
@@ -111,17 +121,18 @@ export default function EditRoomPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     const newErrors: FormErrors = {};
     if (!formData.name.trim()) newErrors.name = "Tên phòng là bắt buộc";
     if (!formData.building.trim()) newErrors.building = "Tòa nhà là bắt buộc";
     if (!formData.floor.trim()) newErrors.floor = "Tầng là bắt buộc";
-    if (!formData.roomNumber.trim()) newErrors.roomNumber = "Số phòng là bắt buộc";
+    if (!formData.roomNumber.trim())
+      newErrors.roomNumber = "Số phòng là bắt buộc";
     if (!formData.unitId) newErrors.unitId = "Đơn vị là bắt buộc";
 
     setErrors(newErrors);
-    
+
     if (Object.keys(newErrors).length === 0 && currentRoom) {
       try {
         const roomData = {
@@ -132,7 +143,7 @@ export default function EditRoomPage() {
           roomNumber: formData.roomNumber,
           unitId: formData.unitId,
           status: formData.status,
-          adjacentRoomIds: formData.adjacentRooms,
+          adjacentRoomIds: selectedAdjacentRooms,
         };
 
         const result = await dispatch(updateRoom(roomData));
@@ -148,32 +159,35 @@ export default function EditRoomPage() {
     }
   };
 
-  const handleChange = (field: keyof RoomFormData, value: string | RoomStatus | string[]) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleChange = (
+    field: keyof RoomFormData,
+    value: string | RoomStatus | string[]
+  ) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (field in errors) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
   const handleToggleAdjacentRoom = (roomId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      adjacentRooms: prev.adjacentRooms.includes(roomId)
-        ? prev.adjacentRooms.filter(id => id !== roomId)
-        : [...prev.adjacentRooms, roomId]
-    }));
+    setSelectedAdjacentRooms((prev) =>
+      prev.includes(roomId)
+        ? prev.filter((id) => id !== roomId)
+        : [...prev, roomId]
+    );
   };
 
   const handleRemoveAdjacentRoom = (roomId: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      adjacentRooms: prev.adjacentRooms.filter(id => id !== roomId)
+      adjacentRooms: prev.adjacentRooms.filter((id) => id !== roomId),
     }));
+    setSelectedAdjacentRooms((prev) => prev.filter((id) => id !== roomId));
   };
 
   // Lấy danh sách phòng gợi ý từ API
   const getAvailableAdjacentRooms = () => {
-    return suggestions.filter(room => room.id !== currentRoom?.id);
+    return suggestions.filter((room) => room.id !== currentRoom?.id);
   };
 
   // Show loading state while fetching room data
@@ -320,9 +334,9 @@ export default function EditRoomPage() {
             {/* Adjacent Rooms Selection */}
             <div>
               <div className="p-4 rounded-lg">
-                <AdjacentRoomSelector 
+                <AdjacentRoomSelector
                   availableRooms={getAvailableAdjacentRooms()}
-                  selectedRoomIds={formData.adjacentRooms}
+                  selectedRoomIds={selectedAdjacentRooms}
                   onToggleRoom={handleToggleAdjacentRoom}
                   onRemoveRoom={handleRemoveAdjacentRoom}
                 />

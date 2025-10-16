@@ -1,29 +1,45 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Room, RoomStatus } from "@/types/asset";
-import { Building, Edit, Trash2, Plus, ArrowLeftRight, Search } from "lucide-react";
+import {
+  Building,
+  Edit,
+  Trash2,
+  Plus,
+  ArrowLeftRight,
+  Search,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import { filterRoomByUnitId, RoomFilterRequest } from "@/lib/store/slices/unitSlice";
+import {
+  filterRoomByUnitId,
+  RoomFilterRequest,
+} from "@/lib/store/slices/unitSlice";
 import toast from "react-hot-toast";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { DropdownMenuSeparator } from "@radix-ui/react-dropdown-menu";
+import { PermissionConstants } from "@/hooks/usePermissions";
+import { useAuth } from "@/contexts/AuthContext";
 
 const statusLabels = {
   [RoomStatus.ACTIVE]: "Đang hoạt động",
-  [RoomStatus.INACTIVE]: "Ngừng hoạt động"
+  [RoomStatus.INACTIVE]: "Ngừng hoạt động",
 };
 
 const statusVariants = {
   [RoomStatus.ACTIVE]: "default",
-  [RoomStatus.INACTIVE]: "destructive"
+  [RoomStatus.INACTIVE]: "destructive",
 };
 
 // Room status options for filter dropdown
@@ -37,24 +53,35 @@ export default function RoomListPage() {
   const params = useParams();
   const unitId = params?.id as string;
   const dispatch = useAppDispatch();
-  
+  const searchParams = useSearchParams();
   // Local state for filters
   const [searchTerm, setSearchTerm] = useState("");
   const [buildingFilter, setBuildingFilter] = useState("");
   const [floorFilter, setFloorFilter] = useState("");
-
+  const { hasAnyPermission } = useAuth();
+  const canUpdate = hasAnyPermission([PermissionConstants.PERM_UPDATE_UNIT]);
+  const router = useRouter();
+  useEffect(() => {
+    if (!canUpdate) {
+      router.push("/unauthorized");
+    }
+  }, [canUpdate, router]);
   // Redux state
-  const { currentRoomFilter, filteredRooms, roomsLoading } = useAppSelector(state => state.unit);
+  const { currentRoomFilter, filteredRooms, roomsLoading } = useAppSelector(
+    (state) => state.unit
+  );
 
   // Load rooms on component mount
   useEffect(() => {
     if (unitId) {
       const loadData = () => {
         try {
-          dispatch(filterRoomByUnitId({ 
-            unitId, 
-            filterRequest: currentRoomFilter 
-          }));
+          dispatch(
+            filterRoomByUnitId({
+              unitId,
+              filterRequest: currentRoomFilter,
+            })
+          );
         } catch (e: any) {
           toast.error(e.message || "Có lỗi xảy ra khi tải dữ liệu phòng.");
         }
@@ -93,8 +120,8 @@ export default function RoomListPage() {
 
   const columns: TableColumn<Room>[] = [
     {
-      key: 'name',
-      title: 'Tên phòng',
+      key: "name",
+      title: "Tên phòng",
       render: (_, record) => (
         <div className="flex items-center">
           <Building className="h-5 w-5 text-gray-400 mr-3" />
@@ -104,8 +131,8 @@ export default function RoomListPage() {
       sortable: true,
     },
     {
-      key: 'building',
-      title: 'Vị trí',
+      key: "building",
+      title: "Vị trí",
       render: (_, record) => (
         <div className="text-sm">
           <div>Tòa {record.building}</div>
@@ -115,29 +142,26 @@ export default function RoomListPage() {
       sortable: true,
     },
     {
-      key: 'adjacentRooms',
-      title: 'Phòng cạnh bên',
-      render: (_, record) => (
+      key: "adjacentRooms",
+      title: "Phòng cạnh bên",
+      render: (_, record) =>
         record.adjacentRooms && record.adjacentRooms.length > 0 ? (
           <div className="flex items-center gap-1">
-            {
-              record.adjacentRooms.map((adjacentRoom) => (
-                <div key={adjacentRoom.id}>
-                  <Badge variant="outline" className="text-xs">
-                    {adjacentRoom.name}
-                  </Badge>
-                </div>
-              ))
-            }
+            {record.adjacentRooms.map((adjacentRoom) => (
+              <div key={adjacentRoom.id}>
+                <Badge variant="outline" className="text-xs">
+                  {adjacentRoom.name}
+                </Badge>
+              </div>
+            ))}
           </div>
         ) : (
           <span className="text-xs text-gray-400">Không có</span>
-        )
-      ),
+        ),
     },
     {
-      key: 'status',
-      title: 'Trạng thái',
+      key: "status",
+      title: "Trạng thái",
       render: (_, record) => (
         <Badge variant={statusVariants[record.status] as any}>
           {statusLabels[record.status]}
@@ -146,8 +170,8 @@ export default function RoomListPage() {
       sortable: true,
     },
     {
-      key: 'actions',
-      title: 'Thao tác',
+      key: "actions",
+      title: "Thao tác",
       render: (_, record) => (
         <div className="flex justify-start">
           <DropdownMenu>
@@ -157,58 +181,88 @@ export default function RoomListPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditRoom(record);
-                }}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <span>Chỉnh sửa</span>
-              </DropdownMenuItem>
-    
-              <DropdownMenuSeparator />
-    
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteRoom(record);
-                }}
-                className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-700"
-              >
-                <span>Xóa</span>
-              </DropdownMenuItem>
+              {canUpdate && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditRoom(record);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Chỉnh sửa</span>
+                </DropdownMenuItem>
+              )}
+              {canUpdate && (
+                <>
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteRoom(record);
+                    }}
+                    className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-700"
+                  >
+                    <span>Xóa</span>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       ),
-      className: 'text-right',
-    }
-    
+      className: "text-right",
+    },
   ];
+  const uniqueBuildings = Array.from(
+    new Set(filteredRooms.data?.map((r) => r.building).filter(Boolean))
+  );
 
+  const uniqueFloors = Array.from(
+    new Set(filteredRooms.data?.map((r) => r.floor).filter(Boolean))
+  );
   return (
     <div className="p-6">
       <div className="mb-4">
         <Link href={`/unit`} className="inline-flex items-center gap-2">
           <Button variant="outline" size="sm">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 mr-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
             Quay lại danh sách đơn vị
           </Button>
         </Link>
       </div>
-      
+
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Danh sách phòng quản lý</h1>
-          <p className="text-gray-600">Các phòng thuộc đơn vị hiện tại - Quản lý phòng và chọn phòng cạnh bên</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Danh sách phòng quản lý
+          </h1>
+          <p className="text-gray-600">
+            Các phòng thuộc đơn vị hiện tại - Quản lý phòng và chọn phòng cạnh
+            bên
+          </p>
         </div>
-        <Link href={`/unit/${unitId}/room/create`}>
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Thêm phòng
-          </Button>
-        </Link>
+        {canUpdate && (
+          <Link href={`/unit/${unitId}/room/create`}>
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Thêm phòng
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Filters */}
@@ -226,20 +280,32 @@ export default function RoomListPage() {
           </div>
 
           {/* Building Filter */}
-          <Input
-            placeholder="Tòa nhà"
+          <select
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent lg:w-48"
             value={buildingFilter}
             onChange={(e) => setBuildingFilter(e.target.value)}
-            className="lg:w-48"
-          />
+          >
+            <option value="">Tất cả tòa nhà</option>
+            {uniqueBuildings.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
 
           {/* Floor Filter */}
-          <Input
-            placeholder="Tầng"
+          <select
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent lg:w-48"
             value={floorFilter}
             onChange={(e) => setFloorFilter(e.target.value)}
-            className="lg:w-48"
-          />
+          >
+            <option value="">Tất cả tầng</option>
+            {uniqueFloors.map((f) => (
+              <option key={f} value={f}>
+                Tầng {f}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -248,7 +314,9 @@ export default function RoomListPage() {
         columns={columns}
         data={filteredRooms.data || []}
         emptyText="Không có phòng nào"
-        emptyIcon={<Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
+        emptyIcon={
+          <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        }
         loading={roomsLoading}
         pagination={{
           current: filteredRooms?.pagination?.page || 1,

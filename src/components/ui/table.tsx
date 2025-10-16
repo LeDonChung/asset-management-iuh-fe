@@ -4,6 +4,40 @@ import React, { useState, useMemo, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { SortConfig } from "@/types/asset";
 
+// Calculate page size options dynamically
+const calculatePageSizeOptions = (totalItems: number) => {
+  if (!totalItems || totalItems <= 0) {
+    return [10, 20, 50, 100];
+  }
+
+  const options = [];
+  let currentSize = 10;
+  const maxSize = Math.min(totalItems, 1000); // Giới hạn tối đa 1000
+
+  while (currentSize <= maxSize) {
+    options.push(currentSize);
+    
+    // Tăng 20% và làm tròn lên bội số của 10
+    const nextSize = Math.ceil(currentSize * 1.2 / 10) * 10;
+    
+    // Nếu nextSize không thay đổi, tăng thêm 10
+    if (nextSize === currentSize) {
+      currentSize += 10;
+    } else {
+      currentSize = nextSize;
+    }
+  }
+
+  // Đảm bảo có ít nhất 4 options và không vượt quá totalItems
+  if (options.length < 4) {
+    const additionalOptions = [20, 50, 100].filter(opt => opt <= totalItems && !options.includes(opt));
+    options.push(...additionalOptions);
+  }
+
+  // Sắp xếp và loại bỏ trùng lặp
+  return [...new Set(options)].sort((a, b) => a - b);
+};
+
 // Sort interfaces
 export type SortOrder = "asc" | "desc";
 
@@ -558,7 +592,7 @@ export function Table<T = any>({
                   }
                   className="border border-gray-300 rounded px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  {(pagination.pageSizeOptions || [10, 20, 50, 100]).map(
+                  {(pagination.pageSizeOptions || calculatePageSizeOptions(pagination.total)).map(
                     (size) => (
                       <option key={size} value={size}>
                         {size}
@@ -900,7 +934,7 @@ export function Table<T = any>({
                   }
                   className="border border-gray-300 rounded px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  {(pagination.pageSizeOptions || [10, 20, 50, 100]).map(
+                  {(pagination.pageSizeOptions || calculatePageSizeOptions(pagination.total)).map(
                     (size) => (
                       <option key={size} value={size}>
                         {size}
