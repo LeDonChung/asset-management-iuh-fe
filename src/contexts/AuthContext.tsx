@@ -51,7 +51,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           phoneNumber: userData.phoneNumber || '',
           birthDate: userData.birthDate || '',
           roles: userData.roles,
-          permissions: userData.permissions
+          permissions: userData.permissions,
+          unitId: userData.unitId || ''
         }
         console.log(legacyUser)
         setUser(legacyUser)

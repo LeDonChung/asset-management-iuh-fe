@@ -87,29 +87,29 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
       ]
     },
     // Thanh lý tài sản
-    // {
-    //   name: "Thanh lý",
-    //   href: "/liquidation",
-    //   icon: Trash2,
-    //   permissions: [PermissionConstants.PERM_VIEW_ASSET],
-    //   children: [
-    //     {
-    //       name: "Danh sách đề xuất",
-    //       href: "/liquidation",
-    //       permissions: [PermissionConstants.PERM_VIEW_ASSET],
-    //     },
-    //     {
-    //       name: "Tạo đề xuất thanh lý",
-    //       href: "/liquidation/create",
-    //       permissions: [PermissionConstants.PERM_UPDATE_ASSET],
-    //     },
-    //   ],
-    // }, // Quản lý cảnh báo
+    {
+      name: "Thanh lý",
+      href: "/liquidation",
+      icon: Trash2,
+      permissions: [],
+      children: [
+        {
+          name: "Danh sách đề xuất",
+          href: "/liquidation",
+          permissions: [PermissionConstants.PERM_VIEW_ASSET],
+        },
+        {
+          name: "Tạo đề xuất thanh lý",
+          href: "/liquidation/create",
+          permissions: [PermissionConstants.PERM_UPDATE_ASSET],
+        },
+      ],
+    }, // Quản lý cảnh báo
     {
       name: "Cảnh báo",
       href: "/alert",
       icon: AlertTriangle,
-      permissions: []
+      permissions: [PermissionConstants.PERM_VIEW_ALERT]
     },
     // Quản lý đơn vị
     {

@@ -432,27 +432,6 @@ export default function EditUnitPage() {
               </div>
             </div>
 
-            {/* Meta Information */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Thông tin hệ thống</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                <div>
-                  <span className="font-medium">Mã đơn vị:</span> {currentUnit?.id}
-                </div>
-                <div>
-                  <span className="font-medium">Tạo lúc:</span>{" "}
-                  {currentUnit?.createdAt && new Date(currentUnit.createdAt).toLocaleString('vi-VN')}
-                </div>
-                <div>
-                  <span className="font-medium">Tạo bởi:</span> {currentUnit?.createdBy}
-                </div>
-                <div>
-                  <span className="font-medium">Cập nhật lần cuối:</span>{" "}
-                  {currentUnit?.updatedAt && new Date(currentUnit.updatedAt).toLocaleString('vi-VN')}
-                </div>
-              </div>
-            </div>
-
             {/* Action Buttons */}
             <div className="flex gap-4 pt-6 border-t">
               <Link href="/unit" className="flex-1">
