@@ -22,10 +22,16 @@ import { RootState } from "@/lib/store";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { useAppDispatch } from "@/lib/store/hooks";
+import { filterUnit, UnitFilterRequest } from "@/lib/store/slices/unitSlice";
 import {
-  filterUnit,
-  UnitFilterRequest,
-} from "@/lib/store/slices/unitSlice";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { PermissionConstants } from "@/hooks/usePermissions";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Unit type options for filter dropdown
 const unitTypeOptions = [
@@ -47,7 +53,16 @@ export default function UnitsPage() {
   const [typeFilter, setTypeFilter] = useState<UnitType>();
   const [statusFilter, setStatusFilter] = useState<UnitStatus>();
   const router = useRouter();
-
+  const { hasAnyPermission } = useAuth();
+  const canCreate = hasAnyPermission([PermissionConstants.PERM_CREATE_UNIT]);
+  const canUpdate = hasAnyPermission([PermissionConstants.PERM_UPDATE_UNIT]);
+  const canDelete = hasAnyPermission([PermissionConstants.PERM_REMOVE_UNIT]);
+  const canView = hasAnyPermission([PermissionConstants.PERM_VIEW_UNIT]);
+  useEffect(() => {
+    if (!canCreate && !canUpdate && !canDelete && !canView) {
+      router.push("/unauthorized");
+    }
+  }, [canCreate, canUpdate, canDelete, canView, router]);
   const { currentFilter, filteredUnits } = useSelector(
     (state: RootState) => state.unit
   );
@@ -114,11 +129,11 @@ export default function UnitsPage() {
         <div className="text-sm text-gray-900">
           <div className="flex items-center mb-1">
             <Phone className="h-4 w-4 text-gray-400 mr-1" />
-            {record.phone || 'Chưa cập nhật'}
+            {record.phone || "Chưa cập nhật"}
           </div>
           <div className="flex items-center">
             <Mail className="h-4 w-4 text-gray-400 mr-1" />
-            {record.email || 'Chưa cập nhật'}
+            {record.email || "Chưa cập nhật"}
           </div>
         </div>
       ),
@@ -129,7 +144,10 @@ export default function UnitsPage() {
       title: "Loại đơn vị",
       render: (_, record) => (
         <Badge variant="outline" className="bg-blue-100 text-blue-800">
-          <span>{record.type}</span>
+          <span>
+            {unitTypeOptions.find((option) => option.value === record.type)
+              ?.label || record.type}
+          </span>
         </Badge>
       ),
       sortable: true,
@@ -145,7 +163,10 @@ export default function UnitsPage() {
               : "bg-red-100 text-red-800"
           }
         >
-          <span>{record.status}</span>
+          <span>
+            {unitStatusOptions.find((option) => option.value === record.status)
+              ?.label || record.status}
+          </span>
         </Badge>
       ),
       sortable: true,
@@ -154,31 +175,52 @@ export default function UnitsPage() {
       key: "actions",
       title: "Thao tác",
       render: (_, record) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleEditUnit(record)}
-            title="Chỉnh sửa"
-          >
-            <Edit className="h-4 w-4 text-blue-600" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleViewRooms(record)}
-            title="Xem phòng"
-          >
-            <Eye className="h-4 w-4 text-gray-600" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleDeleteUnit(record)}
-            title="Xóa"
-          >
-            <Trash2 className="h-4 w-4 text-red-600" />
-          </Button>
+        <div className="flex justify-start">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
+                Hành động
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {canUpdate && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditUnit(record);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Chỉnh sửa</span>
+                </DropdownMenuItem>
+              )}
+              {canView && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewRooms(record);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Xem phòng</span>
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteUnit(record);
+                    }}
+                    className="flex items-center gap-2 cursor-pointer text-red-600"
+                  >
+                    <span>Xóa</span>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
       className: "text-right",
@@ -190,14 +232,17 @@ export default function UnitsPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý Đơn vị</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Quản lý đơn vị</h1>
+          <p className="text-gray-600">Quản lý các đơn vị trong hệ thống</p>
         </div>
-        <Link href="/unit/create">
-          <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-            <Plus className="h-4 w-4" />
-            Thêm đơn vị
-          </Button>
-        </Link>
+        {canCreate && (
+          <Link href="/unit/create">
+            <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+              <Plus className="h-4 w-4" />
+              Thêm đơn vị
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Filters */}

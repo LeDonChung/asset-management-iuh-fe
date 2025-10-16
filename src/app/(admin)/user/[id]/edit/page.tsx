@@ -24,7 +24,7 @@ import RoleSelectionModal from "@/components/user/RoleSelectionModal";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
 import { findUserById, updateUser, UpdateUser } from "@/lib/store/slices/userSlice";
-import { getAllUnits } from "@/lib/store/slices/unitSlice";
+import { getAllUnits, getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { findAllRoles } from "@/lib/store/slices/roleSlice";
 import toast from "react-hot-toast";
 
@@ -33,7 +33,7 @@ export default function EditUserPage() {
     const params = useParams(); 
     const userId = params.id as string;
     const dispatch = useAppDispatch();
-    const { allUnits } = useAppSelector((state: RootState) => state.unit);
+    const { campuses } = useAppSelector((state: RootState) => state.unit);
     const { allRoles } = useAppSelector((state: RootState) => state.role);
     const { user } = useAppSelector((state: RootState) => state.user);       
     const [isLoading, setIsLoading] = useState(false);
@@ -50,11 +50,19 @@ export default function EditUserPage() {
     const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
+    const [unitCampusSelected, setUnitCampusSelected] = useState<Unit>();
+    const [units, setUnits] = useState<Unit[]>([]);
     console.log("UserId from params:", userId);    
 
     useEffect(() => {
+        if (unitCampusSelected) {
+            setUnits(unitCampusSelected.childUnits ?? []);
+        }
+    }, [unitCampusSelected]);
+
+    useEffect(() => {
         const fetchData = async () => {
-            dispatch(getAllUnits());
+            dispatch(getUnitCampus());
             dispatch(findAllRoles());
             setLoading(true);
             try {
@@ -68,17 +76,32 @@ export default function EditUserPage() {
         };
 
         fetchData();
-        setFormData({
-            username: user?.username || "",
-            fullName: user?.fullName || "",
-            email: user?.email || "",
-            phoneNumber: user?.phoneNumber || "",
-            birthDate: user?.birthDate || "",
-            unitId: user?.unitId || "",
-            status: user?.status || UserStatus.ACTIVE
-        });
-        setSelectedRoles(user?.roles ? user.roles.map(role => role.id) : []);
-    }, [userId]);
+    }, [userId, dispatch]);
+
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                username: user.username || "",
+                fullName: user.fullName || "",
+                email: user.email || "",
+                phoneNumber: user.phoneNumber || "",
+                birthDate: user.birthDate || "",
+                unitId: user.unitId || "",
+                status: user.status || UserStatus.ACTIVE
+            });
+            setSelectedRoles(user.roles ? user.roles.map(role => role.id) : []);
+            
+            // Find and set the campus for this user's unit
+            if (user.unitId && campuses.length > 0) {
+                const userCampus = campuses.find(campus => 
+                    campus.childUnits?.some(unit => unit.id === user.unitId)
+                );
+                if (userCampus) {
+                    setUnitCampusSelected(userCampus);
+                }
+            }
+        }
+    }, [user, campuses]);
 
     console.log("user from store:", user);
     
@@ -197,14 +220,8 @@ export default function EditUserPage() {
                     {/* Form Header */}
                     <div className="px-6 py-4 border-b border-gray-200">
                         <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
-                                    <UserIcon className="h-5 w-5 text-white" />
-                                </div>
-                            </div>
-                            <div className="ml-3">
+                            <div>
                                 <h3 className="text-lg font-medium text-gray-900">Thông tin cơ bản</h3>
-                                <p className="text-sm text-gray-500">Cập nhật thông tin cơ bản của người dùng</p>
                             </div>
                         </div>
                     </div>
@@ -281,7 +298,7 @@ export default function EditUserPage() {
                             </div>
                         </div>
 
-                        {/* Ngày sinh và Đơn vị */}
+                        {/* Ngày sinh và Cơ sở */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -300,24 +317,62 @@ export default function EditUserPage() {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Cơ sở <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        value={unitCampusSelected?.id || ""}
+                                        onChange={(e) => {
+                                            const selectedCampus = campuses.find(unit => unit.id === e.target.value);
+                                            setUnitCampusSelected(selectedCampus);
+                                            // Reset unit selection when campus changes
+                                            handleInputChange("unitId", "");
+                                        }}
+                                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                                            errors.unitId ? "border-red-500" : "border-gray-300"
+                                        }`}
+                                    >
+                                        <option value="">Chọn cơ sở</option>
+                                        {campuses.map((unit) => (
+                                            <option key={unit.id} value={unit.id}>
+                                                {unit.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Đơn vị */}
+                        <div className="grid grid-cols-1 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Đơn vị <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
                                     <select
                                         value={formData.unitId}
                                         onChange={(e) => handleInputChange("unitId", e.target.value)}
-                                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.unitId ? "border-red-500" : "border-gray-300"
-                                            }`}
+                                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                                            errors.unitId ? "border-red-500" : "border-gray-300"
+                                        }`}
+                                        disabled={!unitCampusSelected}
                                     >
                                         <option value="">Chọn đơn vị</option>
-                                        {allUnits.map(unit => (
-                                            <option key={unit.id} value={unit.id}>{unit.name}</option>
+                                        {units.map((unit) => (
+                                            <option key={unit.id} value={unit.id}>
+                                                {unit.name}
+                                            </option>
                                         ))}
                                     </select>
                                     <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                                 </div>
                                 {errors.unitId && (
                                     <p className="text-red-500 text-sm mt-1">{errors.unitId}</p>
+                                )}
+                                {!unitCampusSelected && (
+                                    <p className="text-gray-500 text-sm mt-1">Vui lòng chọn cơ sở trước</p>
                                 )}
                             </div>
                         </div>
@@ -329,14 +384,8 @@ export default function EditUserPage() {
                     {/* Form Header */}
                     <div className="px-6 py-4 border-b border-gray-200">
                         <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shadow-sm">
-                                    <Users className="h-5 w-5 text-white" />
-                                </div>
-                            </div>
-                            <div className="ml-3">
+                            <div>
                                 <h3 className="text-lg font-medium text-gray-900">Phân quyền</h3>
-                                <p className="text-sm text-gray-500">Cập nhật vai trò và quyền hạn cho người dùng</p>
                             </div>
                         </div>
                     </div>
@@ -355,8 +404,7 @@ export default function EditUserPage() {
                                     className="w-full justify-between"
                                 >
                                     <span className="flex items-center gap-2">
-                                        <CheckSquare className="h-4 w-4" />
-                                        Chọn vai trò ({selectedRoles.length})
+                                        Chọn vai trò
                                     </span>
                                     <Settings className="h-4 w-4" />
                                 </Button>
