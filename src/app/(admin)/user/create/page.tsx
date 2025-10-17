@@ -35,6 +35,8 @@ import { getAllUnits, getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { findAllRoles } from "@/lib/store/slices/roleSlice";
 import { CreateUser, createUser } from "@/lib/store/slices/userSlice";
 import toast from "react-hot-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { RoleBase } from "@/lib/constants/role";
 
 export default function CreateUserPage() {
   const router = useRouter();
@@ -59,17 +61,66 @@ export default function CreateUserPage() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [unitCampusSelected, setUnitCampusSelected] = useState<Unit>(
+    campuses[0] ?? null
+  );
+  const [units, setUnits] = useState<Unit[]>(
+    unitCampusSelected?.childUnits ?? []
+  );
+
+  const { hasRole, user } = useAuth();
+  const isAdmin = hasRole([RoleBase.ADMIN]);
+  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
+  const isUserDept = hasRole([RoleBase.USER_DEPT]);
+
   useEffect(() => {
     dispatch(getUnitCampus());
     dispatch(findAllRoles());
   }, [dispatch]);
-  const [unitCampusSelected, setUnitCampusSelected] = useState<Unit>(campuses[0] ?? null);
-  const [units, setUnits] = useState<Unit[]>(unitCampusSelected?.childUnits ?? []);
+
+  // Xử lý logic theo role khi có dữ liệu campuses
+  useEffect(() => {
+    if (campuses.length === 0) return;
+
+    if (isAdminDept && user?.unitId) {
+      // AdminDept: unitId chính là campus ID
+      const userCampus = campuses.find(campus => campus.id === user.unitId);
+      if (userCampus) {
+        setUnitCampusSelected(userCampus);
+      }
+    } else if (isUserDept && user?.unitId) {
+      // UserDept: Đặt đơn vị mặc định là đơn vị của user hiện tại
+      setFormData(prev => ({ ...prev, unitId: user.unitId }));
+      
+      // Tìm campus tương ứng qua childUnits
+      const userCampus = campuses.find(campus => 
+        campus.childUnits?.some(unit => unit.id === user.unitId)
+      );
+      if (userCampus) {
+        setUnitCampusSelected(userCampus);
+      }
+    }
+  }, [campuses, isAdmin, isAdminDept, isUserDept, user]);
+
   useEffect(() => {
     if (unitCampusSelected) {
       setUnits(unitCampusSelected.childUnits ?? []);
+      
+      // Nếu có role ADMIN_DEPT và đã chọn campus, tự động set unitId = campus ID
+      if (shouldDisableUnitSelection() && unitCampusSelected.id) {
+        setFormData(prev => ({ ...prev, unitId: unitCampusSelected.id }));
+      }
     }
-  }, [unitCampusSelected]);
+  }, [unitCampusSelected, selectedRoles]);
+
+  // Kiểm tra xem có nên disable việc chọn đơn vị không (khi chọn role ADMIN_DEPT)
+  const shouldDisableUnitSelection = () => {
+    return selectedRoles.some(roleId => {
+      const role = allRoles.find(r => r.id === roleId);
+      return role?.code === 'ADMIN_DEPT';
+    });
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
@@ -80,6 +131,17 @@ export default function CreateUserPage() {
 
   const handleRoleSelection = (roleIds: string[]) => {
     setSelectedRoles(roleIds);
+    
+    // Kiểm tra xem có role ADMIN_DEPT (Trưởng phòng quản trị) không
+    const hasAdminDeptRole = roleIds.some(roleId => {
+      const role = allRoles.find(r => r.id === roleId);
+      return role?.code === 'ADMIN_DEPT';
+    });
+    
+    // Nếu có role ADMIN_DEPT thì set unitId = campus ID
+    if (hasAdminDeptRole && unitCampusSelected?.id) {
+      setFormData(prev => ({ ...prev, unitId: unitCampusSelected.id }));
+    }
   };
 
   const validateForm = () => {
@@ -321,35 +383,38 @@ export default function CreateUserPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cơ sở<span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={unitCampusSelected?.id || ""}
-                    onChange={(e) => {
-                      handleInputChange("unitId", e.target.value);
-                      setUnitCampusSelected(campuses.find(unit => unit.id === e.target.value));
-                    }}
-                    className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.unitId ? "border-red-500" : "border-gray-300"
-                    }`}
-                  >
-                    <option value="">Chọn đơn vị</option>
-                    {campuses.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <div className={`grid grid-cols-1 ${isAdmin ? 'md:grid-cols-2' : ''} gap-6`}>
+              {/* Chỉ hiển thị chọn cơ sở cho Admin */}
+              {isAdmin && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cơ sở<span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={unitCampusSelected?.id || ""}
+                      onChange={(e) => {
+                        const selectedCampus = campuses.find((unit) => unit.id === e.target.value);
+                        if (selectedCampus) {
+                          setUnitCampusSelected(selectedCampus);
+                        }
+                        handleInputChange("unitId", ""); // Reset unitId khi đổi campus
+                      }}
+                      className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.unitId ? "border-red-500" : "border-gray-300"
+                      }`}
+                    >
+                      <option value="">Chọn cơ sở</option>
+                      {campuses.map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  </div>
                 </div>
-                {errors.unitId && (
-                  <p className="text-red-500 text-sm mt-1">{errors.unitId}</p>
-                )}
-              </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Đơn vị<span className="text-red-500">*</span>
@@ -360,21 +425,36 @@ export default function CreateUserPage() {
                     onChange={(e) =>
                       handleInputChange("unitId", e.target.value)
                     }
+                    disabled={isUserDept || shouldDisableUnitSelection()} // Disable cho UserDept hoặc khi chọn role ADMIN_DEPT
                     className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       errors.unitId ? "border-red-500" : "border-gray-300"
-                    }`}
+                    } ${(isUserDept || shouldDisableUnitSelection()) ? "bg-gray-50 cursor-not-allowed" : ""}`}
                   >
                     <option value="">Chọn đơn vị</option>
-                    {units.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.name}
-                      </option>
-                    ))}
+                    {/* Nếu có role ADMIN_DEPT thì chỉ hiển thị campus */}
+                    {shouldDisableUnitSelection() ? (
+                      unitCampusSelected && (
+                        <option value={unitCampusSelected.id}>
+                          {unitCampusSelected.name} (Cơ sở)
+                        </option>
+                      )
+                    ) : (
+                      units.map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                   <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 </div>
                 {errors.unitId && (
                   <p className="text-red-500 text-sm mt-1">{errors.unitId}</p>
+                )}
+                {shouldDisableUnitSelection() && (
+                  <p className="text-blue-600 text-sm mt-1">
+                    Trưởng phòng quản trị được gán trực tiếp vào cơ sở
+                  </p>
                 )}
               </div>
             </div>

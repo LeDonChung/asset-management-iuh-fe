@@ -27,6 +27,8 @@ import { findUserById, updateUser, UpdateUser } from "@/lib/store/slices/userSli
 import { getAllUnits, getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { findAllRoles } from "@/lib/store/slices/roleSlice";
 import toast from "react-hot-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { RoleBase } from "@/lib/constants/role";
 
 export default function EditUserPage() {
     const router = useRouter();
@@ -52,13 +54,32 @@ export default function EditUserPage() {
     const [loading, setLoading] = useState(true);
     const [unitCampusSelected, setUnitCampusSelected] = useState<Unit>();
     const [units, setUnits] = useState<Unit[]>([]);
+    
+    const { hasRole, user: currentUser } = useAuth();
+    const isAdmin = hasRole([RoleBase.ADMIN]);
+    const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
+    const isUserDept = hasRole([RoleBase.USER_DEPT]);
+    
     console.log("UserId from params:", userId);    
 
     useEffect(() => {
         if (unitCampusSelected) {
             setUnits(unitCampusSelected.childUnits ?? []);
+            
+            // Nếu có role ADMIN_DEPT và đã chọn campus, tự động set unitId = campus ID
+            if (shouldDisableUnitSelection() && unitCampusSelected.id) {
+                setFormData(prev => ({ ...prev, unitId: unitCampusSelected.id }));
+            }
         }
-    }, [unitCampusSelected]);
+    }, [unitCampusSelected, selectedRoles]);
+
+    // Kiểm tra xem có nên disable việc chọn đơn vị không (khi chọn role ADMIN_DEPT)
+    const shouldDisableUnitSelection = () => {
+        return selectedRoles.some(roleId => {
+            const role = allRoles.find(r => r.id === roleId);
+            return role?.code === 'ADMIN_DEPT';
+        });
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -66,17 +87,27 @@ export default function EditUserPage() {
             dispatch(findAllRoles());
             setLoading(true);
             try {
-                await dispatch(findUserById(userId)).unwrap();
+                const userData = await dispatch(findUserById(userId)).unwrap();
+                
+                // Check quyền chỉnh sửa cho UserDept
+                if (isUserDept && currentUser?.unitId && userData?.unitId !== currentUser.unitId) {
+                    toast.error("Bạn không có quyền chỉnh sửa user này");
+                    router.push("/user");
+                    return;
+                }
+                
                 await new Promise(resolve => setTimeout(resolve, 1000));
             } catch (error) {
                 console.error("Error fetching user:", error);
+                toast.error("Không thể tải thông tin user");
+                router.push("/user");
             } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
-    }, [userId, dispatch]);
+    }, [userId, dispatch, isUserDept, currentUser, router]);
 
     useEffect(() => {
         if (user) {
@@ -93,15 +124,47 @@ export default function EditUserPage() {
             
             // Find and set the campus for this user's unit
             if (user.unitId && campuses.length > 0) {
-                const userCampus = campuses.find(campus => 
-                    campus.childUnits?.some(unit => unit.id === user.unitId)
-                );
+                // Kiểm tra xem user.unitId có phải là campus không
+                let userCampus = campuses.find(campus => campus.id === user.unitId);
+                
+                // Nếu không phải campus, tìm campus chứa unit này
+                if (!userCampus) {
+                    userCampus = campuses.find(campus => 
+                        campus.childUnits?.some(unit => unit.id === user.unitId)
+                    );
+                }
+                
                 if (userCampus) {
                     setUnitCampusSelected(userCampus);
                 }
             }
         }
     }, [user, campuses]);
+
+    // Xử lý logic theo role khi có dữ liệu campuses và current user
+    useEffect(() => {
+        if (campuses.length === 0 || !currentUser?.unitId) return;
+
+        // Chỉ áp dụng logic cho AdminDept và UserDept khi chưa có user được load (tạo mới)
+        // Nếu đã có user được load thì giữ nguyên campus/unit của user đó
+        if (!user) {
+            if (isAdminDept) {
+                // AdminDept: unitId chính là campus ID
+                const userCampus = campuses.find(campus => campus.id === currentUser.unitId);
+                if (userCampus) {
+                    setUnitCampusSelected(userCampus);
+                }
+            } else if (isUserDept) {
+                // UserDept: Tìm campus tương ứng qua childUnits
+                const userCampus = campuses.find(campus => 
+                    campus.childUnits?.some(unit => unit.id === currentUser.unitId)
+                );
+                if (userCampus) {
+                    setUnitCampusSelected(userCampus);
+                }
+            }
+        }
+    }, [campuses, isAdmin, isAdminDept, isUserDept, currentUser, user]);
 
     console.log("user from store:", user);
     
@@ -115,6 +178,17 @@ export default function EditUserPage() {
 
     const handleRoleSelection = (roleIds: string[]) => {
         setSelectedRoles(roleIds);
+        
+        // Kiểm tra xem có role ADMIN_DEPT (Trưởng phòng quản trị) không
+        const hasAdminDeptRole = roleIds.some(roleId => {
+            const role = allRoles.find(r => r.id === roleId);
+            return role?.code === 'ADMIN_DEPT';
+        });
+        
+        // Nếu có role ADMIN_DEPT thì set unitId = campus ID
+        if (hasAdminDeptRole && unitCampusSelected?.id) {
+            setFormData(prev => ({ ...prev, unitId: unitCampusSelected.id }));
+        }
     };
 
     const validateForm = () => {
@@ -133,6 +207,11 @@ export default function EditUserPage() {
         }
         if (!formData.unitId) {
             newErrors.unitId = "Đơn vị là bắt buộc";
+        }
+
+        // Validate quyền chỉnh sửa cho UserDept
+        if (isUserDept && currentUser?.unitId && formData.unitId !== currentUser.unitId) {
+            newErrors.unitId = "Bạn không có quyền gán user cho đơn vị khác";
         }
 
         setErrors(newErrors);
@@ -299,7 +378,7 @@ export default function EditUserPage() {
                         </div>
 
                         {/* Ngày sinh và Cơ sở */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className={`grid grid-cols-1 ${isAdmin ? 'md:grid-cols-2' : ''} gap-6`}>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Ngày sinh
@@ -315,33 +394,38 @@ export default function EditUserPage() {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Cơ sở <span className="text-red-500">*</span>
-                                </label>
-                                <div className="relative">
-                                    <select
-                                        value={unitCampusSelected?.id || ""}
-                                        onChange={(e) => {
-                                            const selectedCampus = campuses.find(unit => unit.id === e.target.value);
-                                            setUnitCampusSelected(selectedCampus);
-                                            // Reset unit selection when campus changes
-                                            handleInputChange("unitId", "");
-                                        }}
-                                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                                            errors.unitId ? "border-red-500" : "border-gray-300"
-                                        }`}
-                                    >
-                                        <option value="">Chọn cơ sở</option>
-                                        {campuses.map((unit) => (
-                                            <option key={unit.id} value={unit.id}>
-                                                {unit.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                            {/* Chỉ hiển thị chọn cơ sở cho Admin */}
+                            {isAdmin && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Cơ sở <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            value={unitCampusSelected?.id || ""}
+                                            onChange={(e) => {
+                                                const selectedCampus = campuses.find(unit => unit.id === e.target.value);
+                                                if (selectedCampus) {
+                                                    setUnitCampusSelected(selectedCampus);
+                                                }
+                                                // Reset unit selection when campus changes
+                                                handleInputChange("unitId", "");
+                                            }}
+                                            className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                                                errors.unitId ? "border-red-500" : "border-gray-300"
+                                            }`}
+                                        >
+                                            <option value="">Chọn cơ sở</option>
+                                            {campuses.map((unit) => (
+                                                <option key={unit.id} value={unit.id}>
+                                                    {unit.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
 
                         {/* Đơn vị */}
@@ -354,25 +438,39 @@ export default function EditUserPage() {
                                     <select
                                         value={formData.unitId}
                                         onChange={(e) => handleInputChange("unitId", e.target.value)}
+                                        disabled={isUserDept || !unitCampusSelected || shouldDisableUnitSelection()} // Disable cho UserDept, khi chưa chọn campus hoặc khi chọn role ADMIN_DEPT
                                         className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                                             errors.unitId ? "border-red-500" : "border-gray-300"
-                                        }`}
-                                        disabled={!unitCampusSelected}
+                                        } ${(isUserDept || shouldDisableUnitSelection()) ? "bg-gray-50 cursor-not-allowed" : ""}`}
                                     >
                                         <option value="">Chọn đơn vị</option>
-                                        {units.map((unit) => (
-                                            <option key={unit.id} value={unit.id}>
-                                                {unit.name}
-                                            </option>
-                                        ))}
+                                        {/* Nếu có role ADMIN_DEPT thì chỉ hiển thị campus */}
+                                        {shouldDisableUnitSelection() ? (
+                                            unitCampusSelected && (
+                                                <option value={unitCampusSelected.id}>
+                                                    {unitCampusSelected.name} (Cơ sở)
+                                                </option>
+                                            )
+                                        ) : (
+                                            units.map((unit) => (
+                                                <option key={unit.id} value={unit.id}>
+                                                    {unit.name}
+                                                </option>
+                                            ))
+                                        )}
                                     </select>
                                     <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                                 </div>
                                 {errors.unitId && (
                                     <p className="text-red-500 text-sm mt-1">{errors.unitId}</p>
                                 )}
-                                {!unitCampusSelected && (
+                                {!isAdmin && !unitCampusSelected && (
                                     <p className="text-gray-500 text-sm mt-1">Vui lòng chọn cơ sở trước</p>
+                                )}
+                                {shouldDisableUnitSelection() && (
+                                    <p className="text-blue-600 text-sm mt-1">
+                                        Trưởng phòng quản trị được gán trực tiếp vào cơ sở
+                                    </p>
                                 )}
                             </div>
                         </div>
