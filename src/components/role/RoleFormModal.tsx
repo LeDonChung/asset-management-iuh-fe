@@ -14,6 +14,7 @@ interface RoleFormModalProps {
   role?: Role | null;
   managerPermissions: ManagerPermission[];
   onSave: (roleData: any) => void;
+  isViewMode?: boolean;
 }
 
 interface FormData {
@@ -27,7 +28,8 @@ export default function RoleFormModal({
   onClose,
   role,
   managerPermissions,
-  onSave
+  onSave,
+  isViewMode = false
 }: RoleFormModalProps) {
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -208,10 +210,10 @@ export default function RoleFormModal({
           <div className="flex items-center gap-3">
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                {role ? "Chỉnh sửa vai trò" : "Tạo vai trò mới"}
+                {role ? (isViewMode ? "Xem vai trò" : "Chỉnh sửa vai trò") : "Tạo vai trò mới"}
               </h2>
               <p className="text-sm text-gray-600">
-                {role ? "Cập nhật thông tin và quyền hạn" : "Thiết lập thông tin và quyền hạn"}
+                {role ? (isViewMode ? "Xem thông tin và quyền hạn" : "Cập nhật thông tin và quyền hạn") : "Thiết lập thông tin và quyền hạn"}
               </p>
             </div>
           </div>
@@ -231,7 +233,8 @@ export default function RoleFormModal({
                     value={formData.name}
                     onChange={(e) => handleInputChange("name", e.target.value)}
                     placeholder="Ví dụ: Quản trị viên"
-                    className={`rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500 ${errors.name ? "border-red-500" : ""}`}
+                    disabled={isViewMode}
+                    className={`rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500 ${errors.name ? "border-red-500" : ""} ${isViewMode ? "bg-gray-50" : ""}`}
                   />
                   {errors.name && (
                     <p className="text-red-500 text-sm mt-1">{errors.name}</p>
@@ -253,6 +256,7 @@ export default function RoleFormModal({
                     if (input) input.indeterminate = isPartiallySelectedOverall;
                   }}
                   onChange={toggleSelectAllOverall}
+                  disabled={isViewMode}
                   className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
                 />
                 <span className="font-medium text-gray-900">Chọn tất cả</span>
@@ -266,7 +270,8 @@ export default function RoleFormModal({
                   placeholder="Tìm kiếm quyền..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                  disabled={isViewMode}
+                  className={`pl-10 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500 ${isViewMode ? "bg-gray-50" : ""}`}
                 />
               </div>
 
@@ -286,6 +291,7 @@ export default function RoleFormModal({
                             if (input) input.indeterminate = isPartiallySelected;
                           }}
                           onChange={() => selectAllInGroup(groupPermissions)}
+                          disabled={isViewMode}
                           className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
                         />
                         <span className="font-medium text-gray-900">{group.name}</span>
@@ -299,6 +305,7 @@ export default function RoleFormModal({
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => togglePermission(permission)}
+                                disabled={isViewMode}
                                 className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
                               />
                               <span className="text-sm text-gray-900">{permission.name}</span>
@@ -320,13 +327,15 @@ export default function RoleFormModal({
 
         <ModalFooter>
           <Button type="button" variant="outline" onClick={onClose}>
-            Hủy
+            {isViewMode ? "Đóng" : "Hủy"}
           </Button>
-          <Button 
-            type="submit" 
-          >
-            {role ? "Cập nhật" : "Tạo Role"}
-          </Button>
+          {!isViewMode && (
+            <Button 
+              type="submit" 
+            >
+              {role ? "Cập nhật" : "Tạo Role"}
+            </Button>
+          )}
         </ModalFooter>
       </form>
     </Modal>

@@ -99,6 +99,7 @@ export default function LiquidationPage() {
 
   const isAdmin = hasRole([RoleBase.ADMIN]);
   const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
+  const isUserDept = hasRole([RoleBase.USER_DEPT]);
 
   const canView = hasAnyPermission([PermissionConstants.PERM_VIEW_LIQUIDATION]);
   const canApprove = hasAnyPermission([
@@ -128,25 +129,41 @@ export default function LiquidationPage() {
     }
   }, [canView, router]);
   const [units, setUnits] = useState<Unit[]>([]);
+  
+  // Tính toán danh sách units để hiển thị trong dropdown filter dựa vào role
+  // Chỉ dành cho Admin và Admin Dept (User Dept không cần dropdown filter)
+  const getFilterUnits = () => {
+    if (isAdmin) {
+      // Admin thấy tất cả units từ tất cả campuses
+      return campuses.flatMap(campus => [campus, ...(campus.childUnits ?? [])]);
+    }
+    if (isAdminDept && user?.unitId) {
+      // Admin Dept: tìm campus của mình và lấy tất cả children + chính campus đó
+      const userCampus = campuses.find(campus => campus.id === user.unitId);
+      if (userCampus) {
+        return [userCampus, ...(userCampus.childUnits ?? [])];
+      }
+    }
+    // Fallback
+    return [];
+  };
+
   useEffect(() => {
     const loadData = async () => {
       try {
         dispatch(filterLiquidationProposals(currentFilter));
         const result = await dispatch(getUnitCampus()).unwrap();
-        if (result) {
-          const userCampus = result.find((campus: Unit) =>
-            campus.childUnits?.some((unit) => unit.id === user?.unitId)
-          );
-          if (userCampus) {
-            setUnits(userCampus.childUnits ?? []);
-          }
+        // Chỉ Admin và Admin Dept mới cần xử lý units cho dropdown filter
+        // User Dept không cần dropdown filter nên không cần set units
+        if (result && result.length > 0) {
+          setUnits([]); // Reset units, sẽ dùng getFilterUnits() để tính toán động
         }
       } catch (e: any) {
         toast.error(e.message || "Có lỗi xảy ra.");
       }
     };
     loadData();
-  }, []);
+  }, [isAdmin, isAdminDept, isUserDept, user?.unitId]);
 
   // Calculate stats from filtered data
   const stats = React.useMemo(() => {
@@ -490,17 +507,20 @@ export default function LiquidationPage() {
             ))}
           </select>
 
-          {/* Unit Filter */}
+          {/* Unit Filter - Chỉ hiển thị cho Admin và Admin Dept */}
           {(isAdmin || isAdminDept) && (
             <select
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={unitFilter}
               onChange={(e) => setUnitFilter(e.target.value)}
             >
-              <option value="">Tất cả đơn vị</option>
-              {units?.map((unit) => (
+              <option value="">
+                {isAdmin ? "Tất cả đơn vị" : "Tất cả đơn vị trong cơ sở"}
+              </option>
+              {getFilterUnits().map((unit) => (
                 <option key={unit.id} value={unit.id}>
                   {unit.name}
+                  {unit.type === 'CAMPUS' ? ' (Cơ sở)' : ''}
                 </option>
               ))}
             </select>

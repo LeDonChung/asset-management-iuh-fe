@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PermissionConstants } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
+import { RoleBase } from "@/lib/constants/role";
 
 const statusLabels = {
   [UserStatus.ACTIVE]: "Đang hoạt động",
@@ -58,7 +59,40 @@ export default function UsersPage() {
   const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const { hasAnyPermission } = useAuth();
+  const { hasAnyPermission, hasRole, user: currentUser } = useAuth();
+  const isAdmin = hasRole([RoleBase.ADMIN]);
+  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
+  const isUserDept = hasRole([RoleBase.USER_DEPT]);
+
+  // Tính toán danh sách units để hiển thị trong dropdown filter dựa vào role
+  const getFilterUnits = () => {
+    if (isAdmin) {
+      // Admin chỉ thấy các cơ sở (campuses)
+      return campuses;
+    }
+    
+    if (isAdminDept && currentUser?.unitId) {
+      // Admin Dept: tìm campus của mình và lấy tất cả children
+      const userCampus = campuses.find(campus => campus.id === currentUser.unitId);
+      if (userCampus) {
+        return [userCampus, ...(userCampus.childUnits || [])];
+      }
+    }
+    
+    if (isUserDept && currentUser?.unitId) {
+      // User Dept: chỉ thấy unit của mình
+      const allUnits = campuses.flatMap(campus => [
+        campus,
+        ...(campus.childUnits || [])
+      ]);
+      const userUnit = allUnits.find(unit => unit.id === currentUser.unitId);
+      return userUnit ? [userUnit] : [];
+    }
+    
+    return [];
+  };
+
+  const filterUnits = getFilterUnits();
   const canCreate = hasAnyPermission([PermissionConstants.PERM_CREATE_USER]);
   const canUpdate = hasAnyPermission([PermissionConstants.PERM_UPDATE_USER]);
   const canDelete = hasAnyPermission([PermissionConstants.PERM_REMOVE_USER]);
@@ -314,9 +348,12 @@ export default function UsersPage() {
             onChange={(e) => setUnitFilter(e.target.value)}
           >
             <option value="">Tất cả đơn vị</option>
-            {campuses.map((unit) => (
+            {filterUnits.map((unit) => (
               <option key={unit.id} value={unit.id}>
                 {unit.name}
+                {unit.type === 'CAMPUS'}
+                {unit.type === 'ADMIN_DEPT'}
+                {unit.type === 'USER_DEPT'}
               </option>
             ))}
           </select>

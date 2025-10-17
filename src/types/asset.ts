@@ -96,6 +96,7 @@ export interface Role {
   name: string;
   code: string;
   permissions?: Permission[];
+  isProtected?: boolean;
 }
 
 export interface ManagerPermission {
