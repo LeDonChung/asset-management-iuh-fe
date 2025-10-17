@@ -19,6 +19,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { MockDataHelper } from "@/lib/mockData";
 import { useRouter } from "next/navigation";
@@ -392,10 +398,10 @@ export default function AlertPage() {
   const canResolve = hasAnyPermission([PermissionConstants.PERM_RESOLVE_ALERT]);
   const canView = hasAnyPermission([PermissionConstants.PERM_VIEW_ALERT]);
   useEffect(() => {
-    if (!canResolve && !canView) {
+    if (!canView) {
       router.push("/unauthorized");
     }
-  }, [canResolve, canView, router]);
+  }, [canView, router]);
   // Get pending alerts for urgent notifications (combine from store and socket)
   const pendingAlerts = [...pendingAlertsFromSocket];
 
@@ -612,7 +618,7 @@ export default function AlertPage() {
         ),
     },
     {
-      key: "location",
+      key: "room.name",
       title: "Vị trí",
       sortable: true,
       width: "180px",
@@ -640,41 +646,44 @@ export default function AlertPage() {
     },
     {
       key: "actions",
-      title: "Hành động",
-      width: "80px",
+      title: "Thao tác",
+      width: "120px",
       render: (_, alert) => (
-        <div className="flex items-center gap-2">
-          {alert.status === AlertStatus.PENDING ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log("Processing alert:", alert.id);
-                handleViewDetail(alert.id);
-              }}
-              title="Xử lý"
-            >
-              <Workflow className="h-4 w-4 text-blue-600" />
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log("Viewing alert:", alert.id);
-                handleViewDetail(alert.id);
-              }}
-              title="Xem"
-            >
-              <Eye className="h-4 w-4 text-gray-600" />
-            </Button>
-          )}
+        <div className="flex justify-start">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
+                Hành động
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {canView && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewDetail(alert.id);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Xem chi tiết</span>
+                </DropdownMenuItem>
+              )}
+              {canResolve && alert.status === AlertStatus.PENDING && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewDetail(alert.id);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer text-blue-600"
+                >
+                  <span>Xử lý cảnh báo</span>
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
+      className: "text-right",
     },
   ];
 
