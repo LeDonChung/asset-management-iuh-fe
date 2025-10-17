@@ -96,12 +96,12 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
         {
           name: "Danh sách đề xuất",
           href: "/liquidation",
-          permissions: [PermissionConstants.PERM_VIEW_ASSET],
+          permissions: [PermissionConstants.PERM_VIEW_LIQUIDATION],
         },
         {
           name: "Tạo đề xuất thanh lý",
           href: "/liquidation/create",
-          permissions: [PermissionConstants.PERM_UPDATE_ASSET],
+          permissions: [PermissionConstants.PERM_CREATE_LIQUIDATION],
         },
       ],
     }, // Quản lý cảnh báo
@@ -228,6 +228,10 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
     // Special case for "/inventory" - only active when exactly "/inventory"
     if (childHref === "/inventory") {
       return currentPath === "/inventory";
+    }
+
+    if (childHref === "/liquidation") {
+      return currentPath === "/liquidation";
     }
     
     // For other paths, check if current path starts with child href + "/"

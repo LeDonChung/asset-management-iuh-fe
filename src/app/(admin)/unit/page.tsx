@@ -62,7 +62,7 @@ export default function UnitsPage() {
     if (!canCreate && !canUpdate && !canDelete && !canView) {
       router.push("/unauthorized");
     }
-  }, [canCreate, canUpdate, canDelete, canView, router]);
+  }, [canView, router]);
   const { currentFilter, filteredUnits } = useSelector(
     (state: RootState) => state.unit
   );
