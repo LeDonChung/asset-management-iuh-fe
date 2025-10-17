@@ -10,7 +10,7 @@ import assetBookSlice from './slices/assetBookSlice'
 import permissionSlice from './slices/permissionSlice'
 import alertSlice from './slices/alertSlice'
 import roomSlice from './slices/roomSlice'
-
+import liquidationSlice from './slices/liquidationSlice'
 export const store = configureStore({
   reducer: {
     asset: assetSlice,
@@ -24,6 +24,7 @@ export const store = configureStore({
     permission: permissionSlice,
     alert: alertSlice,
     room: roomSlice,
+    liquidation: liquidationSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
