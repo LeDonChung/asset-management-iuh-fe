@@ -96,6 +96,7 @@ export interface Role {
   name: string;
   code: string;
   permissions?: Permission[];
+  isProtected?: boolean;
 }
 
 export interface ManagerPermission {
@@ -329,17 +330,18 @@ export interface DamageReport {
 
 // Liquidation Management
 export enum LiquidationStatus {
+  DRAFT = "DRAFT", // Bản nháp, chưa gửi đề xuất
   PROPOSED = "PROPOSED", // Đề xuất thanh lý
-  APPROVED = "APPROVED", // Chấp nhận
-  REJECTED = "REJECTED", // Từ chối
+  APPROVED = "APPROVED", // Phòng quản trị chấp nhận và gửi minh chứng
+  REJECTED = "REJECTED", // Phòng quản trị từ chối
+  FINALIZED = "FINALIZED", // Bên trường duyệt xong, cập nhật minh chứng hoàn tất
 }
 
 export interface LiquidationProposal {
   id: string;
   proposerId: string; // Người đề xuất
   unitId: string; // Đơn vị sử dụng
-  typeAsset: AssetType; // Loại tài sản trong danh sách thanh lý
-  reason: string; // text
+  assetType: AssetType; // Loại tài sản trong danh sách thanh lý
   status: LiquidationStatus; // Trạng thái đề xuất
   createdAt: string; // datetime
   updatedAt: string; // datetime
@@ -707,6 +709,49 @@ export interface InventoryResultFormData {
   note?: string;
 }
 
+// Liquidation Filter
+export interface LiquidationProposalFilterRequest extends BaseFilterRequest {
+  search?: string | null;
+  status?: LiquidationStatus;
+  unitId?: string;
+  year?: number;
+}
+
+// Liquidation Proposed Inventory Result Filter (matching backend LiquidationProposedFilterDto)
+export interface LiquidationProposedFilterRequest extends BaseFilterRequest {
+  search?: string; // Tìm kiếm theo tên tài sản, mã tài sản
+  roomId?: string; // ID phòng (để lọc theo phòng cụ thể)
+  assetType?: AssetType; // Loại tài sản
+}
+
+// Liquidation Proposed Inventory Result (matching backend LiquidationProposedInventoryResultDto)
+export interface LiquidationProposedInventoryResult {
+  id: string;
+  systemQuantity: number;
+  countedQuantity: number;
+  note: string;
+  scanMethod: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  asset: Asset;
+  room: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  inventorySession: {
+    id: string;
+    name: string;
+    year: number;
+  };
+  fileUrls?: {
+    id: string;
+    url: string;
+    createdAt: string;
+  }[];
+}
+
 // Backend filter enums and types (matching AdvancedFilter)
 export enum FilterOperator {
   EQUALS = "equals",
@@ -780,4 +825,138 @@ export interface PaginatedResponse<T> {
     firstPage?: number;
     lastPage?: number;
   };
+}
+
+// ============================================================
+// LIQUIDATION DTOs (matching backend DTOs)
+// ============================================================
+
+// DTO for creating liquidation item
+export interface CreateLiquidationItemDto {
+  assetId: string; // ID của tài sản cần thanh lý
+  systemQuantity: number; // Số lượng theo sổ sách
+  countedQuantity: number; // Số lượng theo kiểm kê thực tế
+  note?: string; // Ghi chú thêm về tài sản
+  imageUrl?: string; // URL hình ảnh minh chứng
+}
+
+// DTO for creating liquidation proposal
+export interface CreateLiquidationProposalDto {
+  unitId: string; // ID của đơn vị đề xuất thanh lý
+  status?: LiquidationStatus; // Trạng thái đề xuất (DRAFT hoặc PROPOSED)
+  assetType: AssetType; // Loại tài sản
+  items: CreateLiquidationItemDto[]; // Danh sách tài sản trong đề xuất thanh lý
+}
+
+// DTO for updating liquidation item
+export interface UpdateLiquidationItemDto {
+  id?: string; // ID của item (nếu có - để cập nhật item hiện tại)
+  assetId: string; // ID của tài sản cần thanh lý
+  systemQuantity: number; // Số lượng theo sổ sách
+  countedQuantity: number; // Số lượng theo kiểm kê thực tế
+  note?: string; // Ghi chú thêm về tài sản
+  imageUrl?: string; // URL hình ảnh minh chứng
+}
+
+// DTO for updating liquidation proposal
+export interface UpdateLiquidationProposalDto {
+  unitId?: string; // ID của đơn vị đề xuất thanh lý
+  items?: UpdateLiquidationItemDto[]; // Danh sách tài sản trong đề xuất thanh lý (sẽ thay thế toàn bộ danh sách hiện tại)
+}
+
+// DTO for updating liquidation status
+export interface UpdateLiquidationStatusDto {
+  status: LiquidationStatus; // Trạng thái mới
+  note?: string; // Ghi chú khi thay đổi trạng thái
+  evidenceUrl?: string; // URL minh chứng đính kèm
+}
+
+// DTO for uploading evidence
+export interface UploadEvidenceDto {
+  evidenceUrl: string; // URL minh chứng cần upload
+  note?: string; // Ghi chú về minh chứng
+}
+
+// Response DTO for liquidation item
+export interface LiquidationItemResponseDto {
+  id: string;
+  proposalId: string;
+  assetId: string;
+  systemQuantity: number;
+  countedQuantity: number;
+  note?: string;
+  imageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  asset?: {
+    type: string;
+    id: string;
+    ktCode: string;
+    fixedCode: string;
+    name: string;
+    specs?: string;
+    entrydate: string;
+    currentRoomId?: string;
+    unit: string;
+    quantity: number;
+    origin?: string;
+    purchasePackage: number;
+    categoryId: string;
+    status: string;
+    allowMove: boolean;
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+    deletedAt?: string | null;
+    currentRoom?: {
+      id: string;
+      name: string;
+      building?: string;
+      roomCode: string;
+      floor: string;
+      roomNumber?: string;
+      status: string;
+      unitId: string;
+      createdAt: string;
+      updatedAt: string;
+      deletedAt?: string | null;
+    };
+  };
+}
+
+// Response DTO for liquidation history
+export interface LiquidationHistoryResponseDto {
+  id: string;
+  actionStatus: LiquidationStatus;
+  evidenceUrl?: string;
+  note?: string;
+  createdAt: string;
+  handler?: {
+    id: string;
+    fullName: string;
+  };
+}
+
+// Response DTO for liquidation proposal (matching backend entity)
+export interface LiquidationProposalResponseDto {
+  id: string;
+  proposerId: string;
+  unitId: string;
+  status: LiquidationStatus;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  assetType: AssetType;
+  proposer?: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  unit?: {
+    id: string;
+    name: string;
+  };
+  items?: LiquidationItemResponseDto[];
+  histories?: LiquidationHistoryResponseDto[];
 }

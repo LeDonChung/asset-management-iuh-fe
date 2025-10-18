@@ -16,6 +16,9 @@ import {
 } from "@/lib/store/slices/unitSlice";
 import { getUsersWithoutUnit } from "@/lib/store/slices/userSlice";
 import toast from "react-hot-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { RoleBase } from "@/lib/constants/role";
+import { PermissionConstants } from "@/hooks/usePermissions";
 
 
 interface UnitFormData {
@@ -62,6 +65,11 @@ export default function EditUnitPage() {
   });
   
   const [errors, setErrors] = useState<FormErrors>({});
+  const { hasRole, user: currentUser, hasAnyPermission } = useAuth();
+  const canEdit = hasAnyPermission([PermissionConstants.PERM_UPDATE_UNIT]);
+  const isAdmin = hasRole([RoleBase.ADMIN]);
+  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
+  const isUserDept = hasRole([RoleBase.USER_DEPT]);
 
   useEffect(() => {
     dispatch(getUnitById(unitId));
@@ -89,7 +97,10 @@ export default function EditUnitPage() {
     // Validation
     const newErrors: FormErrors = {};
     if (!formData.name.trim()) newErrors.name = "Tên đơn vị là bắt buộc";
-    if (!formData.type) newErrors.type = "Loại đơn vị là bắt buộc";
+    
+    // Chỉ validate type cho Admin (Admin Dept không thể thay đổi type)
+    if (isAdmin && !formData.type) newErrors.type = "Loại đơn vị là bắt buộc";
+    
     if (!formData.representativeId)
       newErrors.representativeId = "Người đại diện là bắt buộc";
 
@@ -206,51 +217,53 @@ export default function EditUnitPage() {
                   )}
                 </div>
 
-                {/* Unit Type */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Loại đơn vị *
-                  </label>
-                  <div
-                    className={`relative ${
-                      errors.type ? "border-red-500" : "border-gray-300"
-                    }`}
-                  >
-                    <select
-                      className="w-full px-3 py-2 border rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={formData.type}
-                      onChange={(e) => handleChange("type", e.target.value)}
+                {/* Unit Type - chỉ hiện cho Admin */}
+                {isAdmin && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Loại đơn vị *
+                    </label>
+                    <div
+                      className={`relative ${
+                        errors.type ? "border-red-500" : "border-gray-300"
+                      }`}
                     >
-                      <option value="">Chọn loại đơn vị</option>
-                      <option value={UnitType.ADMIN_DEPT}>
-                        Phòng quản trị
-                      </option>
-                      <option value={UnitType.USER_DEPT}>Đơn vị sử dụng</option>
-                      <option value={UnitType.CAMPUS}>Cơ sở</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
-                      <svg
-                        className="h-4 w-4 text-gray-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
+                      <select
+                        className="w-full px-3 py-2 border rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={formData.type}
+                        onChange={(e) => handleChange("type", e.target.value)}
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
+                        <option value="">Chọn loại đơn vị</option>
+                        <option value={UnitType.ADMIN_DEPT}>
+                          Phòng quản trị
+                        </option>
+                        <option value={UnitType.USER_DEPT}>Đơn vị sử dụng</option>
+                        <option value={UnitType.CAMPUS}>Cơ sở</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
+                        <svg
+                          className="h-4 w-4 text-gray-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </div>
                     </div>
+                    {errors.type && (
+                      <p className="text-red-500 text-sm mt-1">{errors.type}</p>
+                    )}
                   </div>
-                  {errors.type && (
-                    <p className="text-red-500 text-sm mt-1">{errors.type}</p>
-                  )}
-                </div>
+                )}
 
-                {/* Parent Unit - chỉ hiện khi type không phải CAMPUS */}
-                {formData.type && formData.type !== UnitType.CAMPUS && (
+                {/* Parent Unit - chỉ hiện cho Admin khi type không phải CAMPUS */}
+                {isAdmin && formData.type && formData.type !== UnitType.CAMPUS && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Đơn vị cha *
