@@ -5,23 +5,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Package, FileText, Eye, Calendar, MapPin, User, Camera, Info } from "lucide-react";
+import { Search, Plus, Package, FileText, Eye, Calendar, MapPin, User, Camera, Info, Save, X, RefreshCw } from "lucide-react";
 import {
   LiquidationProposedInventoryResult,
   AssetType,
   InventoryResultStatus,
   LiquidationProposedFilterRequest,
-  CreateLiquidationProposalDto,
-  CreateLiquidationItemDto,
+  LiquidationProposalResponseDto,
   LiquidationStatus,
+  UpdateLiquidationProposalDto,
+  UpdateLiquidationItemDto,
 } from "@/types/asset";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
 import {
   filterLiquidationProposedInventoryResults,
-  createLiquidationProposal,
+  getLiquidationProposalById,
+  updateLiquidationProposal,
 } from "@/lib/store/slices/liquidationSlice";
 import toast from "react-hot-toast";
 import {
@@ -34,7 +36,6 @@ import {
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useAuth } from "@/contexts/AuthContext";
 import { PermissionConstants } from "@/hooks/usePermissions";
-import { RoleBase } from "@/lib/constants/role";
 
 const statusLabels = {
   [InventoryResultStatus.MATCHED]: "Khớp",
@@ -59,63 +60,112 @@ const assetTypeLabels = {
   [AssetType.TOOLS_EQUIPMENT]: "Công cụ dụng cụ",
 };
 
-export default function LiquidationCreatePage() {
+const liquidationStatusLabels = {
+  [LiquidationStatus.DRAFT]: "Nháp",
+  [LiquidationStatus.PROPOSED]: "Đã gửi",
+  [LiquidationStatus.APPROVED]: "Đã duyệt",
+  [LiquidationStatus.REJECTED]: "Từ chối",
+  [LiquidationStatus.FINALIZED]: "Hoàn thành",
+};
+
+const liquidationStatusColors = {
+  [LiquidationStatus.DRAFT]: "bg-gray-100 text-gray-800",
+  [LiquidationStatus.PROPOSED]: "bg-blue-100 text-blue-800",
+  [LiquidationStatus.APPROVED]: "bg-green-100 text-green-800",
+  [LiquidationStatus.REJECTED]: "bg-red-100 text-red-800",
+  [LiquidationStatus.FINALIZED]: "bg-purple-100 text-purple-800",
+};
+
+export default function LiquidationEditPage() {
   const router = useRouter();
+  const params = useParams();
   const dispatch = useAppDispatch();
+  const liquidationId = params.id as string;
+  
   const {
     filteredLiquidationProposedInventoryResults,
     currentLiquidationProposedFilter,
-    isCreatingProposal,
-    createProposalError,
+    currentLiquidationProposal,
+    isFetchingProposal,
+    isUpdatingProposal,
+    updateProposalError,
   } = useAppSelector((state: RootState) => state.liquidation);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [roomFilter, setRoomFilter] = useState<string>("");
   const [assetTypeFilter, setAssetTypeFilter] = useState<AssetType>(AssetType.FIXED_ASSET);
-  const [selectedAssetType, setSelectedAssetType] = useState<AssetType>(AssetType.FIXED_ASSET);
-  const { user, hasAnyPermission, hasRole } = useAuth();
-  const canCreate = hasAnyPermission([
-    PermissionConstants.PERM_CREATE_LIQUIDATION,
-  ]);
+  const { user, hasAnyPermission } = useAuth();
   
-  const canPropose = hasAnyPermission([
-    PermissionConstants.PERM_PROPOSED_LIQUIDATION,
+  const canUpdate = hasAnyPermission([
+    PermissionConstants.PERM_UPDATE_LIQUIDATION,
   ]);
 
-  useEffect(() => {
-      if (!canCreate && !canPropose) {
-          router.push("/unauthorized");
-      }
-  }, [canCreate, canPropose, router]);
-  useEffect(() => {
-    const loadData = () => {
-      try {
-        // Lọc theo đơn vị của user hiện tại và chỉ hiển thị tài sản đề xuất thanh lý
-        const initialFilter: LiquidationProposedFilterRequest = {
-          ...currentLiquidationProposedFilter,
-          assetType: assetTypeFilter,
-          // Nếu user có unitId, lọc theo unit của user
-          //   roomId: user?.unitId || undefined,
-        };
-
-        dispatch(filterLiquidationProposedInventoryResults(initialFilter));
-      } catch (e: any) {
-        toast.error(e.message || "Có lỗi xảy ra.");
-      }
-    };
-    loadData();
-  }, []);
-
-  // State for selected assets
+  // State for selected assets (for comparison and editing)
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+  const [originalSelectedAssets, setOriginalSelectedAssets] = useState<string[]>([]);
   
   // State for detail modal
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedAssetDetail, setSelectedAssetDetail] = useState<LiquidationProposedInventoryResult | null>(null);
   
-  // State for confirmation modal
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<LiquidationStatus>(LiquidationStatus.DRAFT);
+  // State for save confirmation modal
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    if (!canUpdate) {
+      router.push("/unauthorized");
+      return;
+    }
+
+    if (liquidationId) {
+      // Load liquidation proposal details
+      dispatch(getLiquidationProposalById(liquidationId));
+    }
+  }, [canUpdate, router, liquidationId, dispatch]);
+
+  // Load inventory data when proposal is loaded
+  useEffect(() => {
+    if (currentLiquidationProposal) {
+      const initialFilter: LiquidationProposedFilterRequest = {
+        ...currentLiquidationProposedFilter,
+        assetType: currentLiquidationProposal.assetType,
+      };
+
+      dispatch(filterLiquidationProposedInventoryResults(initialFilter));
+      
+      // Set original selected assets from current proposal
+      const currentAssetIds = currentLiquidationProposal.items?.map(item => item.assetId) || [];
+      setOriginalSelectedAssets(currentAssetIds);
+      // Note: selectedAssets will be set after inventory data is loaded
+    }
+  }, [currentLiquidationProposal, dispatch]);
+
+  // Set selected assets when inventory data is loaded
+  useEffect(() => {
+    if (filteredLiquidationProposedInventoryResults.data.length > 0 && originalSelectedAssets.length > 0) {
+      // Map asset IDs to inventory result IDs
+      const selectedInventoryIds = filteredLiquidationProposedInventoryResults.data
+        .filter(item => originalSelectedAssets.includes(item.asset.id))
+        .map(item => item.id);
+      setSelectedAssets(selectedInventoryIds);
+    }
+  }, [filteredLiquidationProposedInventoryResults.data, originalSelectedAssets]);
+
+  // Check for changes
+  useEffect(() => {
+    const hasChanged = JSON.stringify(selectedAssets.sort()) !== JSON.stringify(originalSelectedAssets.map(assetId => 
+      filteredLiquidationProposedInventoryResults.data.find(item => item.asset.id === assetId)?.id
+    ).filter(Boolean).sort());
+    setHasChanges(hasChanged);
+  }, [selectedAssets, originalSelectedAssets, filteredLiquidationProposedInventoryResults.data]);
+
+  // Show error toast if update fails
+  useEffect(() => {
+    if (updateProposalError) {
+      toast.error(updateProposalError);
+    }
+  }, [updateProposalError]);
 
   // Table columns configuration
   const columns: TableColumn<LiquidationProposedInventoryResult>[] = [
@@ -220,25 +270,25 @@ export default function LiquidationCreatePage() {
       ),
     },
     {
-        key: "imgs",
-        title: "Hình ảnh",
-        width: "100px",
-        render: (_, record) => (
-          <div className="flex justify-center">
-            {record.fileUrls && record.fileUrls.length > 0 ? (
-              record.fileUrls.slice(0, 3).map((file) => (
-                <img
-                  key={file.id}
-                  src={file.url}
-                  alt="Asset"
-                  className="w-20 h-20 rounded-md object-cover mx-1 border"
-                />
-              ))
-            ) : (
-              <div className="text-xs text-gray-500">Không có hình ảnh</div>
-            )}
-          </div>
-        ),
+      key: "imgs",
+      title: "Hình ảnh",
+      width: "100px",
+      render: (_, record) => (
+        <div className="flex justify-center">
+          {record.fileUrls && record.fileUrls.length > 0 ? (
+            record.fileUrls.slice(0, 3).map((file) => (
+              <img
+                key={file.id}
+                src={file.url}
+                alt="Asset"
+                className="w-20 h-20 rounded-md object-cover mx-1 border"
+              />
+            ))
+          ) : (
+            <div className="text-xs text-gray-500">Không có hình ảnh</div>
+          )}
+        </div>
+      ),
     },
     {
       key: "actions",
@@ -272,29 +322,19 @@ export default function LiquidationCreatePage() {
   ];
 
   const handlerRender = (filter: LiquidationProposedFilterRequest) => {
-    console.log("Filter being sent:", filter);
-    console.log("Sorting configs:", filter.sorting);
     dispatch(filterLiquidationProposedInventoryResults(filter));
   };
 
   useEffect(() => {
-    handlerRender({
-      ...currentLiquidationProposedFilter,
-      search: searchTerm || undefined,
-      roomId: roomFilter || undefined,
-      assetType: assetTypeFilter,
-    });
-    
-    // Cập nhật selectedAssetType khi assetTypeFilter thay đổi
-    setSelectedAssetType(assetTypeFilter);
-  }, [searchTerm, roomFilter, assetTypeFilter]);
-
-  // Show error toast if create proposal fails
-  useEffect(() => {
-    if (createProposalError) {
-      toast.error(createProposalError);
+    if (currentLiquidationProposal) {
+      handlerRender({
+        ...currentLiquidationProposedFilter,
+        search: searchTerm || undefined,
+        roomId: roomFilter || undefined,
+        assetType: assetTypeFilter,
+      });
     }
-  }, [createProposalError]);
+  }, [searchTerm, roomFilter, assetTypeFilter, currentLiquidationProposal]);
 
   // Get unique rooms from data for filter
   const availableRooms = useMemo(() => {
@@ -314,97 +354,155 @@ export default function LiquidationCreatePage() {
     setSelectedAssets(selectedRowKeys);
   };
 
-  // Handle create liquidation proposal - open confirmation modal
-  const handleCreateProposal = () => {
-    if (selectedAssets.length === 0) {
-      toast.error("Vui lòng chọn ít nhất một tài sản để tạo đề xuất thanh lý");
+  // Handle save liquidation proposal
+  const handleSaveProposal = () => {
+    if (!hasChanges) {
+      toast("Không có thay đổi nào để lưu");
       return;
     }
 
-    if (!user?.unitId) {
-      toast.error("Không thể xác định đơn vị của bạn. Vui lòng đăng nhập lại.");
-      return;
-    }
-
-    setIsConfirmModalOpen(true);
+    setIsSaveModalOpen(true);
   };
 
-  // Handle confirm create with selected status
-  const handleConfirmCreate = async (status: LiquidationStatus) => {
+  // Handle confirm save
+  const handleConfirmSave = async () => {
     try {
+      if (!currentLiquidationProposal) {
+        toast.error("Không tìm thấy thông tin đề xuất");
+        return;
+      }
+
       // Tạo danh sách items từ các tài sản đã chọn
       const selectedItems = filteredLiquidationProposedInventoryResults.data.filter(
         (item) => selectedAssets.includes(item.id)
       );
 
-      const createDto: CreateLiquidationProposalDto = {
-        unitId: user!.unitId!,
-        status: status,
-        items: selectedItems.map((item): CreateLiquidationItemDto => ({
-          assetId: item.asset.id,
-          systemQuantity: item.systemQuantity,
-          countedQuantity: item.countedQuantity,
-          note: item.note || `Đề xuất thanh lý từ kết quả kiểm kê - ${item.inventorySession.name}`,
-          // Lấy hình ảnh đầu tiên nếu có
-          imageUrl: item.fileUrls && item.fileUrls.length > 0 ? item.fileUrls[0].url : undefined,
-        })),
-        assetType: selectedAssetType as AssetType,
+      const updateDto: UpdateLiquidationProposalDto = {
+        items: selectedItems.map((item): UpdateLiquidationItemDto => {
+          // Tìm item hiện tại trong proposal (nếu có)
+          const existingItem = currentLiquidationProposal.items?.find(
+            proposalItem => proposalItem.assetId === item.asset.id
+          );
+
+          return {
+            id: existingItem?.id, // Giữ ID cũ nếu có để cập nhật
+            assetId: item.asset.id,
+            systemQuantity: item.systemQuantity,
+            countedQuantity: item.countedQuantity,
+            note: item.note || `Đề xuất thanh lý từ kết quả kiểm kê - ${item.inventorySession.name}`,
+            // Lấy hình ảnh đầu tiên nếu có
+            imageUrl: item.fileUrls && item.fileUrls.length > 0 ? item.fileUrls[0].url : undefined,
+          };
+        }),
       };
 
-      // Gọi API tạo đề xuất thanh lý
-      const result = await dispatch(createLiquidationProposal(createDto)).unwrap();
+      // Gọi API cập nhật đề xuất thanh lý
+      await dispatch(updateLiquidationProposal({
+        id: liquidationId,
+        updateDto: updateDto
+      })).unwrap();
       
-      const statusMessage = status === LiquidationStatus.PROPOSED 
-        ? "và đã gửi đề xuất" 
-        : "dưới dạng nháp";
+      toast.success("Đã cập nhật đề xuất thanh lý thành công!");
       
-      toast.success(
-        `Đã tạo đề xuất thanh lý cho ${selectedAssets.length} tài sản ${statusMessage}!`
-      );
+      setIsSaveModalOpen(false);
       
-      setIsConfirmModalOpen(false);
-      
-      // Chuyển hướng về trang danh sách đề xuất
-      router.push("/liquidation");
+      // Reload proposal data
+      dispatch(getLiquidationProposalById(liquidationId));
       
     } catch (error: any) {
-      console.error("Error creating liquidation proposal:", error);
-      toast.error(
-        error?.message || "Có lỗi xảy ra khi tạo đề xuất thanh lý. Vui lòng thử lại."
-      );
+      console.error("Error updating liquidation proposal:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Có lỗi xảy ra khi cập nhật đề xuất thanh lý. Vui lòng thử lại.";
+      toast.error(errorMessage);
     }
   };
+
+  // Handle reset changes
+  const handleResetChanges = () => {
+    setSelectedAssets(originalSelectedAssets);
+    toast("Đã khôi phục về trạng thái ban đầu");
+  };
+
+  if (isFetchingProposal) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center gap-2">
+          <RefreshCw className="h-5 w-5 animate-spin" />
+          <span>Đang tải thông tin đề xuất...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentLiquidationProposal) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Không tìm thấy đề xuất</h2>
+          <p className="text-gray-600 mb-4">Đề xuất thanh lý không tồn tại hoặc bạn không có quyền truy cập.</p>
+          <Link href="/liquidation">
+            <Button variant="default">Quay lại danh sách</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (currentLiquidationProposal.status !== LiquidationStatus.DRAFT) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Không thể chỉnh sửa</h2>
+          <p className="text-gray-600 mb-4">
+            Chỉ có thể chỉnh sửa đề xuất ở trạng thái nháp (DRAFT). 
+            Trạng thái hiện tại: <Badge className={liquidationStatusColors[currentLiquidationProposal.status]}>
+              {liquidationStatusLabels[currentLiquidationProposal.status]}
+            </Badge>
+          </p>
+          <Link href={`/liquidation/${liquidationId}`}>
+            <Button variant="default">Xem chi tiết</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Tạo đề xuất thanh lý
-          </h1>
-          <p className="text-gray-600">
-            Danh sách tài sản được đề xuất thanh lý từ kết quả kiểm kê
-          </p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Chỉnh sửa đề xuất thanh lý
+            </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/liquidation">
+          <Link href={`/liquidation/${liquidationId}`}>
             <Button variant="outline" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Danh sách đề xuất
+              <Eye className="h-4 w-4" />
+              Xem chi tiết
             </Button>
           </Link>
 
-          {selectedAssets.length > 0 && (
-            <Button
-              variant="default"
-              onClick={handleCreateProposal}
-              disabled={isCreatingProposal}
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              {isCreatingProposal ? "Đang tạo đề xuất..." : "Tạo đề xuất thanh lý"}
-            </Button>
+          {hasChanges && (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleResetChanges}
+                className="flex items-center gap-2"
+              >
+                <X className="h-4 w-4" />
+                Hủy thay đổi
+              </Button>
+              <Button
+                variant="default"
+                onClick={handleSaveProposal}
+                disabled={isUpdatingProposal}
+                className="flex items-center gap-2"
+              >
+                <Save className="h-4 w-4" />
+                {isUpdatingProposal ? "Đang lưu..." : "Lưu thay đổi"}
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -441,11 +539,7 @@ export default function LiquidationCreatePage() {
           <select
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={assetTypeFilter}
-            onChange={(e) => {
-              const value = e.target.value as AssetType;
-              setAssetTypeFilter(value);
-              setSelectedAssetType(value);
-            }}
+            onChange={(e) => setAssetTypeFilter(e.target.value as AssetType)}
           >
             {Object.entries(assetTypeLabels).map(([value, label]) => (
               <option key={value} value={value}>
@@ -497,80 +591,42 @@ export default function LiquidationCreatePage() {
         }}
       />
 
-      {/* Confirmation Modal */}
+      {/* Save Confirmation Modal */}
       <Modal
-        isOpen={isConfirmModalOpen}
-        onClose={() => setIsConfirmModalOpen(false)}
-        title="Xác nhận tạo đề xuất thanh lý"
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        title="Xác nhận cập nhật đề xuất thanh lý"
         size="lg"
       >
         <ModalBody className="p-6">
           <div className="text-center mb-6">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
-              <FileText className="h-6 w-6 text-yellow-600" />
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
+              <Save className="h-6 w-6 text-blue-600" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Tạo đề xuất thanh lý cho {selectedAssets.length} tài sản
+              Cập nhật đề xuất thanh lý
             </h3>
             <p className="text-sm text-gray-500 mb-6">
-              Bạn muốn tạo đề xuất ở trạng thái nào?
+              Bạn có chắc chắn muốn cập nhật danh sách tài sản trong đề xuất này?
             </p>
           </div>
 
-          <div className="space-y-3">
-            <div 
-              className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                selectedStatus === LiquidationStatus.DRAFT
-                  ? 'border-blue-500 bg-blue-50' 
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-              onClick={() => setSelectedStatus(LiquidationStatus.DRAFT)}
-            >
-              <div className="flex items-center">
-                <input
-                  type="radio"
-                  name="status"
-                  value={LiquidationStatus.DRAFT}
-                  checked={selectedStatus === LiquidationStatus.DRAFT}
-                  onChange={() => setSelectedStatus(LiquidationStatus.DRAFT)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <div className="ml-3">
-                  <div className="text-sm font-medium text-gray-900">
-                    Lưu nháp
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Đề xuất sẽ được lưu dưới dạng nháp, có thể chỉnh sửa sau
-                  </div>
-                </div>
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <h4 className="font-medium text-gray-900 mb-2">Thay đổi:</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span>Số tài sản ban đầu:</span>
+                <span className="font-medium">{originalSelectedAssets.length}</span>
               </div>
-            </div>
-
-            <div 
-              className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                selectedStatus === LiquidationStatus.PROPOSED
-                  ? 'border-blue-500 bg-blue-50' 
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-              onClick={() => setSelectedStatus(LiquidationStatus.PROPOSED)}
-            >
-              <div className="flex items-center">
-                <input
-                  type="radio"
-                  name="status"
-                  value={LiquidationStatus.PROPOSED}
-                  checked={selectedStatus === LiquidationStatus.PROPOSED}
-                  onChange={() => setSelectedStatus(LiquidationStatus.PROPOSED)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <div className="ml-3">
-                  <div className="text-sm font-medium text-gray-900">
-                    Gửi đề xuất ngay
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Đề xuất sẽ được gửi đi để xem xét và phê duyệt
-                  </div>
-                </div>
+              <div className="flex justify-between">
+                <span>Số tài sản sau chỉnh sửa:</span>
+                <span className="font-medium">{selectedAssets.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Thay đổi:</span>
+                <span className={`font-medium ${selectedAssets.length > originalSelectedAssets.length ? 'text-green-600' : selectedAssets.length < originalSelectedAssets.length ? 'text-red-600' : 'text-gray-600'}`}>
+                  {selectedAssets.length > originalSelectedAssets.length ? '+' : ''}{selectedAssets.length - originalSelectedAssets.length}
+                </span>
               </div>
             </div>
           </div>
@@ -578,26 +634,26 @@ export default function LiquidationCreatePage() {
         <ModalFooter className="flex justify-end gap-3 p-6 border-t">
           <Button
             variant="outline"
-            onClick={() => setIsConfirmModalOpen(false)}
-            disabled={isCreatingProposal}
+            onClick={() => setIsSaveModalOpen(false)}
+            disabled={isUpdatingProposal}
           >
             Hủy
           </Button>
           <Button
             variant="default"
-            onClick={() => handleConfirmCreate(selectedStatus)}
-            disabled={isCreatingProposal}
+            onClick={handleConfirmSave}
+            disabled={isUpdatingProposal}
             className="flex items-center gap-2"
           >
-            {isCreatingProposal ? (
+            {isUpdatingProposal ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Đang tạo...
+                Đang cập nhật...
               </>
             ) : (
               <>
-                <Plus className="h-4 w-4" />
-                {selectedStatus === LiquidationStatus.PROPOSED ? "Gửi đề xuất" : "Lưu nháp"}
+                <Save className="h-4 w-4" />
+                Cập nhật
               </>
             )}
           </Button>

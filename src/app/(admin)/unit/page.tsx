@@ -59,10 +59,10 @@ export default function UnitsPage() {
   const canDelete = hasAnyPermission([PermissionConstants.PERM_REMOVE_UNIT]);
   const canView = hasAnyPermission([PermissionConstants.PERM_VIEW_UNIT]);
   useEffect(() => {
-    if (!canCreate && !canUpdate && !canDelete && !canView) {
+    if (!canView) {
       router.push("/unauthorized");
     }
-  }, [canCreate, canUpdate, canDelete, canView, router]);
+  }, [canView, router]);
   const { currentFilter, filteredUnits } = useSelector(
     (state: RootState) => state.unit
   );

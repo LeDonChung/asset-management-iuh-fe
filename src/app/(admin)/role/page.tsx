@@ -48,6 +48,7 @@ export default function RolePage() {
   );
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [isViewMode, setIsViewMode] = useState(false);
   const { hasAnyPermission } = useAuth();
   const canCreate = hasAnyPermission([PermissionConstants.PERM_CREATE_ROLE]);
   const canUpdate = hasAnyPermission([PermissionConstants.PERM_UPDATE_ROLE]);
@@ -74,11 +75,13 @@ export default function RolePage() {
 
   const handleCreateRole = () => {
     setSelectedRole(null);
+    setIsViewMode(false);
     setIsFormModalOpen(true);
   };
 
-  const handleEditRole = (role: Role) => {
+  const handleEditRole = (role: Role, viewOnly: boolean = false) => {
     setSelectedRole(role);
+    setIsViewMode(viewOnly);
     setIsFormModalOpen(true);
   };
 
@@ -166,28 +169,42 @@ export default function RolePage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {canUpdate && (
+              {canUpdate && record.isProtected && (
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleEditRole(record);
+                    handleEditRole(record, false);
                   }}
                   className="flex items-center gap-2 cursor-pointer"
                 >
                   <span>Chỉnh sửa</span>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator />
-              {canDelete && (
+              {canUpdate && record.isProtected && (
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDeleteRole(record.id);
+                    handleEditRole(record, true);
                   }}
-                  className="flex items-center gap-2 cursor-pointer text-red-600 "
+                  className="flex items-center gap-2 cursor-pointer"
                 >
-                  <span>Xóa</span>
+                  <span>Xem</span>
                 </DropdownMenuItem>
+              )}
+
+              {canDelete && !record.isProtected && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteRole(record.id);
+                    }}
+                    className="flex items-center gap-2 cursor-pointer text-red-600 "
+                  >
+                    <span>Xóa</span>
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -235,10 +252,14 @@ export default function RolePage() {
       {/* Role Form Modal */}
       <RoleFormModal
         isOpen={isFormModalOpen}
-        onClose={() => setIsFormModalOpen(false)}
+        onClose={() => {
+          setIsFormModalOpen(false);
+          setIsViewMode(false);
+        }}
         role={selectedRole}
         managerPermissions={allPermission}
         onSave={handleSaveRole}
+        isViewMode={isViewMode}
       />
     </div>
   );
