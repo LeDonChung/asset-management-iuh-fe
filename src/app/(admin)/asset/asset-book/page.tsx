@@ -253,11 +253,10 @@ export default function AssetBookPage() {
         const campusesResult = await dispatch(getUnitCampus()).unwrap();
         if (campusesResult) {
           if (user) {
+            console.log("User unit ID:", user.unitId);
             if (isAdminDept) {
-              // Tìm campus chứa unit của user trong children
-              const userCampus = campusesResult.find((campus: Unit) =>
-                campus.childUnits?.some((unit) => unit.id === user?.unitId)
-              );
+              // AdminDept: unitId chính là campus ID
+              const userCampus = campusesResult.find((campus: Unit) => campus.id === user?.unitId);
               if (userCampus) {
                 setUnits(userCampus.childUnits ?? []);
                 setSelectedCampusId(userCampus.id);
