@@ -169,7 +169,7 @@ export default function RolePage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {canUpdate && record.isProtected && (
+              {canUpdate && !record.isProtected && (
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();

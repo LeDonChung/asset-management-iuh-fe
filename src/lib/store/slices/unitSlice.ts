@@ -115,6 +115,18 @@ export const getAllUnits = createAsyncThunk(
   }
 );
 
+export const deleteUnit = createAsyncThunk(
+  "units/deleteUnit",
+  async (id: string, { rejectWithValue }) => {
+    try {
+      await axiosInstance.delete(`/api/v1/units/${id}`);
+      return id;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 
 export const getRoomById = createAsyncThunk(
   "units/getRoomById",
@@ -174,6 +186,7 @@ interface UnitState {
   childrenError: string | null;
   createUnitLoading: boolean;
   updateUnitLoading: boolean;
+  deleteUnitLoading: boolean;
   roomsLoading: boolean;
   roomsError: string | null;
 }
@@ -218,6 +231,7 @@ const initialState: UnitState = {
   childrenError: null as string | null,
   createUnitLoading: false,
   updateUnitLoading: false,
+  deleteUnitLoading: false,
   roomsLoading: false,
   roomsError: null as string | null,
 };
@@ -308,6 +322,38 @@ const unitSlice = createSlice({
         state.loading = false;
         state.error = (action.payload as any).message;
         state.allUnits = [];
+      })
+
+      // Delete unit
+      .addCase(deleteUnit.pending, (state) => {
+        state.deleteUnitLoading = true;
+        state.error = null;
+      })
+      .addCase(deleteUnit.fulfilled, (state, action) => {
+        state.deleteUnitLoading = false;
+        // Remove unit from filteredUnits
+        state.filteredUnits.data = state.filteredUnits.data.filter(
+          unit => unit.id !== action.payload
+        );
+        // Remove unit from allUnits
+        state.allUnits = state.allUnits.filter(
+          unit => unit.id !== action.payload
+        );
+        // Remove unit from campuses if it's a campus
+        state.campuses = state.campuses.filter(
+          unit => unit.id !== action.payload
+        );
+        // Remove unit from childrenUnits
+        Object.keys(state.childrenUnits).forEach(parentId => {
+          state.childrenUnits[parentId] = state.childrenUnits[parentId].filter(
+            unit => unit.id !== action.payload
+          );
+        });
+        state.error = null;
+      })
+      .addCase(deleteUnit.rejected, (state, action) => {
+        state.deleteUnitLoading = false;
+        state.error = (action.payload as any).message;
       })
 
       // Get unit children
