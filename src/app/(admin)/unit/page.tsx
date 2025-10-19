@@ -22,7 +22,7 @@ import { RootState } from "@/lib/store";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { useAppDispatch } from "@/lib/store/hooks";
-import { filterUnit, UnitFilterRequest } from "@/lib/store/slices/unitSlice";
+import { deleteUnit, filterUnit, UnitFilterRequest } from "@/lib/store/slices/unitSlice";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,7 +63,7 @@ export default function UnitsPage() {
       router.push("/unauthorized");
     }
   }, [canView, router]);
-  const { currentFilter, filteredUnits } = useSelector(
+  const { currentFilter, filteredUnits, deleteUnitLoading } = useSelector(
     (state: RootState) => state.unit
   );
 
@@ -101,8 +101,16 @@ export default function UnitsPage() {
     router.push(`/unit/${unit.id}/room`);
   };
 
-  const handleDeleteUnit = (unit: Unit) => {
-    if (confirm(`Bạn có chắc chắn muốn xóa đơn vị "${unit.name}"?`)) {
+  const handleDeleteUnit = async (unit: Unit) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa đơn vị "${unit.name}"? Hành động này không thể hoàn tác.`)) {
+      try {
+        await dispatch(deleteUnit(unit.id)).unwrap();
+        toast.success("Xóa đơn vị thành công!");
+        // Refresh the units list
+        dispatch(filterUnit(currentFilter));
+      } catch (error: any) {
+        toast.error(error.message || "Có lỗi xảy ra khi xóa đơn vị");
+      }
     }
   };
 
@@ -112,7 +120,7 @@ export default function UnitsPage() {
       title: "Tên đơn vị",
       render: (_, record) => (
         <div className="flex items-center">
-          <Building className="h-5 w-5 text-gray-400 mr-3" />
+          <Building className="h-5 min-w-5 text-gray-400 mr-3" />
           <div>
             <div className="text-sm font-medium text-gray-900">
               {record.name}
@@ -178,8 +186,13 @@ export default function UnitsPage() {
         <div className="flex justify-start">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
-                Hành động
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="h-8 px-3 text-sm"
+                disabled={deleteUnitLoading}
+              >
+                {deleteUnitLoading ? "Đang xử lý..." : "Hành động"}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
