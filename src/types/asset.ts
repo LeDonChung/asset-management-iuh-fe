@@ -8,13 +8,15 @@ export enum AssetType {
 }
 
 export enum AssetStatus {
-  CHO_CHUYEN_GIAO = "chờ_bàn_giao",
-  CHO_TIEP_NHAN = "chờ_tiếp_nhận",
-  CHO_PHAN_BO = "chờ_phân_bổ",
-  DANG_SU_DUNG = "đang_sử_dụng",
-  HU_HONG = "hư_hỏng",
-  DE_XUAT_THANH_LY = "đề_xuất_thanh_lý",
-  DA_THANH_LY = "đã_thanh_lý",
+  IN_USE = "IN_USE", // đang sử dụng
+  WAITING_HANDOVER = "WAITING_HANDOVER", // chờ bàn giao
+  WAITING_RECEIVE = "WAITING_RECEIVE", // chờ tiếp nhận
+  TRANSFERRED = "TRANSFERRED", // đã bàn giao (trong sổ cũ)
+  DAMAGED = "DAMAGED", // hư hỏng
+  LOST = "LOST", // đã mất
+  PROPOSED_LIQUIDATION = "PROPOSED_LIQUIDATION", // đề xuất thanh lý
+  LIQUIDATED = "LIQUIDATED", // đã thanh lý
+  WAITING_ALLOCATION = "WAITING_ALLOCATION", // chờ phân bổ
 }
 
 // Asset Log Types
@@ -40,16 +42,15 @@ export interface AssetLog {
 
 // Asset Transaction Types
 export enum TransactionType {
-  ALLOCATE = "ALLOCATE", // Phân bổ
-  HANDOVER = "HANDOVER", // Bàn giao
-  RETURN = "RETURN", // Hoàn trả
-  LIQUIDATE = "LIQUIDATE", // Thanh lý
+  TRANSFER = "TRANSFER", // Bàn giao
+  INTERNAL_MOVE = 'INTERNAL_MOVE',   // Di chuyển nội bộ (không cần phê duyệt)
 }
 
 export enum TransactionStatus {
-  PENDING = "PENDING", // Chờ duyệt
-  APPROVED = "APPROVED", // Đã duyệt
-  REJECTED = "REJECTED", // Từ chối
+  DRAFT = 'DRAFT',           // Bản nháp
+    PROPOSED = 'PROPOSED',        // Đề xuất bàn giao (gửi lên phòng quản trị)
+    APPROVED = 'APPROVED',        // Phòng quản trị chấp nhận - tự động cập nhật tài sản
+    REJECTED = 'REJECTED',        // Phòng quản trị từ chối
 }
 
 export interface AssetTransactionItem {
