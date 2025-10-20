@@ -44,6 +44,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { setSelectedAssetsForHandover, setHandoverContext } from "@/lib/store/slices/transactionSlice";
 
 // Asset type options for filter dropdown
 const assetTypeOptions = [
@@ -215,6 +216,7 @@ const CardSelect: React.FC<CardSelectProps> = ({
 
 export default function AssetBookPage() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { hasRole, user } = useAuth();
 
   const isAdmin = hasRole([RoleBase.ADMIN]);
@@ -343,19 +345,56 @@ export default function AssetBookPage() {
       selectedAssets.includes(asset.id)
     );
 
-    // Console log các tài sản được chọn
-    console.log("Các tài sản được chọn để bàn giao:", selectedAssetObjects);
-    console.log("Số lượng tài sản:", selectedAssetObjects.length);
-    selectedAssetObjects.forEach((asset, index) => {
-      console.log(
-        `${index + 1}. ${asset.name} (${asset.fixedCode}) - ${asset.status}`
-      );
-    });
+    // Lưu danh sách tài sản đã chọn vào Redux store
+    dispatch(setSelectedAssetsForHandover(selectedAssetObjects));
+    
+    // Debug log để xem các giá trị hiện tại
+    console.log("Debug - Before creating handover context:");
+    console.log("selectedCampusId:", selectedCampusId);
+    console.log("selectedUnitId:", selectedUnitId);
+    console.log("selectedRoomId:", selectedRoomId);
+    console.log("isUserDept:", isUserDept);
+    console.log("user?.unitId:", user?.unitId);
+    console.log("units:", units);
 
-    // TODO: Implement handover logic here
-    toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để bàn giao`);
+    // Logic cải thiện để xác định sourceUnitId
+    let sourceUnitId: string | undefined = selectedUnitId || undefined;
+    
+    // Nếu chưa có selectedUnitId, thử lấy từ user (cho UserDept)
+    if (!sourceUnitId && isUserDept && user?.unitId) {
+      sourceUnitId = user.unitId;
+    }
+    
+    // Nếu vẫn chưa có, thử lấy từ tài sản đã chọn
+    if (!sourceUnitId && selectedAssetObjects.length > 0) {
+      const firstAsset = selectedAssetObjects[0];
+      sourceUnitId = firstAsset.currentRoom?.unit?.id;
+    }
+
+    // Lưu context bàn giao (thông tin đơn vị nguồn)
+    const handoverContext = {
+      sourceCampusId: selectedCampusId || undefined,
+      sourceUnitId: sourceUnitId || undefined,
+      sourceRoomId: selectedRoomId || undefined,
+      // Thêm thông tin chi tiết
+      sourceCampus: selectedCampusId ? campuses.find(c => c.id === selectedCampusId) : undefined,
+      sourceUnit: sourceUnitId ? 
+                  (units?.find(u => u.id === sourceUnitId) || 
+                   campuses.flatMap(c => c.childUnits || []).find(u => u.id === sourceUnitId)) : 
+                  undefined,
+    };
+    
+    console.log("handoverContext:", handoverContext);
+    dispatch(setHandoverContext(handoverContext));
+    
+    // Chuyển đến trang transaction để hoàn tất bàn giao
+    router.push('/asset/transaction/create');
+    
+    // Thoát khỏi selection mode
     setIsSelectionMode(false);
     setSelectedAssets([]);
+    
+    toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để bàn giao`);
   };
 
   useEffect(() => {
