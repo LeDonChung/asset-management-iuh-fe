@@ -19,7 +19,7 @@ export const mockAssets: Asset[] = [
     isLocked: false,
     isHandOver: true,
     categoryId: '4',
-    status: AssetStatus.DANG_SU_DUNG,
+    status: AssetStatus.IN_USE,
     createdBy: 'user-1',
     createdAt: '2024-01-15T00:00:00Z',
     updatedAt: '2024-01-15T00:00:00Z',
