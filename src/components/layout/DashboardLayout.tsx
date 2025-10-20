@@ -46,18 +46,8 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
       permissions: [PermissionConstants.PERM_VIEW_ASSET],
       children: [
         {
-          name: "Danh sách tài sản",
-          href: "/asset",
-          permissions: [PermissionConstants.PERM_VIEW_ASSET],
-        },
-        {
-          name: "Tiếp nhận bàn giao",
-          href: "/asset/receive",
-          permissions: [PermissionConstants.PERM_VIEW_ASSET],
-        },
-        {
           name: "Lịch sử bàn giao",
-          href: "/asset/history-transfer",
+          href: "/asset/transaction",
           permissions: [PermissionConstants.PERM_VIEW_ASSET],
         },
         {
