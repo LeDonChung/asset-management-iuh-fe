@@ -4,8 +4,7 @@ pipeline {
         nodejs 'NodeJS'
     }
     environment {
-        BRANCH_DEPLOY = 'deploy'
-        PRODUCTION_HOST = "34.158.42.23"
+        BRANCH_DEPLOY = 'production'
         DOCKER_HUB_REPO = 'ledonchung'
         APP_NAME = 'asset-management-iuh-fe'
     }
@@ -106,7 +105,8 @@ pipeline {
             steps {
                 withCredentials([
                     sshUserPrivateKey(credentialsId: 'production-server-ssh-key', keyFileVariable: 'KEY', usernameVariable: 'USER'),
-                    usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')
+                    usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD'),
+                    string(credentialsId: 'production-host', variable: 'PRODUCTION_HOST')
                 ]) {
                     script {
                         def remoteHost = "${PRODUCTION_HOST}"
@@ -183,12 +183,12 @@ pipeline {
                                 echo "✅ Frontend container is running"
                                 
                                 # Test health endpoint
-                                if curl -f http://localhost:3003; then
+                                if curl -f http://localhost:3002; then
                                     echo "✅ Frontend health check passed"
                                     
                                     # Check if the homepage loads
                                     echo "=== Homepage Status Verification ==="
-                                    curl -s -I http://localhost:3003 | head -n 3 || echo "Homepage not accessible"
+                                    curl -s -I http://localhost:3002 | head -n 3 || echo "Homepage not accessible"
                                 else
                                     echo "❌ Frontend health check failed"
                                 fi
@@ -223,9 +223,9 @@ EOF
             """
         }
         success {
-            echo "✅ Frontend deployment successful! Application is running at http://${PRODUCTION_HOST}:3003"
-            echo "🌐 Frontend: Next.js application available on port 3003"
-            echo "🔢 Build Number: ${env.BUILD_NUMBER}"
+            withCredentials([string(credentialsId: 'production-host', variable: 'PRODUCTION_HOST')]) {
+                echo "✅ Frontend deployment successful! Application is running at http://${PRODUCTION_HOST}:3002"
+            }
         }
         failure {
             echo "❌ Frontend deployment failed! Please check the logs."
