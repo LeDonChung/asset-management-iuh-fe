@@ -249,90 +249,84 @@ export default function InventorySessionDetailPage() {
   const StatusIcon = currentStatusConfig.icon;
 
   return (
-    <div className="mx-auto space-y-8">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link href="/inventory">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Quay lại
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{session.name}</h1>
-            <p className="text-gray-600">
-              Chi tiết kỳ kiểm kê năm {session.year} - Đợt {session.period}
-            </p>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center space-x-3">
-          {canViewResult && (
-            <>
-              <Link href={`/inventory/${session.id}/results`}>
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2 border border-green-200 hover:bg-green-50"
-                >
-                  <FileText className="h-4 w-4" />
-                  <span className="truncate">Xem kết quả</span>
-                </Button>
-              </Link>
-              <Button
-                variant="outline"
-                className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50"
-              >
-                <Download className="h-4 w-4" />
-                <span className="truncate">Xuất báo cáo</span>
+      <div className="">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={handleGoBack}>
+                <ArrowLeft className="h-5 w-5" />
               </Button>
-            </>
-          )}
+              <div>
+                <h1 className="text-xl font-semibold">Chi tiết kỳ kiểm kê</h1>
+                <p className="text-sm text-gray-600 truncate max-w-md">
+                  {session.name}
+                </p>
+              </div>
+            </div>
 
-          {/* Edit Button - Only for PLANNED status */}
-          {session.status === InventorySessionStatus.PLANNED && canEdit && (
-            <Link href={`/inventory/${session.id}/edit`}>
-              <Button variant="outline" size="sm">
-                <Edit2 className="h-4 w-4 mr-2" />
-                Sửa thông tin
-              </Button>
-            </Link>
-          )}
-
-          {/* Status Change Button */}
-          {currentStatusConfig.nextStatus && canEdit && (
-            <Button
-              onClick={() =>
-                handleStatusChange(currentStatusConfig.nextStatus!)
-              }
-              disabled={updateStatusLoading}
-              className="min-w-[140px]"
-            >
-              {updateStatusLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Đang xử lý...
-                </div>
-              ) : (
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-2">
+              {canViewResult && (
                 <>
-                  {React.createElement(currentStatusConfig.nextIcon!, {
-                    className: "h-4 w-4 mr-2",
-                  })}
-                  {currentStatusConfig.nextLabel}
+                  <Link href={`/inventory/${session.id}/results`}>
+                    <Button variant="outline" size="sm">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Xem kết quả
+                    </Button>
+                  </Link>
+                  <Button variant="outline" size="sm">
+                    <Download className="w-4 h-4 mr-2" />
+                    Xuất báo cáo
+                  </Button>
                 </>
               )}
-            </Button>
-          )}
+
+              {/* Edit Button - Only for PLANNED status */}
+              {session.status === InventorySessionStatus.PLANNED && canEdit && (
+                <Link href={`/inventory/${session.id}/edit`}>
+                  <Button variant="outline" size="sm">
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    Sửa thông tin
+                  </Button>
+                </Link>
+              )}
+
+              {/* Status Change Button */}
+              {currentStatusConfig.nextStatus && canEdit && (
+                <Button
+                  onClick={() =>
+                    handleStatusChange(currentStatusConfig.nextStatus!)
+                  }
+                  disabled={updateStatusLoading}
+                  size="sm"
+                >
+                  {updateStatusLoading ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Đang xử lý...
+                    </div>
+                  ) : (
+                    <>
+                      {React.createElement(currentStatusConfig.nextIcon!, {
+                        className: "w-4 h-4 mr-2",
+                      })}
+                      {currentStatusConfig.nextLabel}
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 xl:grid-cols-1">
-        {/* Main Content Area - Takes 3 columns */}
-        <div className="xl:col-span-3">
+      {/* Content */}
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="space-y-6">
           {/* Main Tab Navigation */}
-          <div className="bg-white rounded-xl border border-gray-200">
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="border-b border-gray-200">
               <nav className="flex space-x-8 px-6" aria-label="Tabs">
                 {[
@@ -371,70 +365,68 @@ export default function InventorySessionDetailPage() {
                 <div className="space-y-6">
                   {/* Overview content - moved from above */}
                   <div className="space-y-6">
-                    {/* Thông tin cơ bản - Gộp chung 1 card */}
-                    <div className="bg-gray-50 rounded-lg p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Năm kiểm kê */}
-                        <div>
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Calendar className="h-4 w-4 text-gray-600" />
-                            <span className="text-sm font-medium text-gray-600">
-                              Năm
-                            </span>
-                          </div>
-                          <p className="text-lg font-semibold text-gray-900">
-                            {session.year}
-                          </p>
+                    {/* Thông tin cơ bản */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* Năm kiểm kê */}
+                      <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <Calendar className="h-5 w-5 text-blue-600" />
+                          <span className="text-sm font-medium text-gray-600">
+                            Năm kiểm kê
+                          </span>
                         </div>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {session.year}
+                        </p>
+                      </div>
 
-                        {/* Đợt kiểm kê */}
-                        <div>
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Hash className="h-4 w-4 text-gray-600" />
-                            <span className="text-sm font-medium text-gray-600">
-                              Đợt
-                            </span>
-                          </div>
-                          <p className="text-lg font-semibold text-gray-900">
-                            {session.period}
-                          </p>
+                      {/* Đợt kiểm kê */}
+                      <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <Hash className="h-5 w-5 text-green-600" />
+                          <span className="text-sm font-medium text-gray-600">
+                            Đợt kiểm kê
+                          </span>
                         </div>
+                        <p className="text-2xl font-bold text-gray-900">
+                          Đợt {session.period}
+                        </p>
+                      </div>
 
-                        {/* Thời gian */}
-                        <div>
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Clock className="h-4 w-4 text-gray-600" />
-                            <span className="text-sm font-medium text-gray-600">
-                              Thời gian
-                            </span>
-                          </div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            {calculateDuration(
-                              session.startDate,
-                              session.endDate
-                            )}{" "}
-                            ngày
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(session.startDate).toLocaleDateString(
-                              "vi-VN"
-                            )}{" "}
-                            -{" "}
-                            {new Date(session.endDate).toLocaleDateString(
-                              "vi-VN"
-                            )}
-                          </p>
+                      {/* Thời gian */}
+                      <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <Clock className="h-5 w-5 text-orange-600" />
+                          <span className="text-sm font-medium text-gray-600">
+                            Thời gian thực hiện
+                          </span>
                         </div>
+                        <p className="text-2xl font-bold text-gray-900 mb-1">
+                          {calculateDuration(
+                            session.startDate,
+                            session.endDate
+                          )}{" "}
+                          ngày
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(session.startDate).toLocaleDateString(
+                            "vi-VN"
+                          )}{" "}
+                          -{" "}
+                          {new Date(session.endDate).toLocaleDateString(
+                            "vi-VN"
+                          )}
+                        </p>
                       </div>
                     </div>
 
                     {/* Các cơ sở tham gia */}
                     {session?.inventorySessionUnits &&
                       session.inventorySessionUnits.length > 0 && (
-                        <div>
-                          <div className="flex items-center space-x-2 mb-3">
-                            <Building2 className="h-5 w-5 text-green-600" />
-                            <h3 className="text-lg font-medium text-gray-900">
+                        <div className="bg-white rounded-lg border border-gray-200 p-6">
+                          <div className="flex items-center space-x-2 mb-4">
+                            <Building2 className="h-5 w-5 text-blue-600" />
+                            <h3 className="text-lg font-semibold text-gray-900">
                               Cơ sở tham gia kiểm kê
                             </h3>
                           </div>
@@ -443,19 +435,19 @@ export default function InventorySessionDetailPage() {
                               (sessionUnit: InventorySessionUnit) => (
                                 <div
                                   key={sessionUnit.id}
-                                  className="bg-green-50 rounded-lg p-4 border border-green-200 hover:bg-green-100 transition-colors cursor-pointer group"
+                                  className="bg-blue-50 rounded-lg p-4 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer group"
                                   onClick={() => {}}
                                 >
                                   <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center space-x-2">
-                                      <MapPin className="h-4 w-4 text-green-600" />
-                                      <span className="text-sm font-medium text-green-800">
+                                      <MapPin className="h-4 w-4 text-blue-600" />
+                                      <span className="text-sm font-medium text-blue-800">
                                         Cơ sở
                                       </span>
                                     </div>
-                                    <Eye className="h-4 w-4 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <Eye className="h-4 w-4 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </div>
-                                  <p className="text-sm font-semibold text-green-900 mb-1">
+                                  <p className="text-sm font-semibold text-blue-900 mb-1">
                                     {sessionUnit.unit?.name?.replace(
                                       "Đại học Công nghiệp thành phố Hồ Chí Minh",
                                       "TP.HCM"
@@ -469,10 +461,10 @@ export default function InventorySessionDetailPage() {
                       )}
 
                     {/* Status Timeline */}
-                    <div>
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
                       <div className="flex items-center space-x-2 mb-6">
-                        <Settings className="h-4 w-4 text-gray-600" />
-                        <h3 className="text-lg font-medium text-gray-900">
+                        <Settings className="h-5 w-5 text-purple-600" />
+                        <h3 className="text-lg font-semibold text-gray-900">
                           Tiến trình kỳ kiểm kê
                         </h3>
                       </div>
@@ -506,7 +498,7 @@ export default function InventorySessionDetailPage() {
                               <div className="flex flex-col items-center relative z-10">
                                 {/* Circle with Icon */}
                                 <div
-                                  className={`w-12 h-12 rounded-full flex items-center justify-center border-2 ${
+                                  className={`w-12 h-12 rounded-full flex items-center justify-center border-2 shadow-sm ${
                                     isCurrentStatus
                                       ? "bg-blue-600 border-blue-600"
                                       : isPastStatus
@@ -540,7 +532,7 @@ export default function InventorySessionDetailPage() {
                                     <div className="mt-1">
                                       <Badge
                                         variant="outline"
-                                        className="text-xs text-blue-700 border-blue-300"
+                                        className="text-xs text-blue-700 border-blue-300 bg-blue-50"
                                       >
                                         Hiện tại
                                       </Badge>
@@ -553,7 +545,7 @@ export default function InventorySessionDetailPage() {
                               {!isLast && (
                                 <div className="flex-1 mx-4">
                                   <div
-                                    className={`h-0.5 w-full ${
+                                    className={`h-1 w-full rounded-full ${
                                       isPastStatus ||
                                       (isCurrentStatus && index < 3)
                                         ? "bg-green-600"

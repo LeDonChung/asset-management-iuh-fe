@@ -1,18 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  UserCheck,
-  Search,
-  Users,
-  UserPlus,
-} from "lucide-react";
+import { Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableColumn } from "@/components/ui/table";
-import { User, Role, UserStatus, InventorySessionMember } from "@/types/asset";
+import { User, InventorySessionMember } from "@/types/asset";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { findAllUserInventory } from "@/lib/store/slices/userSlice";
 import { findAllInventoryRoles } from "@/lib/store/slices/roleSlice";
@@ -84,72 +76,74 @@ export default function InventoryCommitteeManager({
     {
       key: "index",
       title: "STT",
-      width: "60px",
-      render: (_, __, index) => index + 1,
+      width: "80px",
+      render: (_, __, index) => (
+        <div className="text-center font-medium text-gray-900">
+          {index + 1}
+        </div>
+      ),
       className: "text-center",
     },
     {
       key: "fullName",
-      title: "Họ và tên",
-      width: "250px",
+      title: "HỌ VÀ TÊN",
+      width: "280px",
       sorter: (a, b) => {
         const nameA = a.user?.fullName || "Trưởng các đơn vị thuộc trường";
         const nameB = b.user?.fullName || "Trưởng các đơn vị thuộc trường";
         return nameA.localeCompare(nameB, "vi");
       },
       render: (_, record) => (
-        <div className="flex items-center">
-          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-            <UserCheck className="h-5 w-5 text-gray-500" />
+        <div className="py-1">
+          <div className="font-medium text-gray-900 mb-1">
+            {record.user?.fullName || "Trưởng các đơn vị thuộc trường"}
           </div>
-          <div className="ml-4">
-            <div className="text-sm">
-              {record.user?.fullName || "Trưởng các đơn vị thuộc trường"}
-            </div>
+          <div className="text-sm text-blue-600">
+            {record.user?.email || "N/A"}
           </div>
         </div>
       ),
     },
     {
       key: "roles",
-      title: "Chức vụ",
-      width: "150px",
+      title: "CHỨC VỤ",
+      width: "200px",
       render: (_, record) => (
-        <span className={`inline-flex px-2 py-1 rounded-full`}>
-          {record.user?.roles?.map((role) => role.name).join(", ")}
-        </span>
+        <div className="text-sm text-gray-700 font-medium">
+          {record.user?.roles?.map((role) => role.name).join(", ") || "Ban kiểm kê"}
+        </div>
       ),
     },
     {
       key: "role",
-      title: "Nhiệm vụ",
+      title: "NHIỆM VỤ",
       render: (_, record) => (
-        <div className="max-w-xs">
-          <div className="truncate" title={record.role}>
-            {record.role || "Chưa có ghi chú"}
+        <div className="max-w-sm">
+          <div className="text-sm text-gray-700" title={record.role}>
+            {record.role || "aaa"}
           </div>
         </div>
       ),
     },
     {
       key: "actions",
-      title: "Hành động",
-      width: "120px",
+      title: "HÀNH ĐỘNG",
+      width: "140px",
       className: "text-center",
       render: (_, record) => (
-        <div className="flex justify-center space-x-2">
+        <div className="flex justify-center gap-1">
           {canEdit && (
             <>
               <button
                 onClick={() => setEditingMember(record)}
-                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                title="Chỉnh sửa"
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                title="Sửa"
               >
                 <Edit className="h-4 w-4" />
               </button>
               <button
                 onClick={() => handleDeleteMember(record.id)}
-                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
                 title="Xóa"
               >
                 <Trash2 className="h-4 w-4" />
@@ -189,27 +183,26 @@ export default function InventoryCommitteeManager({
   // Return early if no session
   if (!session) {
     return (
-      <div className="mt-6 text-center py-12">
-        <UserCheck className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
-          Không có phiên kiểm kê
-        </h3>
-        <p className="text-gray-500">
-          Vui lòng tải lại trang để xem thông tin.
-        </p>
+      <div className="p-12 text-center">
+        <div className="text-5xl mb-4">👥</div>
+        <p className="text-gray-500">Vui lòng tải lại trang để xem thông tin.</p>
       </div>
     );
   }
 
   return (
     <>
-      <Table
-        columns={columns}
-        data={session.members ?? []}
-        rowKey="id"
-        emptyText="Chưa có thành viên nào trong ban kiểm kê"
-        emptyIcon={<UserCheck className="h-16 w-16 text-gray-300 mx-auto" />}
-      />
+      <div className="overflow-hidden">
+        <Table
+          columns={columns}
+          data={session.members ?? []}
+          rowKey="id"
+          emptyText="Chưa có thành viên nào trong ban kiểm kê"
+          emptyIcon={<div className="text-5xl mb-4">👥</div>}
+          className="border-0"
+        />
+      </div>
+      
       {/* Member Modals */}
       <MemberModal
         isOpen={showAddMemberModal}
