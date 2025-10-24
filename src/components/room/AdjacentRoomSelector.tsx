@@ -33,7 +33,7 @@ const AdjacentRoomSelector: React.FC<AdjacentRoomSelectorProps> = ({
                 key={room.id}
                 className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
               >
-                <span>{room.name} ({room.building}-{room.floor})</span>
+                <span>{room.name}</span>
                 <Button
                   variant="ghost"
                   size="sm"

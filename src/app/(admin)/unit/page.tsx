@@ -10,6 +10,7 @@ import {
   Phone,
   Mail,
   Eye,
+  MoreVertical,
 } from "lucide-react";
 import Link from "next/link";
 import { Unit, UnitType, UnitStatus } from "@/types/asset";
@@ -128,6 +129,7 @@ export default function UnitsPage() {
           </div>
         </div>
       ),
+      maxWidth: 250,
       sortable: true,
     },
     {
@@ -145,6 +147,7 @@ export default function UnitsPage() {
           </div>
         </div>
       ),
+      maxWidth: 280,
       sortable: true,
     },
     {
@@ -158,6 +161,7 @@ export default function UnitsPage() {
           </span>
         </Badge>
       ),
+      maxWidth: 160,
       sortable: true,
     },
     {
@@ -177,6 +181,7 @@ export default function UnitsPage() {
           </span>
         </Badge>
       ),
+      maxWidth: 140,
       sortable: true,
     },
     {
@@ -187,12 +192,12 @@ export default function UnitsPage() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
-                variant="default" 
+                variant="ghost" 
                 size="sm" 
-                className="h-8 px-3 text-sm"
+                className="h-8 w-8 p-0"
                 disabled={deleteUnitLoading}
               >
-                {deleteUnitLoading ? "Đang xử lý..." : "Hành động"}
+                <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -236,6 +241,7 @@ export default function UnitsPage() {
           </DropdownMenu>
         </div>
       ),
+      maxWidth: 100,
       className: "text-right",
     },
   ];
@@ -259,7 +265,7 @@ export default function UnitsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+      <div className="bg-white p-4 rounded-xl border border-gray-300 mb-6">
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
           <div className="flex-1 relative">
@@ -274,7 +280,7 @@ export default function UnitsPage() {
 
           {/* Type Filter */}
           <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as UnitType)}
           >

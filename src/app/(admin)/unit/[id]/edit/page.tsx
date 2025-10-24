@@ -194,7 +194,7 @@ export default function EditUnitPage() {
       </div>
 
       {/* Form */}
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto rounded-lg border border-gray-300">
         <div className="bg-white p-6 rounded-lg shadow-md"> 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Information */}

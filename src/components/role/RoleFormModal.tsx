@@ -220,9 +220,9 @@ export default function RoleFormModal({
         </ModalHeader>
 
         <ModalBody>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 ">
             {/* Basic Information - left */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="p-6 shadow-sm  bg-white rounded-xl border border-gray-300">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin cơ bản</h3>
               <div className="space-y-6">
                 <div>
@@ -244,7 +244,7 @@ export default function RoleFormModal({
             </div>
 
             {/* Permission Selection (simplified) - right */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 md:max-h-[520px] md:overflow-y-auto">
+            <div className="bg-white bg-white rounded-xl border border-gray-300 p-6 shadow-sm md:max-h-[520px] md:overflow-y-auto">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Chọn quyền hạn</h3>
 
               {/* Global select all */}
