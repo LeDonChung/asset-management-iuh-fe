@@ -437,11 +437,13 @@ export function Table<T = any>({
     );
   };
 
+  // Simple key generation without duplication tracking since data should already be unique
   const getRowKey = (record: T, index: number): string => {
     if (typeof rowKey === "function") {
-      return rowKey(record);
+      return rowKey(record) || `row-${index}`;
+    } else {
+      return (record as any)[rowKey] || `row-${index}`;
     }
-    return (record as any)[rowKey] || index.toString();
   };
 
   const getRowClassName = (record: T, index: number): string => {
@@ -503,7 +505,7 @@ export function Table<T = any>({
   if (loading) {
     return (
       <div
-        className={`bg-white rounded-lg shadow overflow-hidden ${className}`}
+        className={`bg-white rounded-xl border border-gray-300 overflow-hidden ${className}`}
       >
         {(title || description || headerExtra) && (
           <div className="px-6 py-4 border-b border-gray-200">
@@ -551,7 +553,7 @@ export function Table<T = any>({
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-xl border border-gray-300 overflow-hidden ${className}`}>
       {(title || description || headerExtra) && (
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -569,7 +571,7 @@ export function Table<T = any>({
           </div>
         </div>
       )}
-      {/* Pagination */}
+      {/* Top Pagination */}
       {pagination && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-6 py-3 border-b border-gray-200">
           <div className="flex items-center text-sm text-gray-700">
@@ -594,7 +596,7 @@ export function Table<T = any>({
                 >
                   {(pagination.pageSizeOptions || calculatePageSizeOptions(pagination.total)).map(
                     (size) => (
-                      <option key={size} value={size}>
+                      <option key={`top-page-size-${size}`} value={size}>
                         {size}
                       </option>
                     )
@@ -695,7 +697,7 @@ export function Table<T = any>({
                     if (page === "...") {
                       return (
                         <span
-                          key={`dots-${index}`}
+                          key={`top-dots-${index}`}
                           className="px-3 py-2 text-sm text-gray-500"
                         >
                           ...
@@ -705,7 +707,7 @@ export function Table<T = any>({
 
                     return (
                       <button
-                        key={page}
+                        key={`top-page-${page}`}
                         onClick={() =>
                           pagination.onChange(
                             page as number,
@@ -911,7 +913,7 @@ export function Table<T = any>({
         </div>
       )}
 
-      {/* Pagination */}
+      {/* Bottom Pagination */}
       {pagination && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-6 py-3 border-t border-gray-200">
           <div className="flex items-center text-sm text-gray-700">
@@ -936,7 +938,7 @@ export function Table<T = any>({
                 >
                   {(pagination.pageSizeOptions || calculatePageSizeOptions(pagination.total)).map(
                     (size) => (
-                      <option key={size} value={size}>
+                      <option key={`bottom-page-size-${size}`} value={size}>
                         {size}
                       </option>
                     )
@@ -1037,7 +1039,7 @@ export function Table<T = any>({
                     if (page === "...") {
                       return (
                         <span
-                          key={`dots-${index}`}
+                          key={`bottom-dots-${index}`}
                           className="px-3 py-2 text-sm text-gray-500"
                         >
                           ...
@@ -1047,7 +1049,7 @@ export function Table<T = any>({
 
                     return (
                       <button
-                        key={page}
+                        key={`bottom-page-${page}`}
                         onClick={() =>
                           pagination.onChange(
                             page as number,

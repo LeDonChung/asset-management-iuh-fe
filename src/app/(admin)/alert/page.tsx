@@ -13,6 +13,7 @@ import {
   Package,
   Save,
   Workflow,
+  MoreVertical,
 } from "lucide-react";
 import { Alert, AlertStatus, AlertType } from "@/types/asset";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
-import { MockDataHelper } from "@/lib/mockData";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
@@ -652,8 +652,8 @@ export default function AlertPage() {
         <div className="flex justify-start">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
-                Hành động
+              <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -803,7 +803,7 @@ export default function AlertPage() {
       )}
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+      <div className="bg-white p-4 rounded-lg mb-6 border border-gray-300">
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
           <div className="flex-1 relative">
@@ -881,7 +881,6 @@ export default function AlertPage() {
           pageSizeOptions: [5, 10, 20, 50],
           serverSide: true,
         }}
-        title="Danh sách cảnh báo"
       />
 
       {/* Urgent Alert Modal */}

@@ -1,22 +1,17 @@
 // Asset Types and Interfaces
 
 export enum AssetType {
-  TSCD = "TSCD", // Tài sản cố định
-  CCDC = "CCDC", // Công cụ dụng cụ
   FIXED_ASSET = "FIXED_ASSET", // Tài sản cố định
   TOOLS_EQUIPMENT = "TOOLS_EQUIPMENT", // Công cụ dụng cụ
 }
 
 export enum AssetStatus {
   IN_USE = "IN_USE", // đang sử dụng
-  WAITING_HANDOVER = "WAITING_HANDOVER", // chờ bàn giao
-  WAITING_RECEIVE = "WAITING_RECEIVE", // chờ tiếp nhận
   TRANSFERRED = "TRANSFERRED", // đã bàn giao (trong sổ cũ)
   DAMAGED = "DAMAGED", // hư hỏng
   LOST = "LOST", // đã mất
   PROPOSED_LIQUIDATION = "PROPOSED_LIQUIDATION", // đề xuất thanh lý
   LIQUIDATED = "LIQUIDATED", // đã thanh lý
-  WAITING_ALLOCATION = "WAITING_ALLOCATION", // chờ phân bổ
 }
 
 // Asset Log Types
@@ -203,19 +198,12 @@ export interface Asset {
   updatedAt: string;
   deletedAt?: string;
   note?: string;
-  // Thông tin bàn giao (cho sổ tài sản)
-  assignedDate?: string; // Ngày bàn giao
-  assignedTo?: string; // Người được bàn giao
-  department?: string; // Phòng ban
-  location?: string; // Vị trí cụ thể
   currentRoom?: Room;
 
   // Relations
   category?: Category;
-  room?: Room;
   rfidTag?: RfidTag;
-  logs?: AssetLog[];
-  transactionItems?: AssetTransactionItem[];
+  transactionItems?: TransactionItemAssetResponseDto[];
 }
 
 export interface Category {
@@ -960,4 +948,14 @@ export interface LiquidationProposalResponseDto {
   };
   items?: LiquidationItemResponseDto[];
   histories?: LiquidationHistoryResponseDto[];
+}
+
+export interface TransactionItemAssetResponseDto {
+  id: string;
+  fromUnit?: Unit;
+  toUnit?: Unit;
+  fromRoom?: Room;
+  toRoom?: Room;
+  note?: string;
+  createdAt: Date;
 }

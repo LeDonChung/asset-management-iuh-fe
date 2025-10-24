@@ -1,35 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import {
-  Users,
-  UserCheck,
-  Building,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  ChevronDown,
-  ChevronRight,
-  Target,
-  Calendar,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  Crown,
-  User,
-  FileText,
-  MapPin,
-  Settings,
-  Shield,
-  Star,
-  Activity,
-  UserPlus,
-  Building2,
-  PlusCircle,
-  Search,
-  Filter,
-} from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,24 +10,16 @@ import { getAllUnits } from "@/lib/store/slices/unitSlice";
 import InventoryCommitteeManager from "./InventoryCommitteeManager";
 import InventorySubCommitteeManager from "./InventorySubCommitteeManager";
 import { PermissionConstants, usePermissions } from "@/hooks/usePermissions";
+
 export default function InventoryManagementOverview() {
   const { currentSession } = useAppSelector((state) => state.inventory);
   const { inventoryCommitteeUsers } = useAppSelector((state) => state.user);
   const { allUnits } = useAppSelector((state) => state.unit);
   const dispatch = useAppDispatch();
 
-  // State for expand/collapse
-  const [expandedSections, setExpandedSections] = useState<{
-    [key: string]: boolean;
-  }>({
-    committee: true,
-    subcommittees: true,
-  });
-
-  // State for modals
   const [showCommitteeMemberForm, setShowCommitteeMemberForm] = useState(false);
+  const [isCommitteeExpanded, setIsCommitteeExpanded] = useState(true);
 
-  // Load data on component mount
   useEffect(() => {
     if (!inventoryCommitteeUsers || inventoryCommitteeUsers.length === 0) {
       dispatch(getAllInventoryCommitteeUsers());
@@ -64,17 +28,10 @@ export default function InventoryManagementOverview() {
       dispatch(getAllUnits());
     }
   }, [dispatch, inventoryCommitteeUsers, allUnits]);
+
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission([PermissionConstants.PERM_UPDATE_INVENTORY]);
-  // Toggle section expansion
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
-  };
 
-  // Handle add new member (open modal in InventoryCommitteeManager)
   const handleAddCommitteeMember = () => {
     setShowCommitteeMemberForm(true);
   };
@@ -85,81 +42,90 @@ export default function InventoryManagementOverview() {
 
   if (!currentSession) {
     return (
-      <div className="text-center py-12">
-        <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
-          Không có phiên kiểm kê
-        </h3>
-        <p className="text-gray-500">
-          Vui lòng chọn phiên kiểm kê để xem thông tin quản lý.
-        </p>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="text-6xl mb-4">📋</div>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            Chưa chọn phiên kiểm kê
+          </h3>
+          <p className="text-gray-500">
+            Vui lòng chọn phiên kiểm kê để bắt đầu quản lý
+          </p>
+        </div>
       </div>
     );
   }
 
+  const totalMembers = currentSession.members?.length || 0;
+  const totalSubCommittees = currentSession.inventorySessionUnits?.filter(
+    (unit: any) => unit.subInventory
+  ).length || 0;
+
   return (
     <div className="space-y-6">
-      {/* Committee Section */}
-      <Card>
-        <div className="p-6 border-b border-gray-200">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-6 border border-gray-200 rounded-lg shadow-sm">
+          <div className="text-sm text-gray-600 mb-1">Ban kiểm kê chính</div>
+          <div className="text-3xl font-bold text-blue-600">{totalMembers}</div>
+          <div className="text-xs text-gray-500 mt-1">thành viên</div>
+        </Card>
+        <Card className="p-6 border border-gray-200 rounded-lg shadow-sm">
+          <div className="text-sm text-gray-600 mb-1">Tiểu ban</div>
+          <div className="text-3xl font-bold text-green-600">{totalSubCommittees}</div>
+          <div className="text-xs text-gray-500 mt-1">tiểu ban</div>
+        </Card>
+        <Card className="p-6 border border-gray-200 rounded-lg shadow-sm">
+          <div className="text-sm text-gray-600 mb-1">Phiên kiểm kê</div>
+          <div className="text-xl font-semibold text-gray-800 truncate">{currentSession.name}</div>
+          <div className="text-xs text-gray-500 mt-1">{currentSession.status}</div>
+        </Card>
+      </div>
+
+      {/* Main Committee Section */}
+      <Card className="border border-gray-300 rounded-lg overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => toggleSection("committee")}
-                className="flex items-center space-x-2 text-lg font-semibold text-gray-900 hover:text-blue-600"
-              >
-                {expandedSections.committee ? (
-                  <ChevronDown className="h-5 w-5" />
-                ) : (
-                  <ChevronRight className="h-5 w-5" />
-                )}
-                <Users className="h-5 w-5 text-blue-600" />
-                <span>Ban kiểm kê chính</span>
-              </button>
-            </div>
+            <button
+              onClick={() => setIsCommitteeExpanded(!isCommitteeExpanded)}
+              className="flex items-center gap-3 text-left hover:text-blue-600 transition-colors"
+            >
+              {isCommitteeExpanded ? (
+                <ChevronDown className="h-5 w-5 text-gray-500" />
+              ) : (
+                <ChevronRight className="h-5 w-5 text-gray-500" />
+              )}
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Ban kiểm kê chính</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Quản lý thành viên ban kiểm kê ({totalMembers} thành viên)
+                </p>
+              </div>
+            </button>
             {canEdit && (
               <Button
                 size="sm"
-                className="flex items-center gap-2"
                 onClick={handleAddCommitteeMember}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md font-medium shadow-sm"
               >
-                <Plus className="h-4 w-4" />
-                Thêm thành viên
+                <Plus className="h-4 w-4 mr-2" />
+                Thêm
               </Button>
             )}
           </div>
         </div>
-
-        {expandedSections.committee && (
-          <InventoryCommitteeManager
-            showAddMemberModal={showCommitteeMemberForm}
-            onCloseAddMemberModal={handleCloseCommitteeMemberForm}
-          />
+        {isCommitteeExpanded && (
+          <div className="bg-white">
+            <InventoryCommitteeManager
+              showAddMemberModal={showCommitteeMemberForm}
+              onCloseAddMemberModal={handleCloseCommitteeMemberForm}
+            />
+          </div>
         )}
       </Card>
-      {/* Sub-Committees Section */}
-      <Card>
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => toggleSection("subcommittees")}
-                className="flex items-center space-x-2 text-lg font-semibold text-gray-900 hover:text-blue-600"
-              >
-                {expandedSections.subcommittees ? (
-                  <ChevronDown className="h-5 w-5" />
-                ) : (
-                  <ChevronRight className="h-5 w-5" />
-                )}
-                <Building2 className="h-5 w-5 text-green-600" />
-                <span>Tiểu ban và nhóm kiểm kê</span>
-              </button>
-            </div>
-          </div>
-        </div>
 
-        {expandedSections.subcommittees && <InventorySubCommitteeManager />}
-      </Card>
+      {/* Sub-Committees Section */}
+      <InventorySubCommitteeManager />
     </div>
   );
 }

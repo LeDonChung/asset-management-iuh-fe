@@ -11,6 +11,8 @@ import {
   Plus,
   ArrowLeftRight,
   Search,
+  ArrowLeft,
+  MoreVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -176,8 +178,8 @@ export default function RoomListPage() {
         <div className="flex justify-start">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
-                Hành động
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -223,50 +225,20 @@ export default function RoomListPage() {
   );
   return (
     <div className="p-6">
-      <div className="mb-4">
-        <Link href={`/unit`} className="inline-flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 mr-2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Quay lại danh sách đơn vị
+      
+      <div className="flex items-center gap-4 mb-6">
+        <Link href={`/unit/${unitId}`}>
+          <Button variant="ghost" size="icon" className="text-gray-600 hover:text-gray-900">
+            <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-      </div>
-
-      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Danh sách phòng quản lý
-          </h1>
-          <p className="text-gray-600">
-            Các phòng thuộc đơn vị hiện tại - Quản lý phòng và chọn phòng cạnh
-            bên
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Quản lý phòng</h1>
+          <p className="text-gray-600">Quản lý các phòng trong đơn vị</p>
         </div>
-        {canUpdate && (
-          <Link href={`/unit/${unitId}/room/create`}>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Thêm phòng
-            </Button>
-          </Link>
-        )}
       </div>
-
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+      <div className="bg-white p-4 mb-6 rounded-lg border border-gray-300">
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
           <div className="flex-1 relative">

@@ -81,7 +81,7 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
       name: "Thanh lý",
       href: "/liquidation",
       icon: Trash2,
-      permissions: [],
+      permissions: [PermissionConstants.PERM_VIEW_LIQUIDATION],
       children: [
         {
           name: "Danh sách đề xuất",

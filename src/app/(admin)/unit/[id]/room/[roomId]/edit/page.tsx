@@ -217,7 +217,7 @@ export default function EditRoomPage() {
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
         <Link href={`/unit/${unitId}/room`}>
-          <Button variant="ghost" size="sm" className="p-0">
+          <Button variant="ghost" size="icon" className="text-gray-600 hover:text-gray-900">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
@@ -230,8 +230,8 @@ export default function EditRoomPage() {
       </div>
 
       {/* Form */}
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+      <div className="max-w-2xl mx-auto rounded-lg border border-gray-300">
+        <div className="bg-white p-6 rounded-lg shadow-md">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Location Information */}
             <div>
@@ -333,7 +333,7 @@ export default function EditRoomPage() {
 
             {/* Adjacent Rooms Selection */}
             <div>
-              <div className="p-4 rounded-lg">
+              <div className=" rounded-lg">
                 <AdjacentRoomSelector
                   availableRooms={getAvailableAdjacentRooms()}
                   selectedRoomIds={selectedAdjacentRooms}
@@ -362,6 +362,12 @@ export default function EditRoomPage() {
 
             {/* Action Buttons */}
             <div className="flex gap-4 pt-6 border-t">
+              
+              <Link href={`/unit/${unitId}/room`} className="flex-1">
+                <Button variant="outline" className="w-full">
+                  Hủy bỏ
+                </Button>
+              </Link>
               <Button
                 type="submit"
                 disabled={updateLoading}
@@ -370,11 +376,6 @@ export default function EditRoomPage() {
                 <Save className="h-4 w-4" />
                 {updateLoading ? "Đang cập nhật..." : "Cập nhật phòng"}
               </Button>
-              <Link href={`/unit/${unitId}/room`} className="flex-1">
-                <Button variant="secondary" className="w-full">
-                  Hủy bỏ
-                </Button>
-              </Link>
             </div>
           </form>
         </div>

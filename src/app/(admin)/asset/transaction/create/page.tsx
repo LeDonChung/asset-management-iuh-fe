@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/lib/store";
@@ -70,7 +70,25 @@ const CardSelect: React.FC<CardSelectProps> = ({
   required = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const selectedOption = options.find((opt) => opt.value === value);
+
+  // Update dropdown position when opening
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  }, [isOpen]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -92,36 +110,40 @@ const CardSelect: React.FC<CardSelectProps> = ({
 
   return (
     <div className={`relative group card-select-container ${className}`}>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className={`block font-medium text-gray-700 mb-2 ${className.includes('text-lg') ? 'text-base' : className.includes('text-base') ? 'text-sm' : 'text-xs'}`}>
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
       <div className="relative">
         <button
+          ref={buttonRef}
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
           className={`
-            w-full min-h-[2.75rem] pr-10 truncate py-2 px-3 border border-gray-200 rounded-lg 
+            w-full ${className.includes('text-lg') ? 'min-h-[3.5rem] text-lg' : className.includes('text-base') ? 'min-h-[2.75rem] text-base' : 'min-h-[2.5rem] text-sm'} pl-3 pr-10 border border-gray-200 rounded-lg 
             bg-white text-left transition-all duration-200
             hover:border-gray-300 hover:shadow-sm
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
             disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
             ${isOpen ? "ring-2 ring-blue-500 border-blue-500" : ""}
             ${loading ? "cursor-wait" : "cursor-pointer"}
+            relative
           `}
         >
-          <div className="flex items-start justify-between">
-            <div className="flex items-start space-x-3 flex-1">
-              <div
-                className={`transition-colors mt-0.5 ${
-                  isOpen ? "text-blue-500" : "text-gray-400"
-                }`}
-              >
-                {icon}
-              </div>
+          <div className="flex items-center justify-between h-full py-2.5">
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
+              {icon && (
+                <div
+                  className={`transition-colors flex-shrink-0 ${
+                    isOpen ? "text-blue-500" : "text-gray-400"
+                  }`}
+                >
+                  {icon}
+                </div>
+              )}
               <span
-                className={`flex-1 leading-relaxed break-words truncate ${
+                className={`flex-1 truncate ${
                   selectedOption ? "text-gray-900" : "text-gray-500"
                 }`}
                 title={selectedOption ? selectedOption.label : placeholder}
@@ -130,7 +152,7 @@ const CardSelect: React.FC<CardSelectProps> = ({
               </span>
             </div>
             <ChevronDown
-              className={`h-4 w-4 text-gray-400 transition-transform duration-200 mt-0.5 flex-shrink-0 ${
+              className={`h-4 w-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ml-2 ${
                 isOpen ? "rotate-180" : ""
               }`}
             />
@@ -138,7 +160,7 @@ const CardSelect: React.FC<CardSelectProps> = ({
         </button>
 
         {loading && (
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <div className="absolute right-8 top-1/2 transform -translate-y-1/2 z-10">
             <RefreshCw className="h-4 w-4 text-gray-400 animate-spin" />
           </div>
         )}
@@ -754,8 +776,8 @@ export default function TransactionPage() {
         </div>
 
         {/* Unit and Room Selection */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-300 mb-6 ">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100 ">
             <div className="flex items-center space-x-3">
               <h3 className="text-lg font-semibold text-gray-900">
                 Chọn địa điểm bàn giao
@@ -770,7 +792,7 @@ export default function TransactionPage() {
               {isAdmin && (
                 <CardSelect
                   label="Cơ sở"
-                  icon={<Building2 className="h-4 w-4" />}
+                  icon={<></>}
                   value={selectedCampusId}
                   onChange={setSelectedCampusId}
                   options={[
@@ -783,6 +805,7 @@ export default function TransactionPage() {
                   placeholder="Chọn cơ sở"
                   disabled={isSubmitting || isCreatingTransaction}
                   required
+                  className="text-base"
                 />
               )}
 
@@ -803,6 +826,7 @@ export default function TransactionPage() {
                   placeholder="Chọn đơn vị đích"
                   disabled={isSubmitting || isCreatingTransaction || (isAdmin && !selectedCampusId)}
                   required
+                  className="text-base"
                 />
               )}
 
@@ -830,6 +854,8 @@ export default function TransactionPage() {
                       }
                       loading={roomsLoading}
                       disabled={!selectedUnitId || isSubmitting || isCreatingTransaction}
+                      required
+                      className="text-base"
                     />
                   </div>
 
@@ -839,7 +865,7 @@ export default function TransactionPage() {
                       onClick={handleApplyRoomToAll}
                       variant="outline"
                       disabled={isSubmitting || isCreatingTransaction}
-                      className="flex items-center space-x-2 text-blue-600 border-blue-200 hover:bg-blue-50 whitespace-nowrap"
+                      className="flex items-center space-x-2 text-blue-600 border-blue-200 hover:bg-blue-50 whitespace-nowrap min-h-[2.75rem] h-[2.75rem]"
                       size="sm"
                     >
                       <Check className="h-4 w-4" />

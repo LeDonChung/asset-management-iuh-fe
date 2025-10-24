@@ -12,6 +12,7 @@ import {
   Trash2,
   Shield,
   MoreHorizontal,
+  MoreVertical,
 } from "lucide-react";
 import { Role, Permission, ManagerPermission } from "@/types/asset";
 import RoleFormModal from "@/components/role/RoleFormModal";
@@ -164,8 +165,8 @@ export default function RolePage() {
         <div className="flex justify-start">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
-                Hành động
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -221,7 +222,7 @@ export default function RolePage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 ">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
