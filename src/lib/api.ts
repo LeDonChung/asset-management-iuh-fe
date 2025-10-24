@@ -95,34 +95,3 @@ axiosInstance.interceptors.response.use(
 )
 
 export default axiosInstance
-
-// Asset Book API functions
-export const assetBookApi = {
-  // Get asset books for a unit
-  getAssetBooks: (filter: any) => axiosInstance.get('/asset-books', { params: filter }),
-  
-  // Get specific asset book
-  getAssetBook: (id: string) => axiosInstance.get(`/asset-books/${id}`),
-  
-  // Get asset book items
-  getAssetBookItems: (bookId: string, filter?: any) => 
-    axiosInstance.get(`/asset-books/${bookId}/items`, { params: filter }),
-  
-  // Create asset book
-  createAssetBook: (data: any) => axiosInstance.post('/asset-books', data),
-  
-  // Lock/unlock asset book
-  lockAssetBook: (id: string) => axiosInstance.patch(`/asset-books/${id}/lock`),
-  unlockAssetBook: (id: string) => axiosInstance.patch(`/asset-books/${id}/unlock`),
-  
-  // Export asset book
-  exportAssetBook: (id: string) => axiosInstance.get(`/asset-books/${id}/export`, { responseType: 'blob' }),
-}
-
-export const roomApi = {
-  // Get rooms for a unit
-  getRoomsByUnit: (unitId: string) => axiosInstance.get(`/units/${unitId}/rooms`),
-  
-  // Get all rooms
-  getRooms: (filter?: any) => axiosInstance.get('/rooms', { params: filter }),
-}

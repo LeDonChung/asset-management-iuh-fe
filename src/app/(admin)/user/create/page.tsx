@@ -215,7 +215,7 @@ export default function CreateUserPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center space-x-4">
         <Link href="/user">
@@ -236,7 +236,7 @@ export default function CreateUserPage() {
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white rounded-xl border border-gray-300">
           {/* Form Header */}
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center">
@@ -462,7 +462,7 @@ export default function CreateUserPage() {
         </div>
 
         {/* Roles Section */}
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white rounded-xl border border-gray-300">
           {/* Form Header */}
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center">

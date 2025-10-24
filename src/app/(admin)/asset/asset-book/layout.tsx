@@ -1,11 +1,11 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Thanh lý",
-  description: "Quản lý đề xuất và phê duyệt thanh lý tài sản",
+  title: "Sổ tài sản",
+  description: "Quản lý sổ tài sản trong hệ thống",
 };
 
-export default function LiquidationLayout({
+export default function AssetBookLayout({
   children,
 }: {
   children: React.ReactNode;

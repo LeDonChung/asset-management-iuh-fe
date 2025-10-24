@@ -3,9 +3,6 @@
 import React, { useState, useEffect } from "react";
 import {
   Search,
-  Users,
-  UserPlus,
-  UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -262,20 +259,15 @@ export default function MemberModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <ModalHeader>
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-            <UserCheck className="h-5 w-5 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="text-xl font-semibold text-gray-900">
-              {member ? "Chỉnh sửa thành viên" : "Thêm thành viên mới"}
-            </h3>
-            <p className="text-sm text-gray-500 mt-1">
-              {member
-                ? "Cập nhật thông tin thành viên ban kiểm kê"
-                : "Chọn từ danh sách có sẵn hoặc tạo người dùng mới"}
-            </p>
-          </div>
+        <div>
+          <h3 className="text-xl font-bold text-gray-900">
+            {member ? "Chỉnh sửa thành viên" : "Thêm thành viên"}
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">
+            {member
+              ? "Cập nhật thông tin thành viên"
+              : "Chọn người dùng hoặc tạo mới"}
+          </p>
         </div>
       </ModalHeader>
 
@@ -283,56 +275,43 @@ export default function MemberModal({
         <ModalBody className="space-y-6">
           {/* Show member info when editing */}
           {member && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <UserCheck className="h-5 w-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-900">
-                    {member.user?.fullName || "Người dùng không xác định"}
-                  </div>
-                  {member.user?.email && (
-                    <div className="text-xs text-gray-500">
-                      {member.user.email}
-                    </div>
-                  )}
-                  {member.user?.phoneNumber && (
-                    <div className="text-xs text-gray-500">
-                      {member.user.phoneNumber}
-                    </div>
-                  )}
-                </div>
+            <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+              <div className="text-sm text-gray-600 mb-1">Đang chỉnh sửa</div>
+              <div className="font-semibold text-gray-900">
+                {member.user?.fullName || "Người dùng không xác định"}
               </div>
+              {member.user?.email && (
+                <div className="text-sm text-gray-600 mt-1">
+                  {member.user.email}
+                </div>
+              )}
             </div>
           )}
 
           {/* Tab selection for add new member */}
           {!member && (
-            <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+            <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
               <button
                 type="button"
                 onClick={() => setModalTab("select")}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${
                   modalTab === "select"
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-gray-600 hover:text-gray-800"
+                    ? "bg-white text-blue-600 shadow"
+                    : "text-gray-700 hover:text-gray-900"
                 }`}
               >
-                <Users className="h-4 w-4 inline mr-2" />
-                Chọn từ danh sách
+                Chọn có sẵn
               </button>
               <button
                 type="button"
                 onClick={() => setModalTab("create")}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${
                   modalTab === "create"
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-gray-600 hover:text-gray-800"
+                    ? "bg-white text-blue-600 shadow"
+                    : "text-gray-700 hover:text-gray-900"
                 }`}
               >
-                <UserPlus className="h-4 w-4 inline mr-2" />
-                Tạo người dùng mới
+                Tạo mới
               </button>
             </div>
           )}
@@ -372,33 +351,23 @@ export default function MemberModal({
               {/* Selected user display (if selected but not in filtered list) */}
               {selectedUser &&
                 !filteredUsers.some((u) => u.id === selectedUser.id) && (
-                  <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="text-sm text-blue-600 font-medium mb-2">
-                      Đã chọn:
+                  <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                    <div className="text-xs text-blue-600 font-medium mb-2">
+                      Đã chọn
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                        <UserCheck className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-900">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">
                           {selectedUser.fullName}
                         </div>
-                        {selectedUser.email && (
-                          <div className="text-xs text-gray-500">
-                            {selectedUser.email}
-                          </div>
-                        )}
-                        {selectedUser.phoneNumber && (
-                          <div className="text-xs text-gray-500">
-                            {selectedUser.phoneNumber}
-                          </div>
-                        )}
+                        <div className="text-xs text-gray-600">
+                          {selectedUser.email}
+                        </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => setSelectedUser(null)}
-                        className="text-blue-600 hover:text-blue-800 text-xs"
+                        className="text-sm text-blue-600 hover:text-blue-700"
                       >
                         Bỏ chọn
                       </button>
@@ -407,49 +376,43 @@ export default function MemberModal({
                 )}
 
               {/* User list */}
-              <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+              <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg divide-y">
                 {filteredUsers.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
-                    {selectedRoleFilter || searchTerm
-                      ? "Không tìm thấy người dùng nào phù hợp"
-                      : "Không tìm thấy người dùng nào"}
+                  <div className="p-8 text-center text-gray-500">
+                    <div className="text-4xl mb-2">🔍</div>
+                    <p className="text-sm">
+                      {selectedRoleFilter || searchTerm
+                        ? "Không tìm thấy người dùng"
+                        : "Không có người dùng"}
+                    </p>
                   </div>
                 ) : (
                   filteredUsers.map((user) => (
                     <div
                       key={user.id}
                       onClick={() => setSelectedUser(user)}
-                      className={`p-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
+                      className={`p-3 cursor-pointer transition-colors ${
                         selectedUser?.id === user.id
-                          ? "bg-blue-50 border-blue-200"
-                          : ""
+                          ? "bg-blue-50"
+                          : "hover:bg-gray-50"
                       }`}
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 truncate">
                             {user.fullName}
                           </div>
-                          {user.email && (
-                            <div className="text-xs text-gray-500">
-                              {user.email}
-                            </div>
-                          )}
-                          {user.phoneNumber && (
-                            <div className="text-xs text-gray-500">
-                              {user.phoneNumber}
-                            </div>
-                          )}
+                          <div className="text-sm text-gray-600 truncate">
+                            {user.email}
+                          </div>
                           {user.roles && user.roles.length > 0 && (
-                            <div className="text-xs text-blue-600 mt-1">
+                            <div className="text-xs text-blue-600 mt-1 truncate">
                               {user.roles.map((role) => role.name).join(", ")}
                             </div>
                           )}
                         </div>
                         {selectedUser?.id === user.id && (
-                          <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
-                            <div className="w-2 h-2 bg-white rounded-full"></div>
-                          </div>
+                          <div className="ml-3 text-blue-600">✓</div>
                         )}
                       </div>
                     </div>
@@ -614,8 +577,9 @@ export default function MemberModal({
               onClose();
               resetForm();
             }}
+            className="flex-1"
           >
-            Hủy bỏ
+            Hủy
           </Button>
           <Button
             type="submit"
@@ -631,17 +595,17 @@ export default function MemberModal({
                   !formData.roleIds)) ||
               !formData.role
             }
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex-1"
           >
             {createUserLoading ? (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-center gap-2">
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Đang xử lý...</span>
+                <span>Đang lưu...</span>
               </div>
             ) : member ? (
-              "Cập nhật thông tin"
+              "Cập nhật"
             ) : (
-              "Thêm thành viên"
+              "Thêm"
             )}
           </Button>
         </ModalFooter>

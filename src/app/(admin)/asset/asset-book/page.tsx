@@ -1,29 +1,23 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
-import { Asset, AssetType, Room, Unit } from "@/types/asset";
+import { Asset, AssetType, Room, Unit, AssetStatus } from "@/types/asset";
 import {
-  Search,
   Building,
   Eye,
-  Package,
-  MapPin,
   RefreshCw,
   Download,
-  Building2,
-  CalendarDays,
   ChevronDown,
   Check,
   Edit2,
   ArrowRightLeft,
   AlertCircle,
   X,
+  MoreVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RootState } from "@/lib/store";
 import { useSelector } from "react-redux";
@@ -46,9 +40,52 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { setSelectedAssetsForHandover, setHandoverContext } from "@/lib/store/slices/transactionSlice";
 
+// Helper function to render asset status badge
+const getAssetStatusBadge = (status: AssetStatus) => {
+  const statusConfig = {
+    [AssetStatus.IN_USE]: {
+      label: "Đang sử dụng",
+      className: "bg-green-100 text-green-800 border border-green-200",
+    },
+    [AssetStatus.TRANSFERRED]: {
+      label: "Đã bàn giao",
+      className: "bg-blue-100 text-blue-800 border border-blue-200",
+    },
+    [AssetStatus.DAMAGED]: {
+      label: "Hư hỏng",
+      className: "bg-yellow-100 text-yellow-800 border border-yellow-200",
+    },
+    [AssetStatus.LOST]: {
+      label: "Đã mất",
+      className: "bg-red-100 text-red-800 border border-red-200",
+    },
+    [AssetStatus.PROPOSED_LIQUIDATION]: {
+      label: "Đề xuất thanh lý",
+      className: "bg-orange-100 text-orange-800 border border-orange-200",
+    },
+    [AssetStatus.LIQUIDATED]: {
+      label: "Đã thanh lý",
+      className: "bg-gray-100 text-gray-800 border border-gray-300",
+    },
+  };
+
+  const config = statusConfig[status] || {
+    label: status,
+    className: "bg-gray-100 text-gray-800 border border-gray-200",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.className}`}
+    >
+      {config.label}
+    </span>
+  );
+};
+
 // Asset type options for filter dropdown
 const assetTypeOptions = [
-  { value: "", label: "Tất cả loại tài sản" },
+  { value: "", label: "Chọn loại sổ" },
   { value: "FIXED_ASSET", label: "Tài sản cố định" },
   { value: "TOOLS_EQUIPMENT", label: "Công cụ dụng cụ" },
 ];
@@ -74,6 +111,7 @@ interface CardSelectProps {
   disabled?: boolean;
   loading?: boolean;
   className?: string;
+  required?: boolean;
 }
 
 const CardSelect: React.FC<CardSelectProps> = ({
@@ -86,6 +124,7 @@ const CardSelect: React.FC<CardSelectProps> = ({
   disabled = false,
   loading = false,
   className = "",
+  required = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({
@@ -128,8 +167,9 @@ const CardSelect: React.FC<CardSelectProps> = ({
 
   return (
     <div className={`relative group card-select-container ${className}`}>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className={`block font-medium text-gray-700 mb-2 ${className.includes('text-lg') ? 'text-base' : className.includes('text-base') ? 'text-sm' : 'text-xs'}`}>
         {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
       </label>
       <div className="relative">
         <button
@@ -138,26 +178,29 @@ const CardSelect: React.FC<CardSelectProps> = ({
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
           className={`
-            w-full min-h-[2.75rem] pr-10 truncate py-2 border border-gray-200 rounded-lg 
+            w-full ${className.includes('text-lg') ? 'min-h-[3.5rem] text-lg' : className.includes('text-base') ? 'min-h-[2.75rem] text-base' : 'min-h-[2.5rem] text-sm'} pl-3 pr-10 border border-gray-200 rounded-lg 
             bg-white text-left transition-all duration-200
             hover:border-gray-300 hover:shadow-sm
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
             disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
             ${isOpen ? "ring-2 ring-blue-500 border-blue-500" : ""}
             ${loading ? "cursor-wait" : "cursor-pointer"}
+            relative
           `}
         >
-          <div className="flex items-start justify-between">
-            <div className="flex items-start space-x-3 flex-1">
-              <div
-                className={`transition-colors mt-0.5 ${
-                  isOpen ? "text-blue-500" : "text-gray-400"
-                }`}
-              >
-                {icon}
-              </div>
+          <div className="flex items-center justify-between h-full py-2.5">
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
+              {icon && (
+                <div
+                  className={`transition-colors flex-shrink-0 ${
+                    isOpen ? "text-blue-500" : "text-gray-400"
+                  }`}
+                >
+                  {icon}
+                </div>
+              )}
               <span
-                className={`flex-1 leading-relaxed break-words truncate ${
+                className={`flex-1 truncate ${
                   selectedOption ? "text-gray-900" : "text-gray-500"
                 }`}
                 title={selectedOption ? selectedOption.label : placeholder}
@@ -166,7 +209,7 @@ const CardSelect: React.FC<CardSelectProps> = ({
               </span>
             </div>
             <ChevronDown
-              className={`h-4 w-4 text-gray-400 transition-transform duration-200 mt-0.5 flex-shrink-0 ${
+              className={`h-4 w-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ml-2 ${
                 isOpen ? "rotate-180" : ""
               }`}
             />
@@ -174,7 +217,7 @@ const CardSelect: React.FC<CardSelectProps> = ({
         </button>
 
         {loading && (
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <div className="absolute right-8 top-1/2 transform -translate-y-1/2 z-10">
             <RefreshCw className="h-4 w-4 text-gray-400 animate-spin" />
           </div>
         )}
@@ -238,6 +281,9 @@ export default function AssetBookPage() {
   // Selection mode states
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+  
+  // Advanced filter toggle
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Redux selectors
   const { currentFilter, filteredAssetBooks, loading, error } = useSelector(
@@ -273,14 +319,7 @@ export default function AssetBookPage() {
               setSelectedCampusId("");
               setSelectedUnitId("");
             }
-            const currentFilterFirst = {
-              ...currentFilter,
-              campusId: isAdminDept ? user?.unitId : undefined,
-              unitId: isUserDept ? user?.unitId : undefined,
-              roomId: undefined,
-              assetType: undefined,
-            };
-            await dispatch(filterAssetBook(currentFilterFirst));
+            // KHÔNG call API ở đây nữa - chỉ call khi chọn xong loại tài sản
           }
         }
       } catch (e: any) {
@@ -290,24 +329,50 @@ export default function AssetBookPage() {
     loadInitialData();
   }, []);
 
-  // Handle filter changes
+  // Handle filter changes - chỉ call API khi đã chọn loại tài sản
   useEffect(() => {
-    handleFilterChange({
-      ...currentFilter,
-      search: searchTerm || undefined,
-      campusId: selectedCampusId || undefined,
-      unitId: selectedUnitId || undefined,
-      year: selectedYear ? parseInt(selectedYear) : undefined,
-      roomId: selectedRoomId || undefined,
-      assetType: (selectedAssetType as AssetType) || undefined,
-    });
+    // Kiểm tra điều kiện bắt buộc trước khi call API
+    const hasRequiredFilters = () => {
+      // 1. Phải có thông tin user và đơn vị
+      if (!user) return false;
+      
+      const hasUnitInfo = 
+        (isAdmin && selectedCampusId && selectedUnitId) || 
+        (isAdminDept && selectedUnitId) || 
+        (isUserDept && user.unitId);
+      
+      // 2. Phải chọn năm
+      if (!selectedYear) return false;
+      
+      // 3. Phải chọn loại tài sản (đây là điều kiện cuối cùng để trigger API)
+      if (!selectedAssetType) return false;
+      
+      return hasUnitInfo;
+    };
+
+    // Chỉ call API khi đã đủ tất cả điều kiện
+    if (hasRequiredFilters()) {
+      handleFilterChange({
+        ...currentFilter,
+        search: searchTerm || undefined,
+        campusId: selectedCampusId || undefined,
+        unitId: selectedUnitId || (isUserDept && user ? user.unitId : undefined),
+        year: selectedYear ? parseInt(selectedYear) : undefined,
+        roomId: selectedRoomId || undefined,
+        assetType: (selectedAssetType as AssetType) || undefined,
+      });
+    }
   }, [
     searchTerm,
     selectedCampusId,
     selectedUnitId,
     selectedYear,
     selectedRoomId,
-    selectedAssetType,
+    selectedAssetType, // Đây là trigger chính
+    user?.unitId,
+    isAdmin,
+    isAdminDept,
+    isUserDept,
   ]);
 
   const handleFilterChange = (filterRequest: AssetBookFilterRequest) => {
@@ -316,7 +381,7 @@ export default function AssetBookPage() {
 
   const handleExport = () => {
     console.log("Exporting asset book data...");
-    toast.success("Đang xuất báo cáo...");
+    toast.success("Đang xuất sổ tài sản...");
   };
 
   const handleToggleSelectionMode = () => {
@@ -330,10 +395,26 @@ export default function AssetBookPage() {
     selectedRowKeys: string[],
     selectedRows: Asset[]
   ) => {
+    console.log("=== DEBUG SELECTION ===");
+    console.log("selectedRowKeys:", selectedRowKeys);
+    console.log("selectedRows:", selectedRows);
+    console.log("deduplicatedAssets sample:", deduplicatedAssets.slice(0, 2));
     setSelectedAssets(selectedRowKeys);
     console.log("Đã chọn tài sản:", selectedRowKeys);
     console.log("Chi tiết tài sản được chọn:", selectedRows);
   };
+
+  // Memoize deduplicated data to avoid recalculating on every render
+  const deduplicatedAssets = React.useMemo(() => {
+    const seen = new Set<string>();
+    return filteredAssetBooks.data.filter((asset) => {
+      if (seen.has(asset.id)) {
+        return false;
+      }
+      seen.add(asset.id);
+      return true;
+    });
+  }, [filteredAssetBooks.data]);
 
   const handleBulkHandover = () => {
     if (selectedAssets.length === 0) {
@@ -341,22 +422,13 @@ export default function AssetBookPage() {
       return;
     }
 
-    const selectedAssetObjects = filteredAssetBooks.data.filter((asset) =>
+    const selectedAssetObjects = deduplicatedAssets.filter((asset) =>
       selectedAssets.includes(asset.id)
     );
 
     // Lưu danh sách tài sản đã chọn vào Redux store
     dispatch(setSelectedAssetsForHandover(selectedAssetObjects));
     
-    // Debug log để xem các giá trị hiện tại
-    console.log("Debug - Before creating handover context:");
-    console.log("selectedCampusId:", selectedCampusId);
-    console.log("selectedUnitId:", selectedUnitId);
-    console.log("selectedRoomId:", selectedRoomId);
-    console.log("isUserDept:", isUserDept);
-    console.log("user?.unitId:", user?.unitId);
-    console.log("units:", units);
-
     // Logic cải thiện để xác định sourceUnitId
     let sourceUnitId: string | undefined = selectedUnitId || undefined;
     
@@ -498,6 +570,17 @@ export default function AssetBookPage() {
       className: "text-center",
     },
     {
+      key: "status",
+      title: "Trạng thái",
+      render: (_, record) => (
+        <div className="flex justify-center">
+          {getAssetStatusBadge(record.status as AssetStatus)}
+        </div>
+      ),
+      sortable: true,
+      className: "text-center",
+    },
+    {
       key: "actions",
       title: "Thao tác",
       render: (_, asset) => {
@@ -505,12 +588,8 @@ export default function AssetBookPage() {
           <div className="flex justify-start">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-8 px-3 text-sm"
-                >
-                  Hành động
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
 
@@ -598,17 +677,6 @@ export default function AssetBookPage() {
           </p>
         </div>
         <div className="flex items-center space-x-4">
-          <Button
-            variant="outline"
-            onClick={() => dispatch(filterAssetBook(currentFilter))}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
-            />
-            {loading ? "Đang tải..." : "Làm mới"}
-          </Button>
-
           {/* Nút bàn giao */}
           <Button
             onClick={handleToggleSelectionMode}
@@ -625,71 +693,18 @@ export default function AssetBookPage() {
 
           <Button onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
-            Xuất báo cáo
+            Xuất sổ tài sản
           </Button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
-        {/* Filter Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Search className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Bộ lọc tìm kiếm
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Lọc và tìm kiếm tài sản theo các tiêu chí
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm("");
-                  setSelectedCampusId("");
-                  setSelectedUnitId("");
-                  setSelectedRoomId("");
-                  setSelectedAssetType("");
-                  setSelectedYear(new Date().getFullYear().toString());
-                }}
-                className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Đặt lại
-              </Button>
-            </div>
-          </div>
-        </div>
-
+      <div className="bg-white rounded-xl border border-gray-300 mb-6">
         {/* Filter Content */}
         <div className="p-6 relative">
-          {/* First Row - Main Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">
-            {/* Search */}
-            <div className="lg:col-span-2 relative group">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tìm kiếm
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 group-focus-within:text-blue-500 transition-colors" />
-                <Input
-                  placeholder="Nhập tên, mã tài sản..."
-                  className="pl-10 h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Campus Filter */}
+          {/* Main Filters Row - Always visible */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 mb-4">
+            {/* Campus Filter - for Admin only */}
             {isAdmin && (
               <CardSelect
                 label="Cơ sở"
@@ -705,6 +720,8 @@ export default function AssetBookPage() {
                 ]}
                 placeholder="Chọn cơ sở"
                 disabled={loading}
+                required
+                className="text-base"
               />
             )}
 
@@ -724,6 +741,8 @@ export default function AssetBookPage() {
                 ]}
                 placeholder="Chọn đơn vị"
                 disabled={isAdminDept ? !selectedCampusId : false}
+                required
+                className="text-base"
               />
             )}
 
@@ -735,6 +754,8 @@ export default function AssetBookPage() {
               onChange={setSelectedYear}
               options={getYearOptions()}
               placeholder="Chọn năm"
+              required
+              className="text-base"
             />
 
             {/* Asset Type Filter */}
@@ -745,123 +766,67 @@ export default function AssetBookPage() {
               onChange={setSelectedAssetType}
               options={assetTypeOptions}
               placeholder="Chọn loại tài sản"
+              required
+              className="text-base"
             />
           </div>
 
-          {/* Second Row - Room Filter */}
-          {selectedUnitId && (
+          {/* Advanced Filters Toggle */}
+          <div className="flex items-center justify-between mb-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            >
+              {showAdvancedFilters ? "Ẩn bộ lọc" : "Hiển thị bộ lọc"}
+              <ChevronDown className={`h-4 w-4 ml-2 transition-transform duration-200 ${showAdvancedFilters ? "rotate-180" : ""}`} />
+            </Button>
+          </div>
+
+          {/* Advanced Filters - Collapsible */}
+          {showAdvancedFilters && (
             <div className="border-t border-gray-100 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-                <CardSelect
-                  label="Phòng"
-                  icon={<></>}
-                  value={selectedRoomId}
-                  onChange={setSelectedRoomId}
-                  options={[
-                    { value: "", label: "Tất cả phòng" },
-                    ...(rooms?.map((room) => ({
-                      value: room.id,
-                      label: `${room.roomCode}`,
-                    })) || []),
-                  ]}
-                  placeholder="Tất cả phòng"
-                  loading={roomsLoading}
-                  className="lg:col-span-2"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Search */}
+                <div className="relative group lg:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tìm kiếm
+                  </label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Nhập tên, mã tài sản..."
+                      className="min-h-[2.75rem] text-base border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 hover:border-gray-300 hover:shadow-sm"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Room Filter */}
+                {selectedUnitId && (
+                  <CardSelect
+                    label="Phòng"
+                    icon={<></>}
+                    value={selectedRoomId}
+                    onChange={setSelectedRoomId}
+                    options={[
+                      { value: "", label: "Tất cả phòng" },
+                      ...(rooms?.map((room) => ({
+                        value: room.id,
+                        label: `${room.roomCode}`,
+                      })) || []),
+                    ]}
+                    placeholder="Tất cả phòng"
+                    loading={roomsLoading}
+                    className="text-base"
+                  />
+                )}
               </div>
             </div>
           )}
 
-          {/* Active Filters Summary */}
-          {(searchTerm ||
-            selectedCampusId ||
-            selectedUnitId ||
-            selectedRoomId ||
-            selectedAssetType) && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    Bộ lọc đang áp dụng:
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {searchTerm && (
-                      <span
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 max-w-[200px] truncate"
-                        title={`Tìm kiếm: "${searchTerm}"`}
-                      >
-                        Tìm kiếm: "{searchTerm}"
-                      </span>
-                    )}
-                    {selectedCampusId && (
-                      <span
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
-                        title={`Cơ sở: ${
-                          campuses.find((c) => c.id === selectedCampusId)?.name
-                        }`}
-                      >
-                        Cơ sở:{" "}
-                        {campuses.find((c) => c.id === selectedCampusId)?.name}
-                      </span>
-                    )}
-                    {selectedUnitId && (
-                      <span
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
-                        title={`Đơn vị: ${
-                          units?.find((u) => u.id === selectedUnitId)?.name
-                        }`}
-                      >
-                        Đơn vị:{" "}
-                        {units?.find((u) => u.id === selectedUnitId)?.name}
-                      </span>
-                    )}
-                    {selectedRoomId && (
-                      <span
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800"
-                        title={`Phòng: ${
-                          rooms?.find((r) => r.id === selectedRoomId)?.name
-                        }`}
-                      >
-                        Phòng:{" "}
-                        {rooms?.find((r) => r.id === selectedRoomId)?.name}
-                      </span>
-                    )}
-                    {selectedAssetType && (
-                      <span
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
-                        title={`Loại: ${
-                          assetTypeOptions.find(
-                            (opt) => opt.value === selectedAssetType
-                          )?.label
-                        }`}
-                      >
-                        Loại:{" "}
-                        {
-                          assetTypeOptions.find(
-                            (opt) => opt.value === selectedAssetType
-                          )?.label
-                        }
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setSelectedCampusId("");
-                    setSelectedUnitId("");
-                    setSelectedRoomId("");
-                    setSelectedAssetType("");
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  Xóa tất cả
-                </Button>
-              </div>
-            </div>
-          )}
+          
         </div>
       </div>
 
@@ -907,10 +872,12 @@ export default function AssetBookPage() {
       {/* Assets Table */}
       <Table<Asset>
         columns={columns}
-        data={filteredAssetBooks.data}
+        data={deduplicatedAssets}
         loading={loading}
         emptyText="Không tìm thấy tài sản"
-        emptyIcon={<Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
+        emptyIcon={<div className="h-12 w-12 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
+          <span className="text-gray-400 font-bold text-xl">?</span>
+        </div>}
         multiSort={true}
         sortConfigs={currentFilter.sorting}
         onSortChange={(sortConfigs) => {
@@ -930,7 +897,6 @@ export default function AssetBookPage() {
               }
             : undefined
         }
-        title={<div className="flex items-center">Danh sách tài sản</div>}
         pagination={{
           current: filteredAssetBooks?.pagination.page || 1,
           pageSize: filteredAssetBooks?.pagination.limit || 10,

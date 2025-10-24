@@ -13,12 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Plus,
-  Users,
-  Building,
-  AlertTriangle,
   Edit,
   Trash2,
   Loader2,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import SubCommitteeModal from "./modals/SubCommitteeModal";
 import GroupModal from "./modals/GroupModal";
@@ -143,6 +142,9 @@ export default function InventorySubCommitteeManager() {
   // Split layout states
   const [activeSubCommittee, setActiveSubCommittee] =
     useState<InventorySubCommittee | null>(null);
+
+  // Expansion state for the section
+  const [isExpanded, setIsExpanded] = useState(true);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -442,436 +444,288 @@ export default function InventorySubCommitteeManager() {
     }
   };
 
+  // Helper to get initials
+  const getInitials = (name: string = "") => {
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) {
+      return parts[parts.length - 2][0] + parts[parts.length - 1][0];
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  // Calculate total sub-committees for header
+  const totalSubCommittees = subCommittees.length;
+
   return (
-    <div className="space-y-6 py-6 min-h-0">
-      {/* Split Layout Container */}
-      {subCommittees.length === 0 ? (
-        <Card className="p-12 text-center border-dashed border-2">
-          <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-medium text-gray-700 mb-2">
-            Chưa có tiểu ban nào
-          </h3>
-          {canEdit && (
-            <>
-              <p className="text-gray-500 mb-6">
-                Hãy tạo tiểu ban đầu tiên để bắt đầu tổ chức nhóm kiểm kê
+    <>
+      <Card className="border border-gray-300 rounded-lg overflow-hidden">
+      {/* Header Section */}
+      <div className="px-6 py-4 border-b border-gray-200 bg-white">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-3 text-left hover:text-blue-600 transition-colors"
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-5 w-5 text-gray-500" />
+            ) : (
+              <ChevronRight className="h-5 w-5 text-gray-500" />
+            )}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Tiểu ban và nhóm kiểm kê</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Tổ chức và phân công nhiệm vụ ({totalSubCommittees} tiểu ban)
               </p>
-              <Button
-                onClick={handleAddSubCommittee}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Tạo tiểu ban đầu tiên
-              </Button>
-            </>
+            </div>
+          </button>
+          {canEdit && isExpanded && (
+            <Button
+              onClick={handleAddSubCommittee}
+              size="sm"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md font-medium shadow-sm"
+              disabled={createSubCommitteeLoading || getAvailableSessionUnits().length === 0}
+            >
+              {createSubCommitteeLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              Thêm tiểu ban
+            </Button>
           )}
-        </Card>
-      ) : (
-        <div className="flex flex-col lg:flex-row gap-6 min-h-0">
-          {/* Left Panel - SubCommittees List */}
-          <div className="w-full lg:w-2/5 xl:w-5/12 min-h-0">
-            <Card className="h-full flex flex-col">
-              <div className="p-4 lg:p-6 border-b bg-gradient-to-r from-blue-50 via-blue-50 to-indigo-50 border-blue-100 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Users className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-800">
-                        Danh sách tiểu ban
-                      </h3>
-                    </div>
-                  </div>
-                  {canEdit && (
-                    <Button
-                      onClick={handleAddSubCommittee}
-                      size="sm"
-                      variant="default"
-                      disabled={
-                        createSubCommitteeLoading ||
-                        getAvailableSessionUnits().length === 0
-                      }
-                      className="flex-shrink-0"
-                    >
-                      {createSubCommitteeLoading ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Plus className="h-4 w-4 mr-2" />
-                      )}
-                      <span className="hidden sm:inline">Thêm tiểu ban</span>
-                      <span className="sm:hidden">Thêm</span>
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
-                {subCommittees.map((subCommittee) => (
-                  <div
-                    key={subCommittee.id}
-                    onClick={() => setActiveSubCommittee(subCommittee)}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
-                      activeSubCommittee?.id === subCommittee.id
-                        ? "border-blue-500 bg-blue-50 shadow-md"
-                        : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-bold text-gray-800 text-base lg:text-lg leading-tight flex-1 pr-2">
-                        {subCommittee.name}
-                      </h4>
-                      <div className="flex items-center space-x-1 flex-shrink-0">
-                        {canEdit && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditSubCommittee(subCommittee);
-                              }}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteSubCommittee(subCommittee);
-                              }}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
+        </div>
+      </div>
 
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="flex justify-between">
-                          <span>Số nhóm:</span>
-                          <span className="font-medium">
-                            {subCommittee.groups?.length || 0}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Thành viên:</span>
-                          <span className="font-medium">
-                            {subCommittee.members?.length || 0}
-                          </span>
-                        </div>
-                      </div>
-                      {subCommittee.inventorySessionUnit?.unit && (
-                        <div className="mt-2">
-                          <span className="text-gray-500">Đơn vị:</span>
-                          <div className="font-medium text-blue-600 break-words">
-                            {subCommittee.inventorySessionUnit.unit.name}
-                          </div>
-                        </div>
-                      )}
+      {/* Content Section */}
+      {isExpanded && (
+        <div className="bg-white p-6">
+          {subCommittees.length === 0 ? (
+            <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                Chưa có tiểu ban nào
+              </h3>
+              <p className="text-gray-500 mb-6">
+                Tạo tiểu ban để tổ chức và phân công nhóm kiểm kê
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
 
-                      {/* Members List - Collapsible for better space management */}
-                      {subCommittee.members &&
-                        subCommittee.members.length > 0 && (
-                          <div className="mt-4 pt-3 border-t border-gray-200">
-                            <div className="text-sm font-medium text-gray-700 mb-3">
-                              Danh sách thành viên (
-                              {subCommittee.members.length}):
-                            </div>
-                            <div className="space-y-2 max-h-32 overflow-y-auto">
-                              {subCommittee.members.map(
-                                (member, memberIndex) => (
-                                  <div
-                                    key={memberIndex}
-                                    className="flex items-center justify-between bg-gray-50 p-2 rounded text-xs"
-                                  >
-                                    <div className="flex items-center flex-1 min-w-0">
-                                      <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-gray-800 truncate">
-                                          {member.user?.fullName ||
-                                            "Tên không có"}
-                                        </p>
-                                        <p className="text-gray-500 truncate">
-                                          {member.user?.email ||
-                                            "Email không có"}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <span
-                                      className={`ml-2 px-2 py-1 rounded text-xs font-medium flex-shrink-0 ${
-                                        member.role === "LEADER"
-                                          ? "bg-blue-100 text-blue-700"
-                                          : member.role === "SECRETARY"
-                                          ? "bg-purple-100 text-purple-700"
-                                          : "bg-gray-100 text-gray-700"
-                                      }`}
-                                      title={
-                                        member.role === "LEADER"
-                                          ? "Trưởng nhóm"
-                                          : member.role === "SECRETARY"
-                                          ? "Thư ký"
-                                          : "Thành viên"
-                                      }
-                                    >
-                                      {member.role === "LEADER"
-                                        ? "TN"
-                                        : member.role === "SECRETARY"
-                                        ? "TK"
-                                        : "TV"}
-                                    </span>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-
-          {/* Right Panel - Groups Detail */}
-          <div className="w-full lg:w-3/5 xl:w-7/12 min-h-0">
-            {activeSubCommittee ? (
-              <Card className="h-full flex flex-col">
+          {/* SubCommittees Grid */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {subCommittees.map((subCommittee) => (
+              <Card key={subCommittee.id} className="overflow-hidden">
                 {/* SubCommittee Header */}
-                <div className="p-4 lg:p-5 bg-gradient-to-r from-blue-50 to-blue-100 flex-shrink-0">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-lg font-bold mb-4">
-                      Danh sách nhóm kiểm kê
-                    </h4>
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-gray-900 text-lg mb-1">
+                        {subCommittee.name}
+                      </h3>
+                      {subCommittee.inventorySessionUnit?.unit && (
+                        <p className="text-sm text-blue-600">
+                          {subCommittee.inventorySessionUnit.unit.name}
+                        </p>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEditSubCommittee(subCommittee)}
+                          className="p-2 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                          title="Sửa"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSubCommittee(subCommittee)}
+                          className="p-2 text-red-600 hover:bg-red-100 rounded transition-colors"
+                          title="Xóa"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+                {/* Members Section */}
+                {subCommittee.members && subCommittee.members.length > 0 && (
+                  <div className="p-4 border-b bg-gray-50">
+                    <div className="text-xs font-semibold text-gray-600 mb-3 uppercase">
+                      Thành viên tiểu ban
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {subCommittee.members.map((member, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 bg-white p-2 rounded border border-gray-100"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+                            {getInitials(member.user?.fullName || "?")}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm text-gray-900 truncate">
+                              {member.user?.fullName || "N/A"}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {member.user?.email || "N/A"}
+                            </p>
+                          </div>
+                          <span
+                            className={`px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${
+                              member.role === "LEADER"
+                                ? "bg-blue-100 text-blue-700"
+                                : member.role === "SECRETARY"
+                                ? "bg-purple-100 text-purple-700"
+                                : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
+                            {member.role === "LEADER"
+                              ? "Trưởng ban"
+                              : member.role === "SECRETARY"
+                              ? "Thư ký"
+                              : "Thành viên"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Groups Section */}
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-xs font-semibold text-gray-600 uppercase">
+                      Nhóm kiểm kê ({subCommittee.groups?.length || 0})
+                    </div>
                     {canEdit && (
                       <Button
                         size="sm"
-                        variant="default"
-                        onClick={() => handleAddGroup(activeSubCommittee)}
-                        className="border-dashed"
+                        variant="outline"
+                        onClick={() => handleAddGroup(subCommittee)}
                         disabled={createGroupLoading}
+                        className="text-xs"
                       >
                         {createGroupLoading ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                         ) : (
-                          <Plus className="h-4 w-4 mr-1" />
+                          <Plus className="h-3 w-3 mr-1" />
                         )}
-                        <span className="hidden sm:inline">Thêm nhóm</span>
-                        <span className="sm:hidden">Thêm</span>
+                        Thêm nhóm
                       </Button>
                     )}
                   </div>
-                </div>
 
-                {/* Groups List */}
-                <div className="p-4 lg:p-6 overflow-y-auto flex-1 min-h-0">
-                  {!activeSubCommittee.groups ||
-                  activeSubCommittee.groups.length === 0 ? (
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 lg:p-8 text-center">
-                      <Building className="h-10 lg:h-12 w-10 lg:w-12 text-gray-300 mx-auto mb-3" />
-                      <h5 className="text-base lg:text-lg font-medium text-gray-600 mb-2">
-                        Chưa có nhóm nào
-                      </h5>
-                      {canEdit && (
-                        <>
-                          <p className="text-gray-500 mb-4 text-sm lg:text-base">
-                            Hãy thêm nhóm kiểm kê để phân công nhiệm vụ cụ thể
-                          </p>
-                          <Button
-                            size="sm"
-                            onClick={() => handleAddGroup(activeSubCommittee)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Thêm nhóm đầu tiên
-                          </Button>
-                        </>
-                      )}
+                  {!subCommittee.groups || subCommittee.groups.length === 0 ? (
+                    <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded">
+                      <p className="text-sm text-gray-500">Chưa có nhóm nào</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {activeSubCommittee.groups.map((group) => (
-                        <Card
+                    <div className="space-y-3">
+                      {subCommittee.groups.map((group) => (
+                        <div
                           key={group.id}
-                          className="p-4 lg:p-6 hover:shadow-md transition-shadow"
+                          className="border border-gray-200 rounded-lg p-3 bg-white hover:shadow-sm transition-shadow"
                         >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center space-x-3">
-                              <div className="bg-green-100 p-2 lg:p-3 rounded-full flex-shrink-0">
-                                <Building className="h-5 lg:h-6 w-5 lg:w-6 text-green-600" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <h5 className="font-bold text-gray-800 text-base lg:text-lg leading-tight">
-                                  {group.name}
-                                </h5>
-                                <p className="text-sm text-gray-600">
-                                  {group.members?.length || 0} thành viên
-                                </p>
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-gray-900 text-sm mb-1">
+                                {group.name}
+                              </h4>
+                              <div className="text-xs text-gray-500">
+                                {group.members?.length || 0} thành viên • {group.assignments?.length || 0} phân công
                               </div>
                             </div>
-                            <div className="flex items-center space-x-2 flex-shrink-0">
-                              {canEdit && (
-                                <>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleEditGroup(group, activeSubCommittee)
-                                    }
-                                    className="text-xs lg:text-sm"
-                                  >
-                                    <Edit className="h-3 lg:h-4 w-3 lg:w-4 mr-1" />
-                                    <span className="hidden sm:inline">
-                                      Sửa
-                                    </span>
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleDeleteGroup(group)}
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs lg:text-sm"
-                                  >
-                                    <Trash2 className="h-3 lg:h-4 w-3 lg:w-4 mr-1" />
-                                    <span className="hidden sm:inline">
-                                      Xóa
-                                    </span>
-                                  </Button>
-                                </>
-                              )}
-                            </div>
+                            {canEdit && (
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handleEditGroup(group, subCommittee)}
+                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                                  title="Sửa"
+                                >
+                                  <Edit className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteGroup(group)}
+                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                                  title="Xóa"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
                           </div>
 
-                          {/* Group Details */}
-                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
-                            {/* Members Section */}
-                            <div>
-                              <h6 className="font-semibold text-gray-700 mb-3 flex items-center text-sm lg:text-base">
-                                <Users className="h-4 w-4 mr-2 flex-shrink-0" />
-                                Thành viên nhóm
-                              </h6>
-                              {group.members && group.members.length > 0 ? (
-                                <div className="space-y-2 max-h-48 overflow-y-auto">
-                                  {group.members.map((member, index) => (
-                                    <div
-                                      key={index}
-                                      className="bg-gray-50 p-2 lg:p-3 rounded-lg"
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <div className="min-w-0 flex-1">
-                                          <p className="font-medium text-gray-800 text-sm truncate">
-                                            {member.user?.fullName ||
-                                              "Tên không có"}
-                                          </p>
-                                          <p className="text-xs lg:text-sm text-gray-600 truncate">
-                                            {member.user?.email}
-                                          </p>
-                                        </div>
-                                        <span
-                                          className={`ml-2 px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-                                            member.role === "LEADER"
-                                              ? "bg-blue-100 text-blue-800"
-                                              : member.role === "SECRETARY"
-                                              ? "bg-purple-100 text-purple-800"
-                                              : "bg-gray-100 text-gray-800"
-                                          }`}
-                                        >
-                                          {member.role === "LEADER"
-                                            ? "TN"
-                                            : member.role === "SECRETARY"
-                                            ? "TK"
-                                            : "TV"}
-                                        </span>
-                                      </div>
+                          {/* Group Members */}
+                          {group.members && group.members.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                              <div className="text-xs text-gray-600 mb-2">Thành viên:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {group.members.map((member, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="inline-flex justify-center items-center gap-1 bg-gray-100 px-2 py-1 rounded text-xs"
+                                  >
+                                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white text-[10px] font-semibold">
+                                      {getInitials(member.user?.fullName || "?")}
                                     </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-gray-500 text-sm italic">
-                                  Chưa có thành viên nào
-                                </p>
-                              )}
+                                    <span className="text-gray-700 text-center">
+                                      {member.user?.fullName || "N/A"}
+                                    </span>
+                                    <span
+                                      className={`px-1 rounded text-[10px] font-medium ${
+                                        member.role === "LEADER"
+                                          ? "bg-blue-200 text-blue-800"
+                                          : member.role === "SECRETARY"
+                                          ? "bg-purple-200 text-purple-800"
+                                          : "bg-gray-200 text-gray-700"
+                                      }`}
+                                    >
+                                      {member.role === "LEADER" ? "Trưởng nhóm" : member.role === "SECRETARY" ? "Thư ký nhóm" : "Thành viên nhóm"}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
+                          )}
 
-                            {/* Assignments Section */}
-                            <div>
-                              <h6 className="font-semibold text-gray-700 mb-3 flex items-center text-sm lg:text-base">
-                                <Building className="h-4 w-4 mr-2 flex-shrink-0" />
-                                Đơn vị phân công
-                              </h6>
-                              {group.assignments &&
-                              group.assignments.length > 0 ? (
-                                <div className="space-y-2 max-h-48 overflow-y-auto">
-                                  {group.assignments.map(
-                                    (assignment, index) => (
-                                      <div
-                                        key={index}
-                                        className="bg-blue-50 p-2 lg:p-3 rounded-lg"
-                                      >
-                                        <p className="font-medium text-gray-800 text-sm break-words">
-                                          {assignment.unit?.name ||
-                                            "Đơn vị không xác định"}
-                                        </p>
-                                        <div className="text-xs text-gray-600 mt-1 space-y-1">
-                                          {assignment.startDate && (
-                                            <p>
-                                              Bắt đầu:{" "}
-                                              {new Date(
-                                                assignment.startDate
-                                              ).toLocaleDateString("vi-VN")}
-                                            </p>
-                                          )}
-                                          {assignment.endDate && (
-                                            <p>
-                                              Kết thúc:{" "}
-                                              {new Date(
-                                                assignment.endDate
-                                              ).toLocaleDateString("vi-VN")}
-                                            </p>
-                                          )}
-                                          {assignment.note && (
-                                            <p className="break-words">
-                                              {assignment.note}
-                                            </p>
-                                          )}
-                                        </div>
+                          {/* Assignments */}
+                          {group.assignments && group.assignments.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                              <div className="text-xs text-gray-600 mb-2">Đơn vị phân công:</div>
+                              <div className="space-y-1">
+                                {group.assignments.map((assignment, idx) => (
+                                  <div key={idx} className="bg-blue-50 px-2 py-1.5 rounded text-xs">
+                                    <div className="font-medium text-gray-900 truncate">
+                                      {assignment.unit?.name || "N/A"}
+                                    </div>
+                                    {assignment.startDate && assignment.endDate && (
+                                      <div className="text-gray-600 mt-0.5">
+                                        {new Date(assignment.startDate).toLocaleDateString("vi-VN")} - {new Date(assignment.endDate).toLocaleDateString("vi-VN")}
                                       </div>
-                                    )
-                                  )}
-                                </div>
-                              ) : (
-                                <p className="text-gray-500 text-sm italic">
-                                  Chưa có đơn vị nào được phân công
-                                </p>
-                              )}
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        </Card>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}
                 </div>
               </Card>
-            ) : (
-              <Card className="h-full flex items-center justify-center">
-                <div className="text-center">
-                  <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-medium text-gray-700 mb-2">
-                    Chọn tiểu ban
-                  </h3>
-                  <p className="text-gray-500">
-                    Chọn một tiểu ban từ danh sách bên trái để xem chi tiết nhóm
-                    kiểm kê
-                  </p>
-                </div>
-              </Card>
-            )}
+            ))}
           </div>
+            </div>
+          )}
         </div>
       )}
+      </Card>
 
+      <div>
       {/* Modals */}
       <SubCommitteeModal
         isOpen={isSubCommitteeModalOpen}
@@ -908,18 +762,16 @@ export default function InventorySubCommitteeManager() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && deleteTarget && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="p-6">
-              <div className="flex items-center mb-4">
-                <div className="bg-red-100 p-3 rounded-full mr-4">
-                  <AlertTriangle className="h-6 w-6 text-red-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800">
+              <div className="mb-4">
+                <div className="text-4xl mb-3 text-center">⚠️</div>
+                <h3 className="text-lg font-bold text-gray-900 text-center">
                   Xác nhận xóa
                 </h3>
               </div>
 
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-600 mb-6 text-center">
                 Bạn có chắc muốn xóa{" "}
                 {deleteTarget.type === "subcommittee" ? "tiểu ban" : "nhóm"}{" "}
                 <span className="font-semibold">
@@ -933,10 +785,11 @@ export default function InventorySubCommitteeManager() {
                 )}
               </p>
 
-              <div className="flex justify-end space-x-3">
+              <div className="flex gap-3">
                 <Button
                   variant="outline"
                   onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1"
                 >
                   Hủy
                 </Button>
@@ -944,6 +797,7 @@ export default function InventorySubCommitteeManager() {
                   variant="destructive"
                   onClick={confirmDelete}
                   disabled={deleteSubCommitteeLoading || deleteGroupLoading}
+                  className="flex-1"
                 >
                   {deleteSubCommitteeLoading || deleteGroupLoading ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -955,6 +809,7 @@ export default function InventorySubCommitteeManager() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

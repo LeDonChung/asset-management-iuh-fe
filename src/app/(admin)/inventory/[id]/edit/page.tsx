@@ -386,36 +386,24 @@ export default function EditInventorySessionPage() {
   }
 
   return (
-    <div className="mx-auto space-y-8">
+    <div className="p-6">
       {/* Header */}
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center gap-4 mb-6">
         <Link href="/inventory">
-          <Button variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Quay lại
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Chỉnh sửa kỳ kiểm kê
           </h1>
+          <p className="text-gray-600">Chỉnh sửa thông tin kỳ kiểm kê: {session?.name}</p>
         </div>
-      </div>
+        </div>
 
       {/* Form */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <FileText className="h-6 w-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">
-              Thông tin kỳ kiểm kê
-            </h2>
-          </div>
-          <p className="mt-1 text-sm text-gray-600">
-            Cập nhật thông tin để chỉnh sửa kỳ kiểm kê
-          </p>
-        </div>
-
+      <div className="bg-white rounded-xl border border-gray-300">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6">
           <div className="space-y-6">
             {/* Năm và Đợt */}

@@ -275,35 +275,24 @@ export default function CreateInventorySessionPage() {
     });
   }, [year, period]);
   return (
-    <div className="mx-auto space-y-8">
+    <div className="p-6">
       {/* Header */}
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center gap-4 mb-6">
         <Link href="/inventory">
-          <Button variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Quay lại
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Tạo kỳ kiểm kê mới
           </h1>
+          <p className="text-gray-600">Điền đầy đủ thông tin để tạo kỳ kiểm kê mới</p>
         </div>
       </div>
 
       {/* Form */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Thông tin kỳ kiểm kê
-            </h2>
-          </div>
-          <p className="mt-1 text-sm text-gray-600">
-            Điền đầy đủ thông tin để tạo kỳ kiểm kê mới
-          </p>
-        </div>
-
+      <div className="bg-white rounded-xl border border-gray-300">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6">
           <div className="space-y-6">
             {/* Năm và Đợt */}
