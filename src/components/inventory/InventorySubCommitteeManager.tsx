@@ -10,7 +10,6 @@ import {
   UnitType,
 } from "@/types/asset";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Plus,
   Edit,
@@ -18,6 +17,8 @@ import {
   Loader2,
   ChevronDown,
   ChevronRight,
+  Users,
+  Building2,
 } from "lucide-react";
 import SubCommitteeModal from "./modals/SubCommitteeModal";
 import GroupModal from "./modals/GroupModal";
@@ -142,9 +143,6 @@ export default function InventorySubCommitteeManager() {
   // Split layout states
   const [activeSubCommittee, setActiveSubCommittee] =
     useState<InventorySubCommittee | null>(null);
-
-  // Expansion state for the section
-  const [isExpanded, setIsExpanded] = useState(true);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -456,274 +454,417 @@ export default function InventorySubCommitteeManager() {
   // Calculate total sub-committees for header
   const totalSubCommittees = subCommittees.length;
 
+  // Get groups for selected sub-committee
+  const getGroupsForSelectedSubCommittee = (): InventoryGroup[] => {
+    if (!activeSubCommittee) return [];
+    return activeSubCommittee.groups || [];
+  };
+
+  // State for expanded groups in table
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroupExpansion = (groupId: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupId)) {
+      newExpanded.delete(groupId);
+    } else {
+      newExpanded.add(groupId);
+    }
+    setExpandedGroups(newExpanded);
+  };
+
+  // Helper to get status badge color
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'IN_PROGRESS':
+        return 'bg-blue-100 text-blue-700';
+      case 'COMPLETED':
+        return 'bg-green-100 text-green-700';
+      case 'PLANNED':
+        return 'bg-gray-100 text-gray-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  // Helper to get status text
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'IN_PROGRESS':
+        return 'Đang thực hiện';
+      case 'COMPLETED':
+        return 'Hoàn thành';
+      case 'PLANNED':
+        return 'Đã lập kế hoạch';
+      default:
+        return status || 'Đã lập kế hoạch';
+    }
+  };
+
+  // Helper to get role text
+  const getRoleText = (role: string) => {
+    switch (role) {
+      case 'LEADER':
+        return 'Trưởng nhóm';
+      case 'SECRETARY':
+        return 'Thư ký';
+      case 'MEMBER':
+        return 'Thành viên';
+      default:
+        return role;
+    }
+  };
+
   return (
     <>
-      <Card className="border border-gray-300 rounded-lg overflow-hidden">
-      {/* Header Section */}
-      <div className="px-6 py-4 border-b border-gray-200 bg-white">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-3 text-left hover:text-blue-600 transition-colors"
-          >
-            {isExpanded ? (
-              <ChevronDown className="h-5 w-5 text-gray-500" />
-            ) : (
-              <ChevronRight className="h-5 w-5 text-gray-500" />
-            )}
+      <div className="bg-white border border-gray-200 rounded-lg">
+        {/* Header Section */}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Tiểu ban và nhóm kiểm kê</h2>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Tổ chức và phân công nhiệm vụ ({totalSubCommittees} tiểu ban)
-              </p>
             </div>
-          </button>
-          {canEdit && isExpanded && (
-            <Button
-              onClick={handleAddSubCommittee}
-              size="sm"
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md font-medium shadow-sm"
-              disabled={createSubCommitteeLoading || getAvailableSessionUnits().length === 0}
-            >
-              {createSubCommitteeLoading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4 mr-2" />
-              )}
-              Thêm tiểu ban
-            </Button>
-          )}
+          </div>
         </div>
-      </div>
 
-      {/* Content Section */}
-      {isExpanded && (
-        <div className="bg-white p-6">
+        {/* Content Section */}
+        <div className="p-6">
           {subCommittees.length === 0 ? (
-            <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                Chưa có tiểu ban nào
-              </h3>
-              <p className="text-gray-500 mb-6">
-                Tạo tiểu ban để tổ chức và phân công nhóm kiểm kê
-              </p>
+            <div className="text-center py-8 px-6">
+              <p className="text-base text-gray-500">Chưa có tiểu ban nào</p>
             </div>
           ) : (
             <div className="space-y-6">
-
-          {/* SubCommittees Grid */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {subCommittees.map((subCommittee) => (
-              <Card key={subCommittee.id} className="overflow-hidden">
-                {/* SubCommittee Header */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-gray-900 text-lg mb-1">
-                        {subCommittee.name}
-                      </h3>
-                      {subCommittee.inventorySessionUnit?.unit && (
-                        <p className="text-sm text-blue-600">
-                          {subCommittee.inventorySessionUnit.unit.name}
-                        </p>
-                      )}
-                    </div>
-                    {canEdit && (
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleEditSubCommittee(subCommittee)}
-                          className="p-2 text-blue-600 hover:bg-blue-100 rounded transition-colors"
-                          title="Sửa"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSubCommittee(subCommittee)}
-                          className="p-2 text-red-600 hover:bg-red-100 rounded transition-colors"
-                          title="Xóa"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-
-                {/* Members Section */}
-                {subCommittee.members && subCommittee.members.length > 0 && (
-                  <div className="p-4 border-b bg-gray-50">
-                    <div className="text-xs font-semibold text-gray-600 mb-3 uppercase">
-                      Thành viên tiểu ban
-                    </div>
-                    <div className="grid grid-cols-1 gap-2">
-                      {subCommittee.members.map((member, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center gap-2 bg-white p-2 rounded border border-gray-100"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-                            {getInitials(member.user?.fullName || "?")}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm text-gray-900 truncate">
-                              {member.user?.fullName || "N/A"}
-                            </p>
-                            <p className="text-xs text-gray-500 truncate">
-                              {member.user?.email || "N/A"}
-                            </p>
-                          </div>
-                          <span
-                            className={`px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${
-                              member.role === "LEADER"
-                                ? "bg-blue-100 text-blue-700"
-                                : member.role === "SECRETARY"
-                                ? "bg-purple-100 text-purple-700"
-                                : "bg-gray-100 text-gray-700"
-                            }`}
-                          >
-                            {member.role === "LEADER"
-                              ? "Trưởng ban"
-                              : member.role === "SECRETARY"
-                              ? "Thư ký"
-                              : "Thành viên"}
-                          </span>
-                        </div>
+              {/* Sub-Committee Selection and Management */}
+              <div className="space-y-4">
+                <div className="flex items-end justify-between gap-4">
+                  <div className="flex-1">
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Chọn tiểu ban
+                    </label>
+                    <select
+                      value={activeSubCommittee?.id || ""}
+                      onChange={(e) => {
+                        const selected = subCommittees.find(
+                          (sub) => sub.id === e.target.value
+                        );
+                        setActiveSubCommittee(selected || null);
+                        // Reset expanded groups when changing sub-committee
+                        setExpandedGroups(new Set());
+                      }}
+                      className="w-full px-3 py-2 text-base border border-gray-300 rounded focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
+                    >
+                      <option value="">-- Chọn tiểu ban --</option>
+                      {subCommittees.map((subCommittee) => (
+                        <option key={subCommittee.id} value={subCommittee.id}>
+                          {subCommittee.name}
+                          {subCommittee.inventorySessionUnit?.unit &&
+                            ` - ${subCommittee.inventorySessionUnit.unit.name}`}
+                        </option>
                       ))}
+                    </select>
+                  </div>
+                  {canEdit && activeSubCommittee && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        onClick={() => handleEditSubCommittee(activeSubCommittee)}
+                        className="whitespace-nowrap"
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Sửa 
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sub-Committee Members Table */}
+              {activeSubCommittee && activeSubCommittee.members && activeSubCommittee.members.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Thành viên tiểu ban ({activeSubCommittee.members.length})
+                  </h3>
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider w-16">STT</th>
+                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Họ và tên</th>
+                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Vai trò</th>
+                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Email</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {activeSubCommittee.members.map((member, index) => (
+                            <tr key={member.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-4 py-3 text-center text-base text-gray-900">
+                                {index + 1}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                  <div>
+                                    <p className="font-medium text-base text-gray-900">
+                                      {member.user?.fullName || "N/A"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="px-2 py-1 rounded text-sm font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                  {getRoleText(member.role)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-base text-gray-600">
+                                {member.user?.email || "N/A"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Groups Section */}
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs font-semibold text-gray-600 uppercase">
-                      Nhóm kiểm kê ({subCommittee.groups?.length || 0})
-                    </div>
+              {/* Groups Table with Expandable Rows */}
+              {activeSubCommittee ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      Danh sách nhóm kiểm kê ({getGroupsForSelectedSubCommittee().length})
+                    </h3>
                     {canEdit && (
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => handleAddGroup(subCommittee)}
+                        onClick={() => handleAddGroup(activeSubCommittee)}
                         disabled={createGroupLoading}
-                        className="text-xs"
+                        variant="outline"
                       >
                         {createGroupLoading ? (
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         ) : (
-                          <Plus className="h-3 w-3 mr-1" />
+                          <Plus className="h-4 w-4 mr-2" />
                         )}
-                        Thêm nhóm
+                        Thêm
                       </Button>
                     )}
                   </div>
 
-                  {!subCommittee.groups || subCommittee.groups.length === 0 ? (
-                    <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded">
-                      <p className="text-sm text-gray-500">Chưa có nhóm nào</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {subCommittee.groups.map((group) => (
-                        <div
-                          key={group.id}
-                          className="border border-gray-200 rounded-lg p-3 bg-white hover:shadow-sm transition-shadow"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-gray-900 text-sm mb-1">
-                                {group.name}
-                              </h4>
-                              <div className="text-xs text-gray-500">
-                                {group.members?.length || 0} thành viên • {group.assignments?.length || 0} phân công
-                              </div>
-                            </div>
-                            {canEdit && (
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={() => handleEditGroup(group, subCommittee)}
-                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                                  title="Sửa"
-                                >
-                                  <Edit className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteGroup(group)}
-                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                                  title="Xóa"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Group Members */}
-                          {group.members && group.members.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-gray-100">
-                              <div className="text-xs text-gray-600 mb-2">Thành viên:</div>
-                              <div className="flex flex-wrap gap-1">
-                                {group.members.map((member, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="inline-flex justify-center items-center gap-1 bg-gray-100 px-2 py-1 rounded text-xs"
-                                  >
-                                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white text-[10px] font-semibold">
-                                      {getInitials(member.user?.fullName || "?")}
-                                    </div>
-                                    <span className="text-gray-700 text-center">
-                                      {member.user?.fullName || "N/A"}
-                                    </span>
-                                    <span
-                                      className={`px-1 rounded text-[10px] font-medium ${
-                                        member.role === "LEADER"
-                                          ? "bg-blue-200 text-blue-800"
-                                          : member.role === "SECRETARY"
-                                          ? "bg-purple-200 text-purple-800"
-                                          : "bg-gray-200 text-gray-700"
-                                      }`}
+                  {getGroupsForSelectedSubCommittee().length > 0 ? (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="w-12 px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider"></th>
+                              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Tên nhóm</th>
+                              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Trạng thái</th>
+                              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Thống kê</th>
+                              <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider">Hành động</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {getGroupsForSelectedSubCommittee().map((group, index) => (
+                              <React.Fragment key={group.id}>
+                                {/* Main Row */}
+                                <tr className="hover:bg-gray-50 transition-colors">
+                                  <td className="px-4 py-4">
+                                    <button
+                                      onClick={() => toggleGroupExpansion(group.id)}
+                                      className="p-1 hover:bg-gray-200 rounded transition-colors"
                                     >
-                                      {member.role === "LEADER" ? "Trưởng nhóm" : member.role === "SECRETARY" ? "Thư ký nhóm" : "Thành viên nhóm"}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Assignments */}
-                          {group.assignments && group.assignments.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-gray-100">
-                              <div className="text-xs text-gray-600 mb-2">Đơn vị phân công:</div>
-                              <div className="space-y-1">
-                                {group.assignments.map((assignment, idx) => (
-                                  <div key={idx} className="bg-blue-50 px-2 py-1.5 rounded text-xs">
-                                    <div className="font-medium text-gray-900 truncate">
-                                      {assignment.unit?.name || "N/A"}
+                                      {expandedGroups.has(group.id) ? (
+                                        <ChevronDown className="h-5 w-5 text-gray-600" />
+                                      ) : (
+                                        <ChevronRight className="h-5 w-5 text-gray-600" />
+                                      )}
+                                    </button>
+                                  </td>
+                                  <td className="px-4 py-4">
+                                    <div>
+                                      <div className="font-semibold text-base text-gray-900">{group.name}</div>
+                                      {group.description && (
+                                        <div className="text-sm text-gray-500 mt-1">{group.description}</div>
+                                      )}
                                     </div>
-                                    {assignment.startDate && assignment.endDate && (
-                                      <div className="text-gray-600 mt-0.5">
-                                        {new Date(assignment.startDate).toLocaleDateString("vi-VN")} - {new Date(assignment.endDate).toLocaleDateString("vi-VN")}
+                                  </td>
+                                  <td className="px-4 py-4">
+                                    <span className={`px-2 py-1 rounded text-sm font-medium ${getStatusBadgeColor(group.status)}`}>
+                                      {getStatusText(group.status)}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-4">
+                                    <div className="flex flex-col gap-1 text-base text-gray-600">
+                                      <div className="flex items-center gap-1">
+                                        <Users className="h-4 w-4" />
+                                        <span>{group.members?.length || 0} thành viên</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Building2 className="h-4 w-4" />
+                                        <span>{group.assignments?.length || 0} phân công</span>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-4 text-center">
+                                    {canEdit && (
+                                      <div className="flex justify-center gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleEditGroup(group, activeSubCommittee)}
+                                        >
+                                          <Edit className="h-4 w-4 mr-1" />
+                                          Sửa
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleDeleteGroup(group)}
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-1" />
+                                          Xóa
+                                        </Button>
                                       </div>
                                     )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                                  </td>
+                                </tr>
+
+                                {/* Expanded Row */}
+                                {expandedGroups.has(group.id) && (
+                                  <tr>
+                                    <td colSpan={5} className="px-0 py-0">
+                                      <div className="bg-gray-50 p-6 border-t border-gray-200">
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                          {/* Members Section */}
+                                          <div>
+                                            <div className="flex items-center gap-2 mb-3">
+                                              <Users className="h-5 w-5 text-gray-600" />
+                                              <h5 className="text-base font-semibold text-gray-700">
+                                                Thành viên nhóm
+                                              </h5>
+                                            </div>
+                                            {group.members && group.members.length > 0 ? (
+                                              <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+                                                <table className="min-w-full divide-y divide-gray-200">
+                                                  <thead className="bg-gray-50">
+                                                    <tr>
+                                                      <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Họ và tên</th>
+                                                      <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Vai trò</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody className="bg-white divide-y divide-gray-200">
+                                                    {group.members.map((member) => (
+                                                      <tr key={member.id} className="hover:bg-gray-50">
+                                                        <td className="px-3 py-2">
+                                                          <div className="flex items-center gap-2">
+                                                            <div>
+                                                              <p className="font-medium text-base text-gray-900">
+                                                                {member.user?.fullName || "N/A"}
+                                                              </p>
+                                                              <p className="text-sm text-gray-500">
+                                                                {member.user?.email || "N/A"}
+                                                              </p>
+                                                            </div>
+                                                          </div>
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                          <span className="px-2 py-1 rounded text-sm font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                                            {getRoleText(member.role)}
+                                                          </span>
+                                                        </td>
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              </div>
+                                            ) : (
+                                              <div className="text-center py-6 bg-white rounded-lg border border-gray-200">
+                                                <p className="text-base text-gray-500">Chưa có thành viên</p>
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* Assignments Section */}
+                                          <div>
+                                            <div className="flex items-center gap-2 mb-3">
+                                              <Building2 className="h-5 w-5 text-gray-600" />
+                                              <h5 className="text-base font-semibold text-gray-700">
+                                                Phân công đơn vị
+                                              </h5>
+                                            </div>
+                                            {group.assignments && group.assignments.length > 0 ? (
+                                              <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+                                                <table className="min-w-full divide-y divide-gray-200">
+                                                  <thead className="bg-gray-50">
+                                                    <tr>
+                                                      <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Đơn vị</th>
+                                                      <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Thời gian</th>
+                                                      <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Ghi chú</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody className="bg-white divide-y divide-gray-200">
+                                                    {group.assignments.map((assignment) => (
+                                                      <tr key={assignment.id} className="hover:bg-gray-50">
+                                                        <td className="px-3 py-2">
+                                                          <p className="font-medium text-base text-gray-900">
+                                                            {assignment.unit?.name || "N/A"}
+                                                          </p>
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                          <p className="text-base text-gray-700">
+                                                            {assignment.startDate && assignment.endDate
+                                                              ? `${new Date(assignment.startDate).toLocaleDateString("vi-VN")} - ${new Date(assignment.endDate).toLocaleDateString("vi-VN")}`
+                                                              : "-"}
+                                                          </p>
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                          
+                                                        {assignment.note && (
+                                                            <p className="text-sm text-gray-500 mt-1">
+                                                              {assignment.note}
+                                                            </p>
+                                                          )}
+                                                        </td>
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              </div>
+                                            ) : (
+                                              <div className="text-center py-6 bg-white rounded-lg border border-gray-200">
+                                                <p className="text-base text-gray-500">Chưa có phân công</p>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 border border-gray-200 rounded-lg">
+                      <p className="text-base text-gray-500">Chưa có nhóm kiểm kê nào</p>
                     </div>
                   )}
                 </div>
-              </Card>
-            ))}
-          </div>
+              ) : (
+                <div className="text-center py-8 border border-gray-200 rounded-lg">
+                  <p className="text-base text-gray-500">Vui lòng chọn tiểu ban để xem danh sách nhóm kiểm kê</p>
+                </div>
+              )}
             </div>
           )}
         </div>
-      )}
-      </Card>
+      </div>
 
       <div>
       {/* Modals */}
@@ -766,12 +907,12 @@ export default function InventorySubCommitteeManager() {
             <div className="p-6">
               <div className="mb-4">
                 <div className="text-4xl mb-3 text-center">⚠️</div>
-                <h3 className="text-lg font-bold text-gray-900 text-center">
+                <h3 className="text-xl font-bold text-gray-900 text-center">
                   Xác nhận xóa
                 </h3>
               </div>
 
-              <p className="text-gray-600 mb-6 text-center">
+              <p className="text-base text-gray-600 mb-6 text-center">
                 Bạn có chắc muốn xóa{" "}
                 {deleteTarget.type === "subcommittee" ? "tiểu ban" : "nhóm"}{" "}
                 <span className="font-semibold">
@@ -779,7 +920,7 @@ export default function InventorySubCommitteeManager() {
                 </span>
                 ?
                 {deleteTarget.type === "subcommittee" && (
-                  <span className="block mt-2 text-sm text-red-600">
+                  <span className="block mt-2 text-base text-red-600">
                     Tất cả nhóm thuộc tiểu ban này cũng sẽ bị xóa.
                   </span>
                 )}

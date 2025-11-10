@@ -39,7 +39,6 @@ import {
   LiquidationHistoryResponseDto,
 } from "@/types/asset";
 import { PermissionConstants } from "@/hooks/usePermissions";
-import { RoleBase } from "@/lib/constants/role";
 import toast from "react-hot-toast";
 import LiquidationStatusModal from "@/components/modal/LiquidationStatusModal";
 import { format } from "date-fns";
@@ -64,8 +63,6 @@ const statusLabels = {
 const assetTypeLabels = {
   [AssetType.FIXED_ASSET]: "Tài sản cố định",
   [AssetType.TOOLS_EQUIPMENT]: "Công cụ dụng cụ",
-  [AssetType.TSCD]: "Tài sản cố định",
-  [AssetType.CCDC]: "Công cụ dụng cụ",
 };
 
 // Component để hiển thị hình ảnh có thể click

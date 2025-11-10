@@ -44,7 +44,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { RoleBase } from "@/lib/constants/role";
+import { AccessScopeType } from "@/types/asset";
 import LiquidationStatusModal from "@/components/modal/LiquidationStatusModal";
 import { 
   sendLiquidationProposal, 
@@ -71,12 +71,10 @@ const statusLabels = {
 const assetTypeLabels = {
   [AssetType.FIXED_ASSET]: "Tài sản cố định",
   [AssetType.TOOLS_EQUIPMENT]: "Công cụ dụng cụ",
-  [AssetType.TSCD]: "Tài sản cố định",
-  [AssetType.CCDC]: "Công cụ dụng cụ",
 };
 
 export default function LiquidationPage() {
-  const { user, hasAnyPermission, hasRole } = useAuth();
+  const { user, hasAnyPermission } = useAuth();
   const router = useRouter();
   const dispatch = useAppDispatch();
 
@@ -95,11 +93,10 @@ export default function LiquidationPage() {
   const [modalType, setModalType] = useState<"send" | "approve" | "finalize" | null>(null);
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
 
-  // Permissions
-
-  const isAdmin = hasRole([RoleBase.ADMIN]);
-  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
-  const isUserDept = hasRole([RoleBase.USER_DEPT]);
+  // Kiểm tra access scope types
+  const hasGlobalScope = user?.accessScopeTypes?.includes(AccessScopeType.GLOBAL) || false;
+  const hasChildUnitsScope = user?.accessScopeTypes?.includes(AccessScopeType.CHILD_UNITS) || false;
+  const hasUnitScope = user?.accessScopeTypes?.includes(AccessScopeType.UNIT) || false;
 
   const canView = hasAnyPermission([PermissionConstants.PERM_VIEW_LIQUIDATION]);
   const canApprove = hasAnyPermission([
@@ -130,15 +127,15 @@ export default function LiquidationPage() {
   }, [canView, router]);
   const [units, setUnits] = useState<Unit[]>([]);
   
-  // Tính toán danh sách units để hiển thị trong dropdown filter dựa vào role
-  // Chỉ dành cho Admin và Admin Dept (User Dept không cần dropdown filter)
+  // Tính toán danh sách units để hiển thị trong dropdown filter dựa vào access scope
+  // Chỉ dành cho GLOBAL và CHILD_UNITS scope
   const getFilterUnits = () => {
-    if (isAdmin) {
-      // Admin thấy tất cả units từ tất cả campuses
+    if (hasGlobalScope) {
+      // GLOBAL scope: thấy tất cả units từ tất cả campuses
       return campuses.flatMap(campus => [campus, ...(campus.childUnits ?? [])]);
     }
-    if (isAdminDept && user?.unitId) {
-      // Admin Dept: tìm campus của mình và lấy tất cả children + chính campus đó
+    if (hasChildUnitsScope && user?.unitId) {
+      // CHILD_UNITS scope: tìm campus của mình và lấy tất cả children + chính campus đó
       const userCampus = campuses.find(campus => campus.id === user.unitId);
       if (userCampus) {
         return [userCampus, ...(userCampus.childUnits ?? [])];
@@ -153,8 +150,8 @@ export default function LiquidationPage() {
       try {
         dispatch(filterLiquidationProposals(currentFilter));
         const result = await dispatch(getUnitCampus()).unwrap();
-        // Chỉ Admin và Admin Dept mới cần xử lý units cho dropdown filter
-        // User Dept không cần dropdown filter nên không cần set units
+        // Chỉ GLOBAL và CHILD_UNITS scope mới cần xử lý units cho dropdown filter
+        // UNIT scope không cần dropdown filter nên không cần set units
         if (result && result.length > 0) {
           setUnits([]); // Reset units, sẽ dùng getFilterUnits() để tính toán động
         }
@@ -163,7 +160,7 @@ export default function LiquidationPage() {
       }
     };
     loadData();
-  }, [isAdmin, isAdminDept, isUserDept, user?.unitId]);
+  }, [hasGlobalScope, hasChildUnitsScope, hasUnitScope, user?.unitId]);
 
   // Calculate stats from filtered data
   const stats = React.useMemo(() => {
@@ -507,15 +504,15 @@ export default function LiquidationPage() {
             ))}
           </select>
 
-          {/* Unit Filter - Chỉ hiển thị cho Admin và Admin Dept */}
-          {(isAdmin || isAdminDept) && (
+          {/* Unit Filter - Chỉ hiển thị cho GLOBAL và CHILD_UNITS scope */}
+          {(hasGlobalScope || hasChildUnitsScope) && (
             <select
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={unitFilter}
               onChange={(e) => setUnitFilter(e.target.value)}
             >
               <option value="">
-                {isAdmin ? "Tất cả đơn vị" : "Tất cả đơn vị trong cơ sở"}
+                {hasGlobalScope ? "Tất cả đơn vị" : "Tất cả đơn vị trong cơ sở"}
               </option>
               {getFilterUnits().map((unit) => (
                 <option key={unit.id} value={unit.id}>

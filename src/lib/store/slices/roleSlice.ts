@@ -7,15 +7,18 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
  * @description Dữ liệu để tạo vai trò mới
  * @property {string} name - Tên của vai trò
  * @property {string[]} permissionIds - Danh sách ID quyền liên quan đến vai trò
+ * @property {string} accessScopeId - ID của access scope để định nghĩa phạm vi quyền
  * @example
  * {
  *   "name": "Admin",
- *   "permissionIds": ["perm1", "perm2", "perm3"]
+ *   "permissionIds": ["perm1", "perm2", "perm3"],
+ *   "accessScopeId": "scope1"
  * }
  */
 export interface CreateRoleRequest {
     name: string;
     permissionIds: string[];
+    accessScopeId?: string;
 }
 
 export interface UpdateRoleRequest extends CreateRoleRequest {
@@ -29,6 +32,8 @@ export interface UpdateRoleRequest extends CreateRoleRequest {
  * @property {string | null} inventoryRolesError - Lỗi khi tải các vai trò kiểm kê
  * @property {boolean} loading - Trạng thái tải chung
  * @property {any[]} allRoles - Danh sách tất cả các vai trò
+ * @property {any[]} accessScopes - Danh sách tất cả access scopes
+ * @property {boolean} accessScopesLoading - Trạng thái tải access scopes
  */
 interface RoleState {
     inventoryRoles: Role[];
@@ -36,6 +41,8 @@ interface RoleState {
     inventoryRolesError: string | null;
     loading: boolean;
     allRoles: any[];
+    accessScopes: any[];
+    accessScopesLoading: boolean;
 }
 
 /**
@@ -48,6 +55,8 @@ const initialState: RoleState = {
     inventoryRolesError: null,
     allRoles: [],
     loading: false,
+    accessScopes: [],
+    accessScopesLoading: false,
 }
 
 /**
@@ -139,6 +148,23 @@ export const deleteRole = createAsyncThunk(
     }
 )
 
+/**
+ * findAllAccessScopes
+ * @description Lấy tất cả access scopes có sẵn
+ * @returns Danh sách access scopes
+ */
+export const findAllAccessScopes = createAsyncThunk(
+    'role/findAllAccessScopes',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get('/api/v1/roles/access-scopes')
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response.data)
+        }
+    }
+)
+
 const roleSlice = createSlice({
     name: 'role',
     initialState,
@@ -213,6 +239,20 @@ const roleSlice = createSlice({
         })
         builder.addCase(deleteRole.rejected, (state, action) => {
             state.loading = false;
+        })
+
+        // Access Scopes
+        builder.addCase(findAllAccessScopes.pending, (state) => {
+            state.accessScopesLoading = true;
+            state.accessScopes = [];
+        })
+        builder.addCase(findAllAccessScopes.fulfilled, (state, action) => {
+            state.accessScopesLoading = false;
+            state.accessScopes = action.payload;
+        })
+        builder.addCase(findAllAccessScopes.rejected, (state, action) => {
+            state.accessScopesLoading = false;
+            state.accessScopes = [];
         })
     }
 })

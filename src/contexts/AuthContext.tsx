@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import Cookies from 'js-cookie'
 import { UserLoginResponse } from '@/lib/store/slices/authSlice'
+import { AccessScopeType, Unit } from '@/types/asset'
 interface AuthContextType {
   user: UserLoginResponse | null
   isLoading: boolean
@@ -11,6 +12,7 @@ interface AuthContextType {
   hasAnyPermission: (requiredPermissions: string[]) => boolean
   hasAllPermissions: (requiredPermissions: string[]) => boolean
   getUserPermissions: () => string[]
+  getAccessibleUnits: (allUnits: Unit[]) => Unit[]
   logout: () => void
 }
 
@@ -52,6 +54,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           birthDate: userData.birthDate || '',
           roles: userData.roles,
           permissions: userData.permissions,
+          accessScopeTypes: userData.accessScopeTypes || [],
           unitId: userData.unitId || ''
         }
         console.log(legacyUser)
@@ -121,6 +124,66 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const getUserPermissions = (): string[] => {
     return userPermissions
   }
+
+  const getAccessibleUnits = (allUnits: Unit[]): Unit[] => {
+    if (!user || !user.accessScopeTypes) return []
+
+    const accessScopeTypes = user.accessScopeTypes
+
+    if (accessScopeTypes.length === 0) return []
+
+    // Nếu có bất kỳ scope nào là GLOBAL, return tất cả units
+    if (accessScopeTypes.includes(AccessScopeType.GLOBAL)) {
+      return allUnits
+    }
+
+    const accessibleUnits: Unit[] = []
+
+    accessScopeTypes.forEach(scopeType => {
+      switch (scopeType) {
+        case AccessScopeType.UNIT:
+          // Chỉ unit của user đăng nhập
+          if (user.unitId) {
+            const unit = allUnits.find(u => u.id === user.unitId)
+            if (unit && !accessibleUnits.find(au => au.id === unit.id)) {
+              accessibleUnits.push(unit)
+            }
+          }
+          break
+
+        case AccessScopeType.CHILD_UNITS:
+          // Unit của user và các unit con
+          if (user.unitId) {
+            const parentUnit = allUnits.find(u => u.id === user.unitId)
+            if (parentUnit && !accessibleUnits.find(au => au.id === parentUnit.id)) {
+              accessibleUnits.push(parentUnit)
+            }
+            
+            // Thêm các unit con
+            const childUnits = allUnits.filter(u => u.parentUnitId === user.unitId)
+            childUnits.forEach(child => {
+              if (!accessibleUnits.find(au => au.id === child.id)) {
+                accessibleUnits.push(child)
+              }
+            })
+          }
+          break
+
+        case AccessScopeType.SELF:
+          // Chỉ unit của chính user (giống UNIT)
+          if (user.unitId) {
+            const userUnit = allUnits.find(u => u.id === user.unitId)
+            if (userUnit && !accessibleUnits.find(au => au.id === userUnit.id)) {
+              accessibleUnits.push(userUnit)
+            }
+          }
+          break
+      }
+    })
+
+    return accessibleUnits
+  }
+
   const logout = () => {
     Cookies.remove('token')
     localStorage.removeItem('user')
@@ -136,6 +199,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     hasAnyPermission,
     hasAllPermissions,
     getUserPermissions,
+    getAccessibleUnits,
     logout,
   }
 

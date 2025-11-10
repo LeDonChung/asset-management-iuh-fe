@@ -75,6 +75,51 @@ export interface RoomInventoryResultResponseDto {
     liquidationProposedAssets: number;
   };
 }
+
+export interface AssetInventorySimpleDto {
+  id: string;
+  assetId: string;
+  systemQuantity: number;
+  countedQuantity: number;
+  status: string;
+  scanMethod: string;
+  note: string;
+  createdAt: Date;
+  asset: {
+    id: string;
+    name: string;
+    fixedCode: string;
+    ktCode: string;
+    type: string;
+  };
+}
+
+export interface RoomInventorySimpleDto {
+  roomId: string;
+  roomName: string;
+  fixedAssets: AssetInventorySimpleDto[];
+  toolsEquipment?: AssetInventorySimpleDto[];
+}
+
+export interface MultiRoomInventoryResponseDto {
+  rooms: RoomInventorySimpleDto[];
+  page: number;
+  limit: number;
+  totalRooms: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface MultiRoomInventoryFilterDto {
+  assignmentId?: string;
+  sessionId?: string;
+  unitId?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  assetType?: string;
+}
 interface InventoryState {
   // List and filter state
   sessions: any[];
@@ -106,6 +151,7 @@ interface InventoryState {
   loading: boolean;
   error: string | null;
   createSessionLoading: boolean;
+  copySessionLoading: boolean;
   findByIdLoading: boolean;
   updateStatusLoading: boolean;
   createMemberLoading: boolean;
@@ -123,6 +169,11 @@ interface InventoryState {
 
   // Room inventory results states
   roomInventoryResults: RoomInventoryResultResponseDto | null;
+
+  // Multi-room inventory results states
+  multiRoomInventoryResults: MultiRoomInventoryResponseDto | null;
+  multiRoomInventoryLoading: boolean;
+  multiRoomInventoryError: string | null;
 };
 
 const initialState: InventoryState = {
@@ -163,6 +214,7 @@ const initialState: InventoryState = {
   loading: false,
   error: null,
   createSessionLoading: false,
+  copySessionLoading: false,
   findByIdLoading: false,
   updateStatusLoading: false,
   deleteSessionLoading: false,
@@ -179,17 +231,32 @@ const initialState: InventoryState = {
 
   // Room inventory results states
   roomInventoryResults: null,
+
+  // Multi-room inventory results states
+  multiRoomInventoryResults: null,
+  multiRoomInventoryLoading: false,
+  multiRoomInventoryError: null,
 };
 
 export interface CreateInventorySession {
   year: number;
-  period: number;
   name: string;
-  isGlobal: boolean;
   startDate: string;
   endDate: string;
   fileUrls?: string[];
-  unitIds?: string[];
+}
+
+export interface CopyInventorySession {
+  year: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  description?: string;
+  copyMembers?: boolean;
+  copyGroups?: boolean;
+  copyAssignments?: boolean;
+  copyFileUrls?: boolean;
+  copySubInventories?: boolean;
 }
 
 export interface CreateMember {
@@ -471,6 +538,21 @@ export const createInventorySession = createAsyncThunk(
   }
 );
 
+export const copyInventorySession = createAsyncThunk(
+  "inventory-session/copySession",
+  async ({ sourceSessionId, copyData }: { sourceSessionId: string; copyData: CopyInventorySession }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post(
+        `/api/v1/inventories/${sourceSessionId}/copy`,
+        copyData
+      );
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 export const updateInventorySession = createAsyncThunk(
   "inventory-session/updateSession",
   async (
@@ -640,6 +722,25 @@ export const getRoomInventoryResults = createAsyncThunk(
   }
 );
 
+export const getMultiRoomInventoryResults = createAsyncThunk(
+  "inventory/getMultiRoomInventoryResults",
+  async (filters: MultiRoomInventoryFilterDto, { rejectWithValue }) => {
+    try {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, String(value));
+        }
+      });
+      
+      const response = await axiosInstance.get(`/api/v1/inventories/multi-room-results?${params.toString()}`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 const inventorySlice = createSlice({
   name: "inventory",
   initialState,
@@ -715,6 +816,13 @@ const inventorySlice = createSlice({
     },
     clearUnitRooms: (state) => {
       state.unitRooms = [];
+    },
+    clearMultiRoomResults: (state) => {
+      state.multiRoomInventoryResults = null;
+      state.multiRoomInventoryError = null;
+    },
+    clearRoomResults: (state) => {
+      state.roomInventoryResults = null;
     },
     clearSubmitResultError: (state) => {
       state.submitResultError = null;
@@ -843,6 +951,17 @@ const inventorySlice = createSlice({
       })
       .addCase(createInventorySession.rejected, (state, action) => {
         state.createSessionLoading = false;
+      })
+      
+      // Copy inventory session
+      .addCase(copyInventorySession.pending, (state) => {
+        state.copySessionLoading = true;
+      })
+      .addCase(copyInventorySession.fulfilled, (state, action) => {
+        state.copySessionLoading = false;
+      })
+      .addCase(copyInventorySession.rejected, (state, action) => {
+        state.copySessionLoading = false;
       })
       .addCase(deleteInventorySession.pending, (state) => {
         state.deleteSessionLoading = true;
@@ -1192,6 +1311,21 @@ const inventorySlice = createSlice({
       .addCase(getRoomInventoryResults.rejected, (state, action) => {
         console.log('Failed to get room inventory results', action.payload);
       })
+      // Multi-room inventory results
+      .addCase(getMultiRoomInventoryResults.pending, (state) => {
+        state.multiRoomInventoryLoading = true;
+        state.multiRoomInventoryError = null;
+      })
+      .addCase(getMultiRoomInventoryResults.fulfilled, (state, action) => {
+        state.multiRoomInventoryLoading = false;
+        state.multiRoomInventoryResults = action.payload;
+        state.multiRoomInventoryError = null;
+      })
+      .addCase(getMultiRoomInventoryResults.rejected, (state, action) => {
+        state.multiRoomInventoryLoading = false;
+        state.multiRoomInventoryError = action.payload as string;
+        console.log('Failed to get multi-room inventory results', action.payload);
+      })
   },
 });
 
@@ -1203,6 +1337,8 @@ export const {
   updatePagination,
   clearFilterError,
   clearUnitRooms,
+  clearMultiRoomResults,
+  clearRoomResults,
   clearSubmitResultError,
   clearLastSubmittedResult,
   updateStatusSessionById,

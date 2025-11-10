@@ -34,7 +34,6 @@ import {
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useAuth } from "@/contexts/AuthContext";
 import { PermissionConstants } from "@/hooks/usePermissions";
-import { RoleBase } from "@/lib/constants/role";
 
 const statusLabels = {
   [InventoryResultStatus.MATCHED]: "Khớp",
@@ -73,7 +72,7 @@ export default function LiquidationCreatePage() {
   const [roomFilter, setRoomFilter] = useState<string>("");
   const [assetTypeFilter, setAssetTypeFilter] = useState<AssetType>(AssetType.FIXED_ASSET);
   const [selectedAssetType, setSelectedAssetType] = useState<AssetType>(AssetType.FIXED_ASSET);
-  const { user, hasAnyPermission, hasRole } = useAuth();
+  const { user, hasAnyPermission } = useAuth();
   const canCreate = hasAnyPermission([
     PermissionConstants.PERM_CREATE_LIQUIDATION,
   ]);

@@ -45,6 +45,7 @@ export enum TransactionStatus {
   DRAFT = 'DRAFT',           // Bản nháp
     PROPOSED = 'PROPOSED',        // Đề xuất bàn giao (gửi lên phòng quản trị)
     APPROVED = 'APPROVED',        // Phòng quản trị chấp nhận - tự động cập nhật tài sản
+    RECEIVED = 'RECEIVED',        // Đơn vị đích đã tiếp nhận tài sản
     REJECTED = 'REJECTED',        // Phòng quản trị từ chối
 }
 
@@ -87,11 +88,25 @@ export enum UserStatus {
   DELETED = "DELETED",
 }
 
+export enum AccessScopeType {
+  GLOBAL = 'GLOBAL',           // Toàn hệ thống
+  UNIT = 'UNIT',              // Chỉ unit của user đăng nhập
+  CHILD_UNITS = 'CHILD_UNITS', // Unit của user và các unit con
+  SELF = 'SELF'               // Chỉ dữ liệu của chính user
+}
+
+export interface AccessScope {
+  id: string;
+  type: AccessScopeType;
+  description?: string;
+}
+
 export interface Role {
   id: string;
   name: string;
   code: string;
   permissions?: Permission[];
+  accessScope?: AccessScope;
   isProtected?: boolean;
 }
 
@@ -199,6 +214,7 @@ export interface Asset {
   deletedAt?: string;
   note?: string;
   currentRoom?: Room;
+  bookItemStatus?: AssetBookItemStatus;
 
   // Relations
   category?: Category;
@@ -438,8 +454,6 @@ export interface InventorySession {
   id: string;
   year: number; // Năm
   name: string; // Tên kỳ kiểm kê, ví dụ: Kiểm kê cuối năm
-  period: number; // Đợt
-  isGlobal: boolean; // true: Một kỳ cho toàn bộ các đơn vị sử dụng, false: Một kì cho một đơn vị sử dụng
   startDate: string; // date
   endDate: string; // date
   evidenceFiles?: FileUrl[]; // URLs của file minh chứng
@@ -625,7 +639,6 @@ export interface InventorySessionFilter {
   search?: string;
   year?: number;
   status?: InventorySessionStatus;
-  isGlobal?: boolean;
   unitId?: string;
   startDateFrom?: string;
   startDateTo?: string;
@@ -644,13 +657,23 @@ export interface InventoryResultFilter {
 export interface InventorySessionFormData {
   year: number;
   name: string;
-  period: number;
-  isGlobal: boolean;
   startDate: string;
   endDate: string;
   status: InventorySessionStatus;
   fileUrls?: string[];
-  unitIds?: string[];
+}
+
+export interface CopyInventoryFormData {
+  year: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  description?: string;
+  copyMembers?: boolean;
+  copyGroups?: boolean;
+  copyAssignments?: boolean;
+  copyFileUrls?: boolean;
+  copySubInventories?: boolean;
 }
 
 export interface InventoryCommitteeFormData {

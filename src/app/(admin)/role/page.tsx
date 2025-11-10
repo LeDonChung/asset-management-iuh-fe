@@ -26,6 +26,7 @@ import {
   findAllRoles,
   updateRole,
   UpdateRoleRequest,
+  findAllAccessScopes,
 } from "@/lib/store/slices/roleSlice";
 import { findAllPermissions } from "@/lib/store/slices/permissionSlice";
 import toast from "react-hot-toast";
@@ -41,7 +42,7 @@ import { PermissionConstants } from "@/hooks/usePermissions";
 export default function RolePage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { allRoles, loading } = useAppSelector(
+  const { allRoles, loading, accessScopes, accessScopesLoading } = useAppSelector(
     (state: RootState) => state.role
   );
   const { allPermission } = useAppSelector(
@@ -67,8 +68,9 @@ export default function RolePage() {
       try {
         await dispatch(findAllRoles()).unwrap();
         await dispatch(findAllPermissions()).unwrap();
+        await dispatch(findAllAccessScopes()).unwrap();
       } catch (error) {
-        console.error("Failed to fetch roles:", error);
+        console.error("Failed to fetch data:", error);
       }
     };
     fetchData();
@@ -109,6 +111,7 @@ export default function RolePage() {
       const newRole: UpdateRoleRequest = {
         name: roleData.name,
         permissionIds: lstPermissionId,
+        accessScopeId: roleData.accessScopeId,
       };
 
       dispatch(updateRole({ roleId: selectedRole.id, roleData: newRole }))
@@ -126,6 +129,7 @@ export default function RolePage() {
       const newRole: CreateRoleRequest = {
         name: roleData.name,
         permissionIds: lstPermissionId,
+        accessScopeId: roleData.accessScopeId,
       };
 
       dispatch(createRole(newRole))
@@ -155,6 +159,24 @@ export default function RolePage() {
               {record.name}
             </div>
           </div>
+        </div>
+      ),
+    },
+    {
+      key: "accessScope",
+      title: "Phạm vi truy cập",
+      render: (_, record) => (
+        <div className="text-sm text-gray-600">
+          {record.accessScope ? (
+            <Badge variant="secondary" className="text-xs">
+              {record.accessScope.type === 'GLOBAL' && 'Toàn hệ thống'}
+              {record.accessScope.type === 'CHILD_UNITS' && 'Đơn vị con'}
+              {record.accessScope.type === 'UNIT' && 'Chỉ đơn vị'}
+              {record.accessScope.type === 'SELF' && 'Chỉ bản thân'}
+            </Badge>
+          ) : (
+            <span className="text-gray-400">Chưa thiết lập</span>
+          )}
         </div>
       ),
     },
@@ -259,6 +281,7 @@ export default function RolePage() {
         }}
         role={selectedRole}
         managerPermissions={allPermission}
+        accessScopes={accessScopes}
         onSave={handleSaveRole}
         isViewMode={isViewMode}
       />
