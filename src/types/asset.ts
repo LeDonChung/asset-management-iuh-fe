@@ -269,6 +269,10 @@ export enum AssetBookItemStatus {
   TRANSFERRED = "TRANSFERRED", // Đã được di chuyển đi chỗ khác
   LIQUIDATED = "LIQUIDATED", // Đã được thanh lý
   MISSING = "MISSING", // Đã thất lạc
+  DAMAGED = "DAMAGED", // Hư hỏng
+  LOST = "LOST", // Đã mất
+  PROPOSED_LIQUIDATION = "PROPOSED_LIQUIDATION", // Đề xuất thanh lý
+  MOVED = "MOVED", // Đã được di chuyển đi chỗ khác
 }
 
 export interface AssetBookItem {

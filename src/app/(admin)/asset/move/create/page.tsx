@@ -6,11 +6,13 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/lib/store";
 import { useAppDispatch } from "@/lib/store/hooks";
 import {
-  resetTransactionState,
-  removeAssetFromHandover,
-  createTransaction,
-} from "@/lib/store/slices/transactionSlice";
+  resetMoveState,
+  removeAssetFromMove,
+  createMovement,
+  MoveStatus,
+} from "@/lib/store/slices/moveSlice";
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
+import { fetchRoomsByUnitId } from "@/lib/store/slices/roomSlice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
@@ -20,21 +22,18 @@ import {
   Building2,
   MapPin,
   Save,
-  Search,
   RefreshCw,
   ChevronDown,
   Check,
   ArrowRight,
-  ArrowUpDown,
   Trash2,
+  Move,
 } from "lucide-react";
 import Link from "next/link";
 import {
   Asset,
-  AssetTransaction,
   Unit,
-  TransactionType,
-  TransactionStatus,
+  Room,
   AccessScopeType,
 } from "@/types/asset";
 import { useAuth } from "@/contexts/AuthContext";
@@ -197,7 +196,7 @@ const CardSelect: React.FC<CardSelectProps> = ({
   );
 };
 
-export default function TransactionPage() {
+export default function MoveCreatePage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { user } = useAuth();
@@ -210,23 +209,26 @@ export default function TransactionPage() {
   const hasSelfAccess = accessScopeTypes.includes(AccessScopeType.SELF);
 
   const {
-    selectedAssetsForHandover,
-    handoverContext,
-    currentTransaction,
+    selectedAssetsForMove,
+    moveContext,
+    currentMovement,
     loading,
     error,
-    isCreatingTransaction,
-    createTransactionError,
-  } = useSelector((state: RootState) => state.transaction);
+    isCreatingMovement,
+    createMovementError,
+  } = useSelector((state: RootState) => state.move);
   
   const { campuses } = useSelector((state: RootState) => state.unit);
+  const { loading: roomsLoading } = useSelector((state: RootState) => state.room);
 
-  // State cho việc chọn đơn vị và trạng thái
+  // State cho việc chọn đơn vị và phòng nhận
   const [selectedCampusId, setSelectedCampusId] = useState("");
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState("");
-  const [transactionNote, setTransactionNote] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState<TransactionStatus>(TransactionStatus.DRAFT);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [movementNote, setMovementNote] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState<MoveStatus>(MoveStatus.DRAFT);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // State cho ghi chú tài sản
@@ -234,7 +236,7 @@ export default function TransactionPage() {
 
   // Redirect nếu không có tài sản nào được chọn
   useEffect(() => {
-    if (selectedAssetsForHandover.length === 0) {
+    if (selectedAssetsForMove.length === 0) {
       // Delay redirect một chút để tránh race condition
       const timer = setTimeout(() => {
         router.push("/asset/asset-book");
@@ -242,9 +244,9 @@ export default function TransactionPage() {
 
       return () => clearTimeout(timer);
     }
-  }, [selectedAssetsForHandover, router]);
+  }, [selectedAssetsForMove, router]);
 
-  // Load initial data based on role and context
+  // Load initial data based on access scope and context
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -252,9 +254,8 @@ export default function TransactionPage() {
         if (campusesResult && user) {
           if (hasChildUnitsAccess) {
             // Child units access: unitId chính là campus ID
-            const campusId = handoverContext?.sourceCampusId || user?.unitId;
             const userCampus = campusesResult.find(
-              (campus: Unit) => campus.id === campusId
+              (campus: Unit) => campus.id === user?.unitId
             );
             if (userCampus) {
               setUnits(userCampus.childUnits ?? []);
@@ -264,11 +265,11 @@ export default function TransactionPage() {
               setSelectedCampusId("");
             }
           } else if (hasUnitAccess || hasSelfAccess) {
-            // Unit/Self access: Tìm campus chứa đơn vị của user hoặc sử dụng context
+            // Unit/Self access: Tìm campus chứa đơn vị của user
             let userUnit: Unit | undefined;
             let userCampus: Unit | undefined;
 
-            const unitId = handoverContext?.sourceUnitId || user.unitId;
+            const unitId = user.unitId;
 
             for (const campus of campusesResult) {
               const foundUnit = campus.childUnits?.find(
@@ -284,23 +285,12 @@ export default function TransactionPage() {
             if (userCampus && userUnit) {
               setSelectedCampusId(userCampus.id);
               setUnits(userCampus.childUnits ?? []);
-              // Unit/Self access có thể chọn đơn vị khác, không tự động set selectedUnitId
-              // setSelectedUnitId(userUnit.id);
+              // Unit/Self access chỉ di chuyển trong đơn vị của mình
+              setSelectedUnitId(userUnit.id);
             }
           } else if (hasGlobalAccess) {
-            // Global access có thể chọn tất cả, nhưng ưu tiên context nếu có
-            if (handoverContext?.sourceCampusId) {
-              setSelectedCampusId(handoverContext.sourceCampusId);
-              const campus = campusesResult.find(
-                (c: Unit) => c.id === handoverContext.sourceCampusId
-              );
-              if (campus) {
-                setUnits(campus.childUnits ?? []);
-                if (handoverContext.sourceUnitId) {
-                  setSelectedUnitId(handoverContext.sourceUnitId);
-                }
-              }
-            }
+            // Global access có thể chọn tất cả
+            // Không set gì cả, để user tự chọn
           }
         }
       } catch (e: any) {
@@ -308,7 +298,7 @@ export default function TransactionPage() {
       }
     };
     loadInitialData();
-  }, [dispatch, hasGlobalAccess, hasChildUnitsAccess, hasUnitAccess, hasSelfAccess, user, handoverContext]);
+  }, [dispatch, hasGlobalAccess, hasChildUnitsAccess, hasUnitAccess, hasSelfAccess, user, moveContext]);
 
   // Update units when campus changes
   useEffect(() => {
@@ -316,62 +306,40 @@ export default function TransactionPage() {
       const campus = campuses.find((campus) => campus.id === selectedCampusId);
       setUnits(campus?.childUnits ?? []);
       setSelectedUnitId(""); // Reset unit selection
+      setRooms([]); // Reset rooms
+      setSelectedRoomId(""); // Reset room selection
     }
   }, [selectedCampusId, campuses]);
 
-  // Tính toán thông tin nguồn từ context hoặc tài sản đã chọn
-  const sourceUnits = useMemo(() => {
-    // Nếu có context thì dùng context
-    if (handoverContext?.sourceUnit) {
-      return [
-        {
-          unit: handoverContext.sourceUnit,
-          rooms: new Set<string>(),
-          count: selectedAssetsForHandover.length,
-        },
-      ];
-    }
-
-    // Nếu không có context, tính từ tài sản (fallback)
-    const unitsMap = new Map<
-      string,
-      { unit: Unit; rooms: Set<string>; count: number }
-    >();
-
-    selectedAssetsForHandover.forEach((asset) => {
-      if (asset.currentRoom?.unit) {
-        const unitId = asset.currentRoom.unit.id;
-        const roomName =
-          asset.currentRoom.name ||
-          asset.currentRoom.roomCode ||
-          "Không xác định";
-
-        if (unitsMap.has(unitId)) {
-          const existing = unitsMap.get(unitId)!;
-          existing.rooms.add(roomName);
-          existing.count += 1;
-        } else {
-          unitsMap.set(unitId, {
-            unit: asset.currentRoom.unit,
-            rooms: new Set([roomName]),
-            count: 1,
-          });
+  // Fetch rooms when unit changes
+  useEffect(() => {
+    const fetchRooms = async () => {
+      if (selectedUnitId) {
+        try {
+          const res = await dispatch(
+            fetchRoomsByUnitId(selectedUnitId)
+          ).unwrap();
+          setRooms(res);
+        } catch (error) {
+          console.error("Error fetching rooms:", error);
+          setRooms([]);
         }
+      } else {
+        setRooms([]);
       }
-    });
+    };
+    fetchRooms();
+  }, [dispatch, selectedUnitId]);
 
-    return Array.from(unitsMap.values());
-  }, [selectedAssetsForHandover, handoverContext]);
-
-  const handleCancelHandover = () => {
-    // Xóa tất cả dữ liệu transaction
-    dispatch(resetTransactionState());
+  const handleCancelMove = () => {
+    // Xóa tất cả dữ liệu movement
+    dispatch(resetMoveState());
     // Quay về trang sổ tài sản
     router.push("/asset/asset-book");
   };
 
   const handleRemoveAsset = (assetId: string) => {
-    dispatch(removeAssetFromHandover(assetId));
+    dispatch(removeAssetFromMove(assetId));
     // Xóa các state liên quan
     setAssetNotes((prev) => {
       const copy = { ...prev };
@@ -384,66 +352,53 @@ export default function TransactionPage() {
     setAssetNotes((prev) => ({ ...prev, [assetId]: note }));
   };
 
-  const handleSubmitHandover = async () => {
-    if (!selectedUnitId) {
-      toast.error("Vui lòng chọn đơn vị tiếp nhận!");
+  const handleSubmitMove = async () => {
+    if (!selectedRoomId) {
+      toast.error("Vui lòng chọn phòng nhận!");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const unitName = units.find((u) => u.id === selectedUnitId)?.name || "";
+      const roomName = rooms.find((r) => r.id === selectedRoomId)?.name || "";
 
-      // Tạo transaction items từ selected assets
-      const transactionItems = selectedAssetsForHandover.map((asset) => ({
+      // Tạo movement items từ selected assets
+      const movementItems = selectedAssetsForMove.map((asset) => ({
         assetId: asset.id,
-        fromRoomId: asset.currentRoom?.id,
-        note: assetNotes[asset.id] || `Bàn giao đến ${unitName}`,
+        fromRoomId: asset.currentRoom?.id || "",
+        toRoomId: selectedRoomId,
+        note: assetNotes[asset.id] || `Di chuyển đến ${roomName}`,
       }));
 
-      // Determine fromUnitId from context or from the assets' current units
-      let fromUnitId: string | undefined = handoverContext?.sourceUnitId;
-      
-      // If no context, get fromUnitId from the first asset's current room unit
-      if (!fromUnitId && selectedAssetsForHandover.length > 0) {
-        const firstAsset = selectedAssetsForHandover[0];
-        fromUnitId = firstAsset.currentRoom?.unit?.id;
-      }
-
-      if (!fromUnitId) {
-        throw new Error("Không thể xác định đơn vị nguồn");
-      }
-
-      // Tạo transaction DTO cho API mới (chỉ TRANSFER)
-      const createTransactionDto = {
-        fromUnitId: fromUnitId,
-        toUnitId: selectedUnitId,
+      // Tạo movement DTO cho API
+      const createMovementDto = {
+        items: movementItems,
+        requestNote: movementNote || `Di chuyển ${selectedAssetsForMove.length} tài sản đến ${roomName}`,
         status: selectedStatus,
-        requestNote: transactionNote || `Bàn giao ${selectedAssetsForHandover.length} tài sản đến ${unitName}`,
-        items: transactionItems,
+        approvalNote: selectedStatus === MoveStatus.PENDING_APPROVAL ? "Tự động phê duyệt" : undefined,
       };
 
-      // Gọi API để tạo transaction
-      const result = await dispatch(createTransaction(createTransactionDto)).unwrap();
+      // Gọi API để tạo movement
+      const result = await dispatch(createMovement(createMovementDto)).unwrap();
 
       // Kiểm tra kết quả
       if (result && result.id) {
         // Hiển thị thông báo thành công
-        const statusText = selectedStatus === TransactionStatus.DRAFT ? "nháp" : "đề xuất";
+        const statusText = selectedStatus === MoveStatus.DRAFT ? "nháp" : "đề xuất";
         toast.success(
-          `Tạo yêu cầu bàn giao ${statusText} thành công! Mã giao dịch: ${result.id}`
+          `Tạo yêu cầu di chuyển ${statusText} thành công! Mã yêu cầu: ${result.id}`
         );
 
         // Reset state and redirect
-        dispatch(resetTransactionState());
+        dispatch(resetMoveState());
         router.push("/asset/asset-book");
       } else {
         throw new Error("Không nhận được phản hồi hợp lệ từ máy chủ");
       }
     } catch (error: any) {
-      console.error("Error creating transaction:", error);
-      toast.error(error.message || "Có lỗi xảy ra khi tạo yêu cầu bàn giao.");
+      console.error("Error creating movement:", error);
+      toast.error(error.message || "Có lỗi xảy ra khi tạo yêu cầu di chuyển.");
     } finally {
       setIsSubmitting(false);
     }
@@ -470,7 +425,6 @@ export default function TransactionPage() {
       ),
       sortable: true,
     },
-
     {
       key: "specs",
       title: "Thông số KT",
@@ -534,7 +488,7 @@ export default function TransactionPage() {
           placeholder="Nhập ghi chú..."
           value={assetNotes[record.id] || ""}
           onChange={(e) => handleNoteChange(record.id, e.target.value)}
-          disabled={isSubmitting || isCreatingTransaction}
+          disabled={isSubmitting || isCreatingMovement}
         />
       ),
     },
@@ -547,7 +501,7 @@ export default function TransactionPage() {
           size="sm"
           className="text-red-600 hover:bg-red-50"
           onClick={() => handleRemoveAsset(record.id)}
-          disabled={isSubmitting || isCreatingTransaction}
+          disabled={isSubmitting || isCreatingMovement}
         >
             <Trash2 className="h-4 w-4 mr-1" />
         </Button>
@@ -557,7 +511,7 @@ export default function TransactionPage() {
   ];
 
   // Loading state khi chưa có dữ liệu
-  if (selectedAssetsForHandover.length === 0) {
+  if (selectedAssetsForMove.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
@@ -593,28 +547,28 @@ export default function TransactionPage() {
               </Link>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  Bàn giao tài sản
+                  Di chuyển tài sản
                 </h1>
                 <p className="text-gray-600">
-                  Hoàn tất thông tin bàn giao cho{" "}
-                  {selectedAssetsForHandover.length} tài sản đã chọn
+                  Hoàn tất thông tin di chuyển cho{" "}
+                  {selectedAssetsForMove.length} tài sản đã chọn
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <Button
-                onClick={handleCancelHandover}
+                onClick={handleCancelMove}
                 variant="outline"
-                disabled={isSubmitting || isCreatingTransaction}
+                disabled={isSubmitting || isCreatingMovement}
               >
                 Hủy bỏ
               </Button>
               <Button
-                onClick={handleSubmitHandover}
-                disabled={isSubmitting || isCreatingTransaction || !selectedUnitId}
-                className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={handleSubmitMove}
+                disabled={isSubmitting || isCreatingMovement || !selectedRoomId}
+                className="flex items-center bg-green-600 hover:bg-green-700 text-white"
               >
-                {isSubmitting || isCreatingTransaction ? (
+                {isSubmitting || isCreatingMovement ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                     Đang xử lý...
@@ -622,9 +576,9 @@ export default function TransactionPage() {
                 ) : (
                   <>
                     <Save className="h-4 w-4 mr-2" />
-                    {selectedStatus === TransactionStatus.DRAFT 
-                      ? "Lưu nháp yêu cầu bàn giao"
-                      : "Tạo đề xuất bàn giao"
+                    {selectedStatus === MoveStatus.DRAFT 
+                      ? "Lưu nháp yêu cầu di chuyển"
+                      : "Tạo đề xuất di chuyển"
                     }
                   </>
                 )}
@@ -633,19 +587,19 @@ export default function TransactionPage() {
           </div>
         </div>
 
-        {/* Unit and Room Selection */}
+        {/* Room Selection */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-300 mb-6 ">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100 ">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-gray-100 ">
             <div className="flex items-center space-x-3">
+              <Move className="h-5 w-5 text-green-600" />
               <h3 className="text-lg font-semibold text-gray-900">
-                Chọn đơn vị tiếp nhận
+                Chọn phòng nhận
               </h3>
             </div>
           </div>
 
           <div className="p-6">
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Campus Selection (Global access only) */}
               {hasGlobalAccess && (
                 <CardSelect
@@ -661,71 +615,93 @@ export default function TransactionPage() {
                     })),
                   ]}
                   placeholder="Chọn cơ sở"
-                  disabled={isSubmitting || isCreatingTransaction}
+                  disabled={isSubmitting || isCreatingMovement}
                   required
                   className="text-base"
                 />
               )}
 
               {/* Unit Selection */}
-              {(hasChildUnitsAccess || hasGlobalAccess || hasUnitAccess || hasSelfAccess) && (
+              {(hasChildUnitsAccess || hasGlobalAccess) && (
                 <CardSelect
-                  label="Đơn vị tiếp nhận"
+                  label="Đơn vị"
                   icon={<></>}
                   value={selectedUnitId}
                   onChange={setSelectedUnitId}
                   options={[
-                    { value: "", label: "Chọn đơn vị tiếp nhận" },
+                    { value: "", label: "Chọn đơn vị" },
                     ...(units?.map((unit) => ({
                       value: unit.id,
                       label: unit.name,
                     })) || []),
                   ]}
-                  placeholder="Chọn đơn vị tiếp nhận"
-                  disabled={isSubmitting || isCreatingTransaction || (hasGlobalAccess && !selectedCampusId)}
+                  placeholder="Chọn đơn vị"
+                  disabled={isSubmitting || isCreatingMovement || (hasGlobalAccess && !selectedCampusId)}
                   required
                   className="text-base"
                 />
               )}
+
+              {/* Room Selection */}
+              <CardSelect
+                label="Phòng nhận"
+                icon={<></>}
+                value={selectedRoomId}
+                onChange={setSelectedRoomId}
+                options={[
+                  { value: "", label: "Chọn phòng nhận" },
+                  ...(rooms?.map((room) => ({
+                    value: room.id,
+                    label: `${room.roomCode} - ${room.name}`,
+                  })) || []),
+                ]}
+                placeholder="Chọn phòng nhận"
+                disabled={isSubmitting || isCreatingMovement || !selectedUnitId}
+                loading={roomsLoading}
+                required
+                className="text-base"
+              />
             </div>
 
-            {/* Transaction Note */}
+            {/* Movement Note */}
             <div className="mt-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ghi chú cho yêu cầu bàn giao
+                Ghi chú cho yêu cầu di chuyển
               </label>
               <Input
-                placeholder="Nhập ghi chú cho yêu cầu bàn giao (tùy chọn)..."
-                value={transactionNote}
-                onChange={(e) => setTransactionNote(e.target.value)}
-                disabled={isSubmitting || isCreatingTransaction}
+                placeholder="Nhập ghi chú cho yêu cầu di chuyển (tùy chọn)..."
+                value={movementNote}
+                onChange={(e) => setMovementNote(e.target.value)}
+                disabled={isSubmitting || isCreatingMovement}
                 className="w-full"
               />
             </div>
 
-            {/* Transaction Status */}
+            {/* Movement Status */}
             <div className="mt-6">
               <CardSelect
                 label="Trạng thái yêu cầu"
                 icon={<></>}
                 value={selectedStatus}
-                onChange={(value) => setSelectedStatus(value as TransactionStatus)}
+                onChange={(value) => setSelectedStatus(value as MoveStatus)}
                 options={[
-                  { value: TransactionStatus.DRAFT, label: "Nháp" },
-                  { value: TransactionStatus.PROPOSED, label: "Đề xuất" },
+                  { value: MoveStatus.DRAFT, label: "Nháp" },
+                  { value: MoveStatus.PENDING_APPROVAL, label: "Đề xuất" },
                 ]}
                 placeholder="Chọn trạng thái yêu cầu"
-                disabled={isSubmitting || isCreatingTransaction}
+                disabled={isSubmitting || isCreatingMovement}
                 required
                 className="text-base"
               />
             </div>
           </div>
         </div>
+
+        {/* Assets Table */}
         <Table<Asset>
-          title="Tài sản đã chọn để bàn giao"
+          title="Tài sản đã chọn để di chuyển"
           columns={columns}
-          data={selectedAssetsForHandover}
+          data={selectedAssetsForMove}
           loading={false}
           emptyText="Không có tài sản nào được chọn"
           emptyIcon={

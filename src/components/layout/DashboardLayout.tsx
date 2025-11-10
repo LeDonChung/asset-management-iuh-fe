@@ -186,7 +186,12 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
         {
           name: "Bàn giao",
           href: "/asset/transaction",
-          permissions: [PermissionConstants.PERM_VIEW_ASSET],
+          permissions: [PermissionConstants.PERM_VIEW_TRANSACTION],
+        },
+        {
+          name: "Di chuyển",
+          href: "/asset/move",
+          permissions: [PermissionConstants.PERM_VIEW_MOVEMENT],
         },
         {
           name: "Kho",
