@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Asset, AssetType, Room, Unit, AssetStatus, AssetBookItemStatus } from "@/types/asset";
+import { Asset, AssetType, Room, Unit, AssetStatus, AssetBookItemStatus, AccessScopeType } from "@/types/asset";
 import {
   Building,
   Eye,
@@ -14,6 +14,7 @@ import {
   AlertCircle,
   X,
   MoreVertical,
+  Move,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,6 @@ import {
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { fetchRoomsByUnitId } from "@/lib/store/slices/roomSlice";
 import { useAuth } from "@/contexts/AuthContext";
-import { RoleBase } from "@/lib/constants/role";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { setSelectedAssetsForHandover, setHandoverContext } from "@/lib/store/slices/transactionSlice";
+import { setSelectedAssetsForMove, setMoveContext } from "@/lib/store/slices/moveSlice";
 
 // Helper function to render asset book item status badge
 const getAssetBookItemStatusBadge = (status: AssetBookItemStatus) => {
@@ -116,6 +117,15 @@ const getAssetStatusBadge = (status: AssetStatus) => {
       {config.label}
     </span>
   );
+};
+
+// Helper functions to check if asset can be selected for operations
+const canSelectForHandover = (status: AssetBookItemStatus): boolean => {
+  return [AssetBookItemStatus.IN_USE, AssetBookItemStatus.DAMAGED].includes(status);
+};
+
+const canSelectForMove = (status: AssetBookItemStatus): boolean => {
+  return [AssetBookItemStatus.IN_USE, AssetBookItemStatus.DAMAGED].includes(status);
 };
 
 // Asset type options for filter dropdown
@@ -297,9 +307,12 @@ export default function AssetBookPage() {
   const router = useRouter();
   const { hasRole, user } = useAuth();
 
-  const isAdmin = hasRole([RoleBase.ADMIN]);
-  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
-  const isUserDept = hasRole([RoleBase.USER_DEPT]);
+  // Access scope types
+  const accessScopeTypes = user?.accessScopeTypes || [];
+  const hasGlobalAccess = accessScopeTypes.includes(AccessScopeType.GLOBAL);
+  const hasChildUnitsAccess = accessScopeTypes.includes(AccessScopeType.CHILD_UNITS);
+  const hasUnitAccess = accessScopeTypes.includes(AccessScopeType.UNIT);
+  const hasSelfAccess = accessScopeTypes.includes(AccessScopeType.SELF);
 
   // State for filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -316,6 +329,10 @@ export default function AssetBookPage() {
   // Selection mode states
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+  
+  // Move mode states
+  const [isMoveMode, setIsMoveMode] = useState(false);
+  const [selectedAssetsForMoveLocal, setSelectedAssetsForMoveLocal] = useState<string[]>([]);
   
   // Advanced filter toggle
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -337,8 +354,8 @@ export default function AssetBookPage() {
         if (campusesResult) {
           if (user) {
             console.log("User unit ID:", user.unitId);
-            if (isAdminDept) {
-              // AdminDept: unitId chính là campus ID
+            if (hasChildUnitsAccess) {
+              // Child units access: unitId chính là campus ID
               const userCampus = campusesResult.find((campus: Unit) => campus.id === user?.unitId);
               if (userCampus) {
                 setUnits(userCampus.childUnits ?? []);
@@ -347,7 +364,7 @@ export default function AssetBookPage() {
                 setUnits([]);
                 setSelectedCampusId("");
               }
-            } else if (isUserDept) {
+            } else if (hasUnitAccess || hasSelfAccess) {
               setSelectedUnitId(user.unitId);
             } else {
               setUnits([]);
@@ -372,9 +389,9 @@ export default function AssetBookPage() {
       if (!user) return false;
       
       const hasUnitInfo = 
-        (isAdmin && selectedCampusId && selectedUnitId) || 
-        (isAdminDept && selectedUnitId) || 
-        (isUserDept && user.unitId);
+        (hasGlobalAccess && selectedCampusId && selectedUnitId) || 
+        (hasChildUnitsAccess && selectedUnitId) || 
+        ((hasUnitAccess || hasSelfAccess) && user.unitId);
       
       // 2. Phải chọn năm
       if (!selectedYear) return false;
@@ -391,7 +408,7 @@ export default function AssetBookPage() {
         ...currentFilter,
         search: searchTerm || undefined,
         campusId: selectedCampusId || undefined,
-        unitId: selectedUnitId || (isUserDept && user ? user.unitId : undefined),
+        unitId: selectedUnitId || ((hasUnitAccess || hasSelfAccess) && user ? user.unitId : undefined),
         year: selectedYear ? parseInt(selectedYear) : undefined,
         roomId: selectedRoomId || undefined,
         assetType: (selectedAssetType as AssetType) || undefined,
@@ -405,9 +422,10 @@ export default function AssetBookPage() {
     selectedRoomId,
     selectedAssetType, // Đây là trigger chính
     user?.unitId,
-    isAdmin,
-    isAdminDept,
-    isUserDept,
+    hasGlobalAccess,
+    hasChildUnitsAccess,
+    hasUnitAccess,
+    hasSelfAccess,
   ]);
 
   const handleFilterChange = (filterRequest: AssetBookFilterRequest) => {
@@ -426,6 +444,13 @@ export default function AssetBookPage() {
     }
   };
 
+  const handleToggleMoveMode = () => {
+    setIsMoveMode(!isMoveMode);
+    if (isMoveMode) {
+      setSelectedAssetsForMoveLocal([]);
+    }
+  };
+
   const handleSelectionChange = (
     selectedRowKeys: string[],
     selectedRows: Asset[]
@@ -437,6 +462,18 @@ export default function AssetBookPage() {
     setSelectedAssets(selectedRowKeys);
     console.log("Đã chọn tài sản:", selectedRowKeys);
     console.log("Chi tiết tài sản được chọn:", selectedRows);
+  };
+
+  const handleMoveSelectionChange = (
+    selectedRowKeys: string[],
+    selectedRows: Asset[]
+  ) => {
+    console.log("=== DEBUG MOVE SELECTION ===");
+    console.log("selectedRowKeys:", selectedRowKeys);
+    console.log("selectedRows:", selectedRows);
+    setSelectedAssetsForMoveLocal(selectedRowKeys);
+    console.log("Đã chọn tài sản để di chuyển:", selectedRowKeys);
+    console.log("Chi tiết tài sản được chọn để di chuyển:", selectedRows);
   };
 
   // Memoize deduplicated data to avoid recalculating on every render
@@ -467,8 +504,8 @@ export default function AssetBookPage() {
     // Logic cải thiện để xác định sourceUnitId
     let sourceUnitId: string | undefined = selectedUnitId || undefined;
     
-    // Nếu chưa có selectedUnitId, thử lấy từ user (cho UserDept)
-    if (!sourceUnitId && isUserDept && user?.unitId) {
+    // Nếu chưa có selectedUnitId, thử lấy từ user (cho Unit/Self access)
+    if (!sourceUnitId && (hasUnitAccess || hasSelfAccess) && user?.unitId) {
       sourceUnitId = user.unitId;
     }
     
@@ -502,6 +539,38 @@ export default function AssetBookPage() {
     setSelectedAssets([]);
     
     toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để bàn giao`);
+  };
+
+  const handleBulkMove = () => {
+    if (selectedAssetsForMoveLocal.length === 0) {
+      alert("Vui lòng chọn ít nhất một tài sản để di chuyển!");
+      return;
+    }
+
+    const selectedAssetObjects = deduplicatedAssets.filter((asset) =>
+      selectedAssetsForMoveLocal.includes(asset.id)
+    );
+
+    // Lưu danh sách tài sản đã chọn vào Redux store
+    dispatch(setSelectedAssetsForMove(selectedAssetObjects));
+    
+    // Lưu context di chuyển (thông tin phòng nguồn)
+    const moveContext = {
+      sourceRoomId: selectedRoomId || undefined,
+      sourceRoom: selectedRoomId ? rooms?.find(r => r.id === selectedRoomId) : undefined,
+    };
+    
+    console.log("moveContext:", moveContext);
+    dispatch(setMoveContext(moveContext));
+    
+    // Chuyển đến trang move để hoàn tất di chuyển
+    router.push('/asset/move/create');
+    
+    // Thoát khỏi move mode
+    setIsMoveMode(false);
+    setSelectedAssetsForMoveLocal([]);
+    
+    toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để di chuyển`);
   };
 
   useEffect(() => {
@@ -665,19 +734,52 @@ export default function AssetBookPage() {
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (isSelectionMode) {
-                      if (!selectedAssets.includes(asset.id)) {
-                        setSelectedAssets((prev) => [...prev, asset.id]);
+                    if (canSelectForHandover(asset.bookItemStatus as AssetBookItemStatus)) {
+                      if (isSelectionMode) {
+                        if (!selectedAssets.includes(asset.id)) {
+                          setSelectedAssets((prev) => [...prev, asset.id]);
+                        }
+                      } else {
+                        // Nếu chưa ở chế độ bàn giao, chọn tài sản này và vào chế độ bàn giao
+                        setSelectedAssets([asset.id]);
+                        setIsSelectionMode(true);
                       }
-                    } else {
-                      // Nếu chưa ở chế độ bàn giao, chọn tài sản này và vào chế độ bàn giao
-                      setSelectedAssets([asset.id]);
-                      setIsSelectionMode(true);
                     }
                   }}
-                  className="flex items-center gap-2 cursor-pointer text-orange-600"
+                  className={`flex items-center gap-2 ${
+                    canSelectForHandover(asset.bookItemStatus as AssetBookItemStatus) && !isMoveMode
+                      ? "cursor-pointer text-orange-600"
+                      : "cursor-not-allowed text-gray-400"
+                  }`}
+                  disabled={isMoveMode || !canSelectForHandover(asset.bookItemStatus as AssetBookItemStatus)}
                 >
                   <span>Bàn giao</span>
+                </DropdownMenuItem>
+
+                {/* Di chuyển */}
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (canSelectForMove(asset.bookItemStatus as AssetBookItemStatus)) {
+                      if (isMoveMode) {
+                        if (!selectedAssetsForMoveLocal.includes(asset.id)) {
+                          setSelectedAssetsForMoveLocal((prev) => [...prev, asset.id]);
+                        }
+                      } else {
+                        // Nếu chưa ở chế độ di chuyển, chọn tài sản này và vào chế độ di chuyển
+                        setSelectedAssetsForMoveLocal([asset.id]);
+                        setIsMoveMode(true);
+                      }
+                    }
+                  }}
+                  className={`flex items-center gap-2 ${
+                    canSelectForMove(asset.bookItemStatus as AssetBookItemStatus) && !isSelectionMode
+                      ? "cursor-pointer text-green-600"
+                      : "cursor-not-allowed text-gray-400"
+                  }`}
+                  disabled={isSelectionMode || !canSelectForMove(asset.bookItemStatus as AssetBookItemStatus)}
+                >
+                  <span>Di chuyển</span>
                 </DropdownMenuItem>
 
                 {/* Xóa */}
@@ -721,9 +823,25 @@ export default function AssetBookPage() {
                 ? "bg-red-600 hover:bg-red-700 text-white"
                 : "bg-blue-600 hover:bg-blue-700 text-white"
             }`}
+            disabled={isMoveMode}
           >
             <ArrowRightLeft className="h-4 w-4 mr-2" />
             {isSelectionMode ? "Hủy chọn" : "Bàn giao tài sản"}
+          </Button>
+
+          {/* Nút di chuyển */}
+          <Button
+            onClick={handleToggleMoveMode}
+            variant={isMoveMode ? "destructive" : "default"}
+            className={`flex items-center ${
+              isMoveMode
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-green-600 hover:bg-green-700 text-white"
+            }`}
+            disabled={isSelectionMode}
+          >
+            <Move className="h-4 w-4 mr-2" />
+            {isMoveMode ? "Hủy di chuyển" : "Di chuyển tài sản"}
           </Button>
 
           <Button onClick={handleExport}>
@@ -739,8 +857,8 @@ export default function AssetBookPage() {
         <div className="p-6 relative">
           {/* Main Filters Row - Always visible */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 mb-4">
-            {/* Campus Filter - for Admin only */}
-            {isAdmin && (
+            {/* Campus Filter - for Global access only */}
+            {hasGlobalAccess && (
               <CardSelect
                 label="Cơ sở"
                 icon={<></>}
@@ -761,7 +879,7 @@ export default function AssetBookPage() {
             )}
 
             {/* Unit Filter */}
-            {(isAdminDept || isAdmin) && (
+            {(hasChildUnitsAccess || hasGlobalAccess) && (
               <CardSelect
                 label="Đơn vị"
                 icon={<></>}
@@ -775,7 +893,7 @@ export default function AssetBookPage() {
                   })) || []),
                 ]}
                 placeholder="Chọn đơn vị"
-                disabled={isAdminDept ? !selectedCampusId : false}
+                disabled={hasChildUnitsAccess ? !selectedCampusId : false}
                 required
                 className="text-base"
               />
@@ -865,6 +983,45 @@ export default function AssetBookPage() {
         </div>
       </div>
 
+      {/* Move Mode Info */}
+      {isMoveMode && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Move className="h-5 w-5 text-green-600" />
+              <span className="text-sm font-medium text-green-900">
+                Chọn tài sản để di chuyển
+              </span>
+              {selectedAssetsForMoveLocal.length > 0 && (
+                <span className="text-sm text-green-700">
+                  - Đã chọn {selectedAssetsForMoveLocal.length} tài sản
+                </span>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              {selectedAssetsForMoveLocal.length > 0 && (
+                <Button
+                  onClick={handleBulkMove}
+                  size="sm"
+                  className="flex items-center bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Xác nhận di chuyển
+                </Button>
+              )}
+              <Button
+                onClick={handleToggleMoveMode}
+                size="sm"
+                variant="outline"
+                className="text-gray-600 border-gray-300 hover:bg-gray-50"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Hủy
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Selection Mode Info */}
       {isSelectionMode && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -927,7 +1084,15 @@ export default function AssetBookPage() {
                 selectedRowKeys: selectedAssets,
                 onChange: handleSelectionChange,
                 getCheckboxProps: (record) => ({
-                  disabled: false,
+                  disabled: !canSelectForHandover(record.bookItemStatus as AssetBookItemStatus),
+                }),
+              }
+            : isMoveMode
+            ? {
+                selectedRowKeys: selectedAssetsForMoveLocal,
+                onChange: handleMoveSelectionChange,
+                getCheckboxProps: (record) => ({
+                  disabled: !canSelectForMove(record.bookItemStatus as AssetBookItemStatus),
                 }),
               }
             : undefined

@@ -12,6 +12,7 @@ import alertSlice from './slices/alertSlice'
 import roomSlice from './slices/roomSlice'
 import liquidationSlice from './slices/liquidationSlice'
 import transactionSlice from './slices/transactionSlice'
+import moveSlice from './slices/moveSlice'
 export const store = configureStore({
   reducer: {
     asset: assetSlice,
@@ -27,6 +28,7 @@ export const store = configureStore({
     room: roomSlice,
     liquidation: liquidationSlice,
     transaction: transactionSlice,
+    move: moveSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
