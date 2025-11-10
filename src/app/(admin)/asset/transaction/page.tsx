@@ -25,6 +25,7 @@ import {
   TransactionStatus,
   AssetTransaction,
   UnitType,
+  AccessScopeType,
 } from "@/types/asset";
 import {
   filterSimplifiedTransactions,
@@ -36,6 +37,7 @@ import {
   proposeTransaction,
   approveTransaction,
   rejectTransaction,
+  receiveTransaction,
 } from "@/lib/store/slices/transactionSlice";
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { Unit } from "@/types/asset";
@@ -58,6 +60,7 @@ const statusColors = {
   [TransactionStatus.DRAFT]: "bg-gray-100 text-gray-800",
   [TransactionStatus.PROPOSED]: "bg-yellow-100 text-yellow-800",
   [TransactionStatus.APPROVED]: "bg-green-100 text-green-800",
+  [TransactionStatus.RECEIVED]: "bg-blue-100 text-blue-800",
   [TransactionStatus.REJECTED]: "bg-red-100 text-red-800",
 };
 
@@ -65,6 +68,7 @@ const statusLabels = {
   [TransactionStatus.DRAFT]: "Nháp",
   [TransactionStatus.PROPOSED]: "Đề xuất",
   [TransactionStatus.APPROVED]: "Đã phê duyệt",
+  [TransactionStatus.RECEIVED]: "Đã tiếp nhận",
   [TransactionStatus.REJECTED]: "Từ chối",
 };
 
@@ -96,17 +100,13 @@ export default function TransactionPage() {
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<
-    "propose" | "approve" | "reject" | null
+    "propose" | "approve" | "reject" | "receive" | null
   >(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState<
     string | null
   >(null);
 
   // Permissions
-  const isAdmin = hasRole([RoleBase.ADMIN]);
-  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
-  const isUserDept = hasRole([RoleBase.USER_DEPT]);
-
   const canView = hasAnyPermission([PermissionConstants.PERM_VIEW_TRANSACTION]);
   const canCreate = hasAnyPermission([
     PermissionConstants.PERM_CREATE_TRANSACTION,
@@ -121,6 +121,13 @@ export default function TransactionPage() {
     PermissionConstants.PERM_REJECT_TRANSACTION,
   ]);
 
+  // Access scope types
+  const accessScopeTypes = user?.accessScopeTypes || [];
+  const hasGlobalAccess = accessScopeTypes.includes(AccessScopeType.GLOBAL);
+  const hasChildUnitsAccess = accessScopeTypes.includes(AccessScopeType.CHILD_UNITS);
+  const hasUnitAccess = accessScopeTypes.includes(AccessScopeType.UNIT);
+  const hasSelfAccess = accessScopeTypes.includes(AccessScopeType.SELF);
+
   useEffect(() => {
     if (!canView) {
       router.push("/unauthorized");
@@ -128,23 +135,36 @@ export default function TransactionPage() {
     }
   }, [canView, router]);
 
-  // Tính toán danh sách units để hiển thị trong dropdown filter dựa vào role
+  // Tính toán danh sách units để hiển thị trong dropdown filter dựa vào access scope
   const getFilterUnits = () => {
-    if (isAdmin) {
-      // Admin thấy tất cả units từ tất cả campuses
+    if (!user || !user.accessScopeTypes) return [];
+
+    // GLOBAL - có thể thấy tất cả campuses và units
+    if (hasGlobalAccess) {
       return campuses.flatMap((campus) => [
         campus,
         ...(campus.childUnits ?? []),
       ]);
     }
-    if (isAdminDept && user?.unitId) {
-      // Admin Dept: tìm campus của mình và lấy tất cả children + chính campus đó
+
+    // CHILD_UNITS - thấy campus của mình và tất cả unit con
+    if (hasChildUnitsAccess && user.unitId) {
       const userCampus = campuses.find((campus) => campus.id === user.unitId);
       if (userCampus) {
         return [userCampus, ...(userCampus.childUnits ?? [])];
       }
     }
-    // User Dept không cần dropdown filter
+
+    // UNIT hoặc SELF - chỉ thấy unit của mình
+    if ((hasUnitAccess || hasSelfAccess) && user.unitId) {
+      const allUnits = campuses.flatMap(campus => [
+        campus,
+        ...(campus.childUnits || [])
+      ]);
+      const userUnit = allUnits.find(unit => unit.id === user.unitId);
+      return userUnit ? [userUnit] : [];
+    }
+
     return [];
   };
 
@@ -153,8 +173,8 @@ export default function TransactionPage() {
       try {
         dispatch(filterSimplifiedTransactions(currentFilter));
         const result = await dispatch(getUnitCampus()).unwrap();
-        // Chỉ Admin và Admin Dept mới cần xử lý units cho dropdown filter
-        // User Dept không cần dropdown filter nên không cần set units
+        // Chỉ những user có GLOBAL hoặc CHILD_UNITS access mới cần xử lý units cho dropdown filter
+        // Những user có UNIT hoặc SELF access không cần dropdown filter
         if (result && result.length > 0) {
           // Reset units, sẽ dùng getFilterUnits() để tính toán động
         }
@@ -163,7 +183,7 @@ export default function TransactionPage() {
       }
     };
     loadData();
-  }, [isAdmin, isAdminDept, isUserDept, user?.unitId]);
+  }, [hasGlobalAccess, hasChildUnitsAccess, hasUnitAccess, hasSelfAccess, user?.unitId]);
 
   // Calculate stats from filtered data
   const stats = React.useMemo(() => {
@@ -175,6 +195,8 @@ export default function TransactionPage() {
       proposed: data.filter((t: any) => t.status === TransactionStatus.PROPOSED)
         .length,
       approved: data.filter((t: any) => t.status === TransactionStatus.APPROVED)
+        .length,
+      received: data.filter((t: any) => t.status === TransactionStatus.RECEIVED)
         .length,
       rejected: data.filter((t: any) => t.status === TransactionStatus.REJECTED)
         .length,
@@ -190,6 +212,12 @@ export default function TransactionPage() {
   const handleApprove = (transactionId: string) => {
     setSelectedTransactionId(transactionId);
     setModalType("approve");
+    setIsModalOpen(true);
+  };
+
+  const handleReceive = (transactionId: string) => {
+    setSelectedTransactionId(transactionId);
+    setModalType("receive");
     setIsModalOpen(true);
   };
 
@@ -233,6 +261,15 @@ export default function TransactionPage() {
             })
           ).unwrap();
           toast.success("Đã phê duyệt giao dịch");
+          break;
+        case "receive":
+          await dispatch(
+            receiveTransaction({
+              id: selectedTransactionId,
+              receiveDto: { note: data.note },
+            })
+          ).unwrap();
+          toast.success("Đã xác nhận tiếp nhận tài sản");
           break;
       }
 
@@ -388,6 +425,18 @@ export default function TransactionPage() {
                     </DropdownMenuItem>
                   </>
                 )}
+
+              {transaction.status === TransactionStatus.APPROVED && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReceive(transaction.id);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer text-blue-600"
+                >
+                  <span>Xác nhận tiếp nhận</span>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -401,7 +450,7 @@ export default function TransactionPage() {
   };
 
   useEffect(() => {
-    // Tạo filter object với role-based filtering (giống liquidation)
+    // Tạo filter object với access scope-based filtering
     let filterRequest: TransactionFilterDto = {
       ...currentFilter,
       search: searchTerm || undefined,
@@ -409,12 +458,12 @@ export default function TransactionPage() {
       status: statusFilter || undefined,
     };
 
-    // Áp dụng role-based filtering
-    if (isUserDept && user?.unitId) {
-      // User Dept chỉ xem giao dịch của đơn vị mình
+    // Áp dụng access scope-based filtering
+    if ((hasUnitAccess || hasSelfAccess) && user?.unitId) {
+      // UNIT hoặc SELF access: chỉ xem giao dịch của đơn vị mình
       filterRequest.fromUnitId = user.unitId;
-    } else if ((isAdminDept || isAdmin) && unitFilter) {
-      // Admin Dept và Admin: áp dụng unit filter khi có chọn
+    } else if ((hasGlobalAccess || hasChildUnitsAccess) && unitFilter) {
+      // GLOBAL hoặc CHILD_UNITS access: áp dụng unit filter khi có chọn
       filterRequest.fromUnitId = unitFilter;
     }
 
@@ -424,9 +473,10 @@ export default function TransactionPage() {
     typeFilter,
     statusFilter,
     unitFilter,
-    isAdmin,
-    isAdminDept,
-    isUserDept,
+    hasGlobalAccess,
+    hasChildUnitsAccess,
+    hasUnitAccess,
+    hasSelfAccess,
     user?.unitId,
   ]);
 
@@ -453,7 +503,7 @@ export default function TransactionPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <div className="bg-white p-6 rounded-lg  border border-gray-300">
             <div className="flex items-center justify-between">
               <div>
@@ -501,6 +551,20 @@ export default function TransactionPage() {
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
           </div>
+
+          <div className="bg-white p-6 rounded-lg border border-gray-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">
+                  Đã tiếp nhận
+                </p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {stats.received}
+                </p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
@@ -544,18 +608,19 @@ export default function TransactionPage() {
               <option value={TransactionStatus.DRAFT}>Nháp</option>
               <option value={TransactionStatus.PROPOSED}>Đề xuất</option>
               <option value={TransactionStatus.APPROVED}>Đã phê duyệt</option>
+              <option value={TransactionStatus.RECEIVED}>Đã tiếp nhận</option>
               <option value={TransactionStatus.REJECTED}>Từ chối</option>
             </select>
 
-            {/* Unit Filter - Chỉ hiển thị cho Admin và Admin Dept */}
-            {(isAdmin || isAdminDept) && (
+            {/* Unit Filter - Chỉ hiển thị cho user có GLOBAL hoặc CHILD_UNITS access */}
+            {(hasGlobalAccess || hasChildUnitsAccess) && (
               <select
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={unitFilter}
                 onChange={(e) => setUnitFilter(e.target.value)}
               >
                 <option value="">
-                  {isAdmin ? "Tất cả đơn vị" : "Tất cả đơn vị trong cơ sở"}
+                  {hasGlobalAccess ? "Tất cả đơn vị" : "Tất cả đơn vị trong cơ sở"}
                 </option>
                 {getFilterUnits().map((unit) => (
                   <option key={unit.id} value={unit.id}>
@@ -615,6 +680,8 @@ export default function TransactionPage() {
             ? "Gửi đề xuất giao dịch"
             : modalType === "approve"
             ? "Phê duyệt giao dịch"
+            : modalType === "receive"
+            ? "Xác nhận tiếp nhận tài sản"
             : modalType === "reject"
             ? "Từ chối giao dịch"
             : ""
@@ -624,11 +691,13 @@ export default function TransactionPage() {
             ? "Gửi đề xuất giao dịch để xem xét phê duyệt."
             : modalType === "approve"
             ? "Phê duyệt giao dịch này."
+            : modalType === "receive"
+            ? "Xác nhận đã tiếp nhận tài sản từ đơn vị bàn giao."
             : modalType === "reject"
             ? "Từ chối giao dịch. Vui lòng nêu rõ lý do từ chối."
             : ""
         }
-        action={modalType || "propose"}
+        action={(modalType === "receive" ? "approve" : modalType) || "propose"}
         isLoading={false}
       />
     </>

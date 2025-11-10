@@ -268,19 +268,11 @@ export default function InventorySessionDetailPage() {
 
             {/* Action Buttons */}
             <div className="flex items-center space-x-2">
-              {canViewResult && (
-                <>
-                  <Link href={`/inventory/${session.id}/results`}>
-                    <Button variant="outline" size="sm">
-                      <FileText className="w-4 h-4 mr-2" />
-                      Xem kết quả
-                    </Button>
-                  </Link>
-                  <Button variant="outline" size="sm">
-                    <Download className="w-4 h-4 mr-2" />
-                    Xuất báo cáo
-                  </Button>
-                </>
+              {canViewResult && canView && session.status === InventorySessionStatus.COMPLETED && (
+                <Button variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Xuất báo cáo
+                </Button>
               )}
 
               {/* Edit Button - Only for PLANNED status */}
@@ -377,19 +369,6 @@ export default function InventorySessionDetailPage() {
                         </div>
                         <p className="text-2xl font-bold text-gray-900">
                           {session.year}
-                        </p>
-                      </div>
-
-                      {/* Đợt kiểm kê */}
-                      <div className="bg-white rounded-lg border border-gray-200 p-6">
-                        <div className="flex items-center space-x-2 mb-3">
-                          <Hash className="h-5 w-5 text-green-600" />
-                          <span className="text-sm font-medium text-gray-600">
-                            Đợt kiểm kê
-                          </span>
-                        </div>
-                        <p className="text-2xl font-bold text-gray-900">
-                          Đợt {session.period}
                         </p>
                       </div>
 

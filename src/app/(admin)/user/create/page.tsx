@@ -36,7 +36,7 @@ import { findAllRoles } from "@/lib/store/slices/roleSlice";
 import { CreateUser, createUser } from "@/lib/store/slices/userSlice";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { RoleBase } from "@/lib/constants/role";
+import { AccessScopeType } from "@/types/asset";
 
 export default function CreateUserPage() {
   const router = useRouter();
@@ -68,28 +68,30 @@ export default function CreateUserPage() {
     unitCampusSelected?.childUnits ?? []
   );
 
-  const { hasRole, user } = useAuth();
-  const isAdmin = hasRole([RoleBase.ADMIN]);
-  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
-  const isUserDept = hasRole([RoleBase.USER_DEPT]);
+  const { user } = useAuth();
+
+  // Kiểm tra access scope types
+  const hasGlobalScope = user?.accessScopeTypes?.includes(AccessScopeType.GLOBAL) || false;
+  const hasChildUnitsScope = user?.accessScopeTypes?.includes(AccessScopeType.CHILD_UNITS) || false;
+  const hasUnitScope = user?.accessScopeTypes?.includes(AccessScopeType.UNIT) || false;
 
   useEffect(() => {
     dispatch(getUnitCampus());
     dispatch(findAllRoles());
   }, [dispatch]);
 
-  // Xử lý logic theo role khi có dữ liệu campuses
+  // Xử lý logic theo access scope khi có dữ liệu campuses
   useEffect(() => {
-    if (campuses.length === 0) return;
+    if (campuses.length === 0 || !user?.unitId) return;
 
-    if (isAdminDept && user?.unitId) {
-      // AdminDept: unitId chính là campus ID
+    if (hasChildUnitsScope) {
+      // CHILD_UNITS scope: unitId chính là campus ID
       const userCampus = campuses.find(campus => campus.id === user.unitId);
       if (userCampus) {
         setUnitCampusSelected(userCampus);
       }
-    } else if (isUserDept && user?.unitId) {
-      // UserDept: Đặt đơn vị mặc định là đơn vị của user hiện tại
+    } else if (hasUnitScope) {
+      // UNIT scope: Đặt đơn vị mặc định là đơn vị của user hiện tại
       setFormData(prev => ({ ...prev, unitId: user.unitId }));
       
       // Tìm campus tương ứng qua childUnits
@@ -100,7 +102,7 @@ export default function CreateUserPage() {
         setUnitCampusSelected(userCampus);
       }
     }
-  }, [campuses, isAdmin, isAdminDept, isUserDept, user]);
+  }, [campuses, hasGlobalScope, hasChildUnitsScope, hasUnitScope, user]);
 
   useEffect(() => {
     if (unitCampusSelected) {
@@ -383,9 +385,9 @@ export default function CreateUserPage() {
               </div>
             </div>
 
-            <div className={`grid grid-cols-1 ${isAdmin ? 'md:grid-cols-2' : ''} gap-6`}>
-              {/* Chỉ hiển thị chọn cơ sở cho Admin */}
-              {isAdmin && (
+            <div className={`grid grid-cols-1 ${hasGlobalScope ? 'md:grid-cols-2' : ''} gap-6`}>
+              {/* Chỉ hiển thị chọn cơ sở cho GLOBAL scope */}
+              {hasGlobalScope && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cơ sở<span className="text-red-500">*</span>
@@ -425,10 +427,10 @@ export default function CreateUserPage() {
                     onChange={(e) =>
                       handleInputChange("unitId", e.target.value)
                     }
-                    disabled={isUserDept || shouldDisableUnitSelection()} // Disable cho UserDept hoặc khi chọn role ADMIN_DEPT
+                    disabled={hasUnitScope || shouldDisableUnitSelection()} // Disable cho UNIT scope hoặc khi chọn role ADMIN_DEPT
                     className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       errors.unitId ? "border-red-500" : "border-gray-300"
-                    } ${(isUserDept || shouldDisableUnitSelection()) ? "bg-gray-50 cursor-not-allowed" : ""}`}
+                    } ${(hasUnitScope || shouldDisableUnitSelection()) ? "bg-gray-50 cursor-not-allowed" : ""}`}
                   >
                     <option value="">Chọn đơn vị</option>
                     {/* Nếu có role ADMIN_DEPT thì chỉ hiển thị campus */}

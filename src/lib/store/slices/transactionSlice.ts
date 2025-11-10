@@ -6,16 +6,14 @@ import axiosInstance from '@/lib/api'
 export interface CreateTransactionItemDto {
   assetId: string
   fromRoomId?: string
-  toRoomId?: string
   note?: string
 }
 
 export interface CreateTransactionDto {
-  type: TransactionType
-  fromUnitId?: string
+  fromUnitId: string
   toUnitId: string
-  requestNote?: string
   status?: TransactionStatus
+  requestNote?: string
   items: CreateTransactionItemDto[]
 }
 
@@ -43,6 +41,10 @@ export interface ApproveTransactionDto {
 
 export interface RejectTransactionDto {
   rejectionReason: string
+}
+
+export interface ReceiveTransactionDto {
+  note?: string
 }
 
 export interface TransactionFilterDto extends BaseFilterRequest {
@@ -184,6 +186,7 @@ interface TransactionState {
   isProposingTransaction: boolean
   isApprovingTransaction: boolean
   isRejectingTransaction: boolean
+  isReceivingTransaction: boolean
   isFetchingTransaction: boolean
   isFilteringTransactions: boolean
   
@@ -194,6 +197,7 @@ interface TransactionState {
   proposeTransactionError: string | null
   approveTransactionError: string | null
   rejectTransactionError: string | null
+  receiveTransactionError: string | null
   fetchTransactionError: string | null
   filterTransactionError: string | null
   
@@ -230,6 +234,7 @@ const initialState: TransactionState = {
   isProposingTransaction: false,
   isApprovingTransaction: false,
   isRejectingTransaction: false,
+  isReceivingTransaction: false,
   isFetchingTransaction: false,
   isFilteringTransactions: false,
   
@@ -240,6 +245,7 @@ const initialState: TransactionState = {
   proposeTransactionError: null,
   approveTransactionError: null,
   rejectTransactionError: null,
+  receiveTransactionError: null,
   fetchTransactionError: null,
   filterTransactionError: null,
   
@@ -333,6 +339,21 @@ export const rejectTransaction = createAsyncThunk(
       return response.data as TransactionResponseDto
     } catch (error: any) {
       console.error('Reject transaction error:', error)
+      return rejectWithValue(error.response?.data || error.message)
+    }
+  }
+)
+
+export const receiveTransaction = createAsyncThunk(
+  'transaction/receiveTransaction',
+  async ({ id, receiveDto }: { id: string; receiveDto: ReceiveTransactionDto }, { rejectWithValue }) => {
+    try {
+      console.log('Receiving transaction:', id, receiveDto)
+      const response = await axiosInstance.patch(`/api/v1/transactions/${id}/receive`, receiveDto)
+      console.log('Receive transaction response:', response.data)
+      return response.data as TransactionResponseDto
+    } catch (error: any) {
+      console.error('Receive transaction error:', error)
       return rejectWithValue(error.response?.data || error.message)
     }
   }
@@ -561,6 +582,23 @@ const transactionSlice = createSlice({
         state.isRejectingTransaction = false
         state.rejectTransactionError = action.payload as string
         console.error('Reject transaction failed:', action.payload)
+      })
+      
+      // Receive transaction
+      .addCase(receiveTransaction.pending, (state) => {
+        state.isReceivingTransaction = true
+        state.receiveTransactionError = null
+      })
+      .addCase(receiveTransaction.fulfilled, (state, action) => {
+        state.isReceivingTransaction = false
+        state.receiveTransactionError = null
+        state.currentTransactionDetail = action.payload
+        console.log('Transaction received successfully:', action.payload)
+      })
+      .addCase(receiveTransaction.rejected, (state, action) => {
+        state.isReceivingTransaction = false
+        state.receiveTransactionError = action.payload as string
+        console.error('Receive transaction failed:', action.payload)
       })
       
       // Get transaction by ID

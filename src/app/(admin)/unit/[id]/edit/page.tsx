@@ -17,8 +17,8 @@ import {
 import { getUsersWithoutUnit } from "@/lib/store/slices/userSlice";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { RoleBase } from "@/lib/constants/role";
 import { PermissionConstants } from "@/hooks/usePermissions";
+import { AccessScopeType } from "@/types/asset";
 
 
 interface UnitFormData {
@@ -65,11 +65,13 @@ export default function EditUnitPage() {
   });
   
   const [errors, setErrors] = useState<FormErrors>({});
-  const { hasRole, user: currentUser, hasAnyPermission } = useAuth();
+  const { user: currentUser, hasAnyPermission } = useAuth();
   const canEdit = hasAnyPermission([PermissionConstants.PERM_UPDATE_UNIT]);
-  const isAdmin = hasRole([RoleBase.ADMIN]);
-  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
-  const isUserDept = hasRole([RoleBase.USER_DEPT]);
+  
+  // Kiểm tra access scope types
+  const hasGlobalScope = currentUser?.accessScopeTypes?.includes(AccessScopeType.GLOBAL) || false;
+  const hasChildUnitsScope = currentUser?.accessScopeTypes?.includes(AccessScopeType.CHILD_UNITS) || false;
+  const hasUnitScope = currentUser?.accessScopeTypes?.includes(AccessScopeType.UNIT) || false;
 
   useEffect(() => {
     dispatch(getUnitById(unitId));
@@ -98,8 +100,8 @@ export default function EditUnitPage() {
     const newErrors: FormErrors = {};
     if (!formData.name.trim()) newErrors.name = "Tên đơn vị là bắt buộc";
     
-    // Chỉ validate type cho Admin (Admin Dept không thể thay đổi type)
-    if (isAdmin && !formData.type) newErrors.type = "Loại đơn vị là bắt buộc";
+    // Chỉ validate type cho GLOBAL scope
+    if (hasGlobalScope && !formData.type) newErrors.type = "Loại đơn vị là bắt buộc";
     
     if (!formData.representativeId)
       newErrors.representativeId = "Người đại diện là bắt buộc";
@@ -217,8 +219,8 @@ export default function EditUnitPage() {
                   )}
                 </div>
 
-                {/* Unit Type - chỉ hiện cho Admin */}
-                {isAdmin && (
+                {/* Unit Type - chỉ hiện cho GLOBAL scope */}
+                {hasGlobalScope && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Loại đơn vị *
@@ -262,8 +264,8 @@ export default function EditUnitPage() {
                   </div>
                 )}
 
-                {/* Parent Unit - chỉ hiện cho Admin khi type không phải CAMPUS */}
-                {isAdmin && formData.type && formData.type !== UnitType.CAMPUS && (
+                {/* Parent Unit - chỉ hiện cho GLOBAL scope khi type không phải CAMPUS */}
+                {hasGlobalScope && formData.type && formData.type !== UnitType.CAMPUS && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Đơn vị cha *

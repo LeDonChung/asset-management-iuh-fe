@@ -11,6 +11,7 @@ export interface UserLoginResponse {
   fullName: string;
   roles: string[];
   permissions: string[];
+  accessScopeTypes: string[];
   unitId: string;
 }
 
