@@ -15,6 +15,7 @@ import {
   X,
   MoreVertical,
   Move,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,12 +39,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PermissionConstants } from "@/lib/constants/permissions";
+import { proposeAssetLiquidation } from "@/lib/store/slices/assetSlice";
 import { setSelectedAssetsForHandover, setHandoverContext } from "@/lib/store/slices/transactionSlice";
 import { setSelectedAssetsForMove, setMoveContext } from "@/lib/store/slices/moveSlice";
 
 // Helper function to render asset book item status badge
 const getAssetBookItemStatusBadge = (status: AssetBookItemStatus) => {
-  const statusConfig = {
+  const statusConfig: Partial<Record<AssetBookItemStatus, { label: string; className: string }>> = {
     [AssetBookItemStatus.IN_USE]: {
       label: "Đang sử dụng",
       className: "bg-green-100 text-green-800 border border-green-200",
@@ -59,6 +62,14 @@ const getAssetBookItemStatusBadge = (status: AssetBookItemStatus) => {
     [AssetBookItemStatus.MISSING]: {
       label: "Thất lạc",
       className: "bg-red-100 text-red-800 border border-red-200",
+    },
+    [AssetBookItemStatus.DAMAGED]: {
+      label: "Hư hỏng",
+      className: "bg-yellow-100 text-yellow-800 border border-yellow-200",
+    },
+    [AssetBookItemStatus.PROPOSED_LIQUIDATION]: {
+      label: "Đề xuất thanh lý",
+      className: "bg-orange-100 text-orange-800 border border-orange-200",
     },
   };
 
@@ -121,11 +132,21 @@ const getAssetStatusBadge = (status: AssetStatus) => {
 
 // Helper functions to check if asset can be selected for operations
 const canSelectForHandover = (status: AssetBookItemStatus): boolean => {
-  return [AssetBookItemStatus.IN_USE, AssetBookItemStatus.DAMAGED].includes(status);
+  // Bàn giao: chỉ không cho chọn đã bàn giao, đã thanh lý
+  return ![AssetBookItemStatus.TRANSFERRED, AssetBookItemStatus.LIQUIDATED].includes(status);
 };
 
 const canSelectForMove = (status: AssetBookItemStatus): boolean => {
-  return [AssetBookItemStatus.IN_USE, AssetBookItemStatus.DAMAGED].includes(status);
+  // Di chuyển: chỉ không cho chọn đã bàn giao, đã thanh lý
+  return ![AssetBookItemStatus.TRANSFERRED, AssetBookItemStatus.LIQUIDATED].includes(status);
+};
+
+// Helper check: can propose liquidation
+const canProposeLiquidation = (bookItemStatus: AssetBookItemStatus, assetStatus?: AssetStatus): boolean => {
+  // Chỉ cho phép thanh lý tài sản khác ngoài đã bàn giao và đã thanh lý
+  // Không cho chọn: TRANSFERRED (đã bàn giao) và LIQUIDATED (đã thanh lý)
+  const eligibleInBook = ![AssetBookItemStatus.TRANSFERRED, AssetBookItemStatus.LIQUIDATED].includes(bookItemStatus);
+  return eligibleInBook;
 };
 
 // Asset type options for filter dropdown
@@ -305,7 +326,7 @@ const CardSelect: React.FC<CardSelectProps> = ({
 export default function AssetBookPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const { hasRole, user } = useAuth();
+  const { hasRole, hasAnyPermission, user } = useAuth();
 
   // Access scope types
   const accessScopeTypes = user?.accessScopeTypes || [];
@@ -333,6 +354,10 @@ export default function AssetBookPage() {
   // Move mode states
   const [isMoveMode, setIsMoveMode] = useState(false);
   const [selectedAssetsForMoveLocal, setSelectedAssetsForMoveLocal] = useState<string[]>([]);
+  
+  // Liquidation mode states
+  const [isLiquidationMode, setIsLiquidationMode] = useState(false);
+  const [selectedAssetsForLiquidationLocal, setSelectedAssetsForLiquidationLocal] = useState<string[]>([]);
   
   // Advanced filter toggle
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -451,6 +476,13 @@ export default function AssetBookPage() {
     }
   };
 
+  const handleToggleLiquidationMode = () => {
+    setIsLiquidationMode(!isLiquidationMode);
+    if (isLiquidationMode) {
+      setSelectedAssetsForLiquidationLocal([]);
+    }
+  };
+
   const handleSelectionChange = (
     selectedRowKeys: string[],
     selectedRows: Asset[]
@@ -474,6 +506,18 @@ export default function AssetBookPage() {
     setSelectedAssetsForMoveLocal(selectedRowKeys);
     console.log("Đã chọn tài sản để di chuyển:", selectedRowKeys);
     console.log("Chi tiết tài sản được chọn để di chuyển:", selectedRows);
+  };
+
+  const handleLiquidationSelectionChange = (
+    selectedRowKeys: string[],
+    selectedRows: Asset[]
+  ) => {
+    console.log("=== DEBUG LIQUIDATION SELECTION ===");
+    console.log("selectedRowKeys:", selectedRowKeys);
+    console.log("selectedRows:", selectedRows);
+    setSelectedAssetsForLiquidationLocal(selectedRowKeys);
+    console.log("Đã chọn tài sản để thanh lý:", selectedRowKeys);
+    console.log("Chi tiết tài sản được chọn để thanh lý:", selectedRows);
   };
 
   // Memoize deduplicated data to avoid recalculating on every render
@@ -573,12 +617,58 @@ export default function AssetBookPage() {
     toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để di chuyển`);
   };
 
+  const handleBulkLiquidation = () => {
+    if (selectedAssetsForLiquidationLocal.length === 0) {
+      toast.error("Vui lòng chọn ít nhất một tài sản để thanh lý!");
+      return;
+    }
+
+    const selectedAssetObjects = deduplicatedAssets.filter((asset) =>
+      selectedAssetsForLiquidationLocal.includes(asset.id)
+    );
+
+    console.log("Selected assets for liquidation:", selectedAssetObjects);
+
+    // Lưu danh sách tài sản đã chọn vào session storage
+    try {
+      sessionStorage.setItem(
+        'selectedAssetsForLiquidation',
+        JSON.stringify(selectedAssetObjects)
+      );
+      console.log("Saved to sessionStorage successfully");
+
+      // Kiểm tra lại xem có lưu được không
+      const saved = sessionStorage.getItem('selectedAssetsForLiquidation');
+      console.log("Verification - saved data:", saved);
+
+    } catch (error) {
+      console.error("Error saving to sessionStorage:", error);
+      toast.error("Có lỗi khi lưu dữ liệu. Vui lòng thử lại.");
+      return;
+    }
+
+    toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để thanh lý`);
+
+    // Thoát khỏi liquidation mode
+    setIsLiquidationMode(false);
+    setSelectedAssetsForLiquidationLocal([]);
+
+    // Delay một chút rồi mới chuyển trang để đảm bảo sessionStorage đã lưu
+    setTimeout(() => {
+      router.push('/liquidation/create');
+    }, 100);
+  };
+
   useEffect(() => {
     if (selectedCampusId) {
       setUnits(
         campuses.find((campus) => campus.id === selectedCampusId)?.childUnits ??
           []
       );
+      // Reset dependent selections when campus changes
+      setSelectedUnitId("");
+      setSelectedRoomId("");
+      setRooms([]);
     }
   }, [selectedCampusId]);
   useEffect(() => {
@@ -709,6 +799,7 @@ export default function AssetBookPage() {
                   <span>Xem chi tiết</span>
                 </DropdownMenuItem>
 
+                {/* Chỉnh sửa */}
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
@@ -730,11 +821,19 @@ export default function AssetBookPage() {
                   <span>Quét RFID</span>
                 </DropdownMenuItem>
 
-                {/* Bàn giao */}
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (canSelectForHandover(asset.bookItemStatus as AssetBookItemStatus)) {
+                {/* Separator cho actions khác */}
+                {(canSelectForHandover(asset.bookItemStatus as AssetBookItemStatus) && !isMoveMode) ||
+                (canSelectForMove(asset.bookItemStatus as AssetBookItemStatus) && !isSelectionMode) ||
+                (canProposeLiquidation(asset.bookItemStatus as AssetBookItemStatus, asset.status as AssetStatus) && !isSelectionMode && !isMoveMode) ||
+                (hasAnyPermission([PermissionConstants.PERM_PROPOSED_LIQUIDATION]) && canProposeLiquidation(asset.bookItemStatus as AssetBookItemStatus, asset.status as AssetStatus)) ? (
+                  <DropdownMenuSeparator />
+                ) : null}
+
+                {/* Bàn giao - chỉ hiện khi có thể bàn giao */}
+                {canSelectForHandover(asset.bookItemStatus as AssetBookItemStatus) && !isMoveMode && (
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (isSelectionMode) {
                         if (!selectedAssets.includes(asset.id)) {
                           setSelectedAssets((prev) => [...prev, asset.id]);
@@ -744,23 +843,18 @@ export default function AssetBookPage() {
                         setSelectedAssets([asset.id]);
                         setIsSelectionMode(true);
                       }
-                    }
-                  }}
-                  className={`flex items-center gap-2 ${
-                    canSelectForHandover(asset.bookItemStatus as AssetBookItemStatus) && !isMoveMode
-                      ? "cursor-pointer text-orange-600"
-                      : "cursor-not-allowed text-gray-400"
-                  }`}
-                  disabled={isMoveMode || !canSelectForHandover(asset.bookItemStatus as AssetBookItemStatus)}
-                >
-                  <span>Bàn giao</span>
-                </DropdownMenuItem>
+                    }}
+                    className="flex items-center gap-2 cursor-pointer text-orange-600"
+                  >
+                    <span>Bàn giao</span>
+                  </DropdownMenuItem>
+                )}
 
-                {/* Di chuyển */}
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (canSelectForMove(asset.bookItemStatus as AssetBookItemStatus)) {
+                {/* Di chuyển - chỉ hiện khi có thể di chuyển */}
+                {canSelectForMove(asset.bookItemStatus as AssetBookItemStatus) && !isSelectionMode && (
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (isMoveMode) {
                         if (!selectedAssetsForMoveLocal.includes(asset.id)) {
                           setSelectedAssetsForMoveLocal((prev) => [...prev, asset.id]);
@@ -770,17 +864,55 @@ export default function AssetBookPage() {
                         setSelectedAssetsForMoveLocal([asset.id]);
                         setIsMoveMode(true);
                       }
-                    }
-                  }}
-                  className={`flex items-center gap-2 ${
-                    canSelectForMove(asset.bookItemStatus as AssetBookItemStatus) && !isSelectionMode
-                      ? "cursor-pointer text-green-600"
-                      : "cursor-not-allowed text-gray-400"
-                  }`}
-                  disabled={isSelectionMode || !canSelectForMove(asset.bookItemStatus as AssetBookItemStatus)}
-                >
-                  <span>Di chuyển</span>
-                </DropdownMenuItem>
+                    }}
+                    className="flex items-center gap-2 cursor-pointer text-green-600"
+                  >
+                    <span>Di chuyển</span>
+                  </DropdownMenuItem>
+                )}
+
+                {/* Chọn thanh lý - chỉ hiện khi có thể thanh lý */}
+                {canProposeLiquidation(asset.bookItemStatus as AssetBookItemStatus, asset.status as AssetStatus) && !isSelectionMode && !isMoveMode && (
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isLiquidationMode) {
+                        if (!selectedAssetsForLiquidationLocal.includes(asset.id)) {
+                          setSelectedAssetsForLiquidationLocal((prev) => [...prev, asset.id]);
+                        }
+                      } else {
+                        // Nếu chưa ở chế độ thanh lý, chọn tài sản này và vào chế độ thanh lý
+                        setSelectedAssetsForLiquidationLocal([asset.id]);
+                        setIsLiquidationMode(true);
+                      }
+                    }}
+                    className="flex items-center gap-2 cursor-pointer text-red-600"
+                  >
+                    <span>Chọn thanh lý</span>
+                  </DropdownMenuItem>
+                )}
+
+                {/* Đề xuất thanh lý - chỉ hiện khi có quyền và có thể thanh lý */}
+                {hasAnyPermission([PermissionConstants.PERM_PROPOSED_LIQUIDATION]) &&
+                canProposeLiquidation(asset.bookItemStatus as AssetBookItemStatus, asset.status as AssetStatus) && (
+                  <DropdownMenuItem
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await dispatch(proposeAssetLiquidation({ id: asset.id, note: "Đề xuất thanh lý từ sổ tài sản" })).unwrap();
+                        // Refresh current list by reusing current filter
+                        handleFilterChange({
+                          ...currentFilter,
+                        });
+                      } catch (err: any) {
+                        // toast handled in thunk
+                      }
+                    }}
+                    className="flex items-center gap-2 cursor-pointer text-orange-700"
+                  >
+                    <span>Đề xuất thanh lý</span>
+                  </DropdownMenuItem>
+                )}
 
                 {/* Xóa */}
                 <>
@@ -844,6 +976,21 @@ export default function AssetBookPage() {
             {isMoveMode ? "Hủy di chuyển" : "Di chuyển tài sản"}
           </Button>
 
+          {/* Nút thanh lý */}
+          <Button
+            onClick={handleToggleLiquidationMode}
+            variant={isLiquidationMode ? "destructive" : "default"}
+            className={`flex items-center ${
+              isLiquidationMode
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-red-600 hover:bg-red-700 text-white"
+            }`}
+            disabled={isSelectionMode || isMoveMode}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {isLiquidationMode ? "Hủy thanh lý" : "Thanh lý tài sản"}
+          </Button>
+
           <Button onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Xuất sổ tài sản
@@ -893,7 +1040,7 @@ export default function AssetBookPage() {
                   })) || []),
                 ]}
                 placeholder="Chọn đơn vị"
-                disabled={hasChildUnitsAccess ? !selectedCampusId : false}
+                disabled={!selectedCampusId}
                 required
                 className="text-base"
               />
@@ -1061,6 +1208,45 @@ export default function AssetBookPage() {
         </div>
       )}
 
+      {/* Liquidation Mode Info */}
+      {isLiquidationMode && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Trash2 className="h-5 w-5 text-red-600" />
+              <span className="text-sm font-medium text-red-900">
+                Chọn tài sản để thanh lý
+              </span>
+              {selectedAssetsForLiquidationLocal.length > 0 && (
+                <span className="text-sm text-red-700">
+                  - Đã chọn {selectedAssetsForLiquidationLocal.length} tài sản
+                </span>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              {selectedAssetsForLiquidationLocal.length > 0 && (
+                <Button
+                  onClick={handleBulkLiquidation}
+                  size="sm"
+                  className="flex items-center bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Xác nhận thanh lý
+                </Button>
+              )}
+              <Button
+                onClick={handleToggleLiquidationMode}
+                size="sm"
+                variant="outline"
+                className="text-gray-600 border-gray-300 hover:bg-gray-50"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Hủy
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Assets Table */}
       <Table<Asset>
         columns={columns}
@@ -1093,6 +1279,14 @@ export default function AssetBookPage() {
                 onChange: handleMoveSelectionChange,
                 getCheckboxProps: (record) => ({
                   disabled: !canSelectForMove(record.bookItemStatus as AssetBookItemStatus),
+                }),
+              }
+            : isLiquidationMode
+            ? {
+                selectedRowKeys: selectedAssetsForLiquidationLocal,
+                onChange: handleLiquidationSelectionChange,
+                getCheckboxProps: (record) => ({
+                  disabled: !canProposeLiquidation(record.bookItemStatus as AssetBookItemStatus, record.status as AssetStatus),
                 }),
               }
             : undefined
