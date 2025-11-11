@@ -230,18 +230,6 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
       href: "/liquidation",
       icon: Trash2,
       permissions: [PermissionConstants.PERM_VIEW_LIQUIDATION],
-      children: [
-        {
-          name: "Danh sách đề xuất",
-          href: "/liquidation",
-          permissions: [PermissionConstants.PERM_VIEW_LIQUIDATION],
-        },
-        {
-          name: "Tạo đề xuất thanh lý",
-          href: "/liquidation/create",
-          permissions: [PermissionConstants.PERM_CREATE_LIQUIDATION],
-        },
-      ],
     }, // Quản lý cảnh báo
     {
       name: "Cảnh báo",

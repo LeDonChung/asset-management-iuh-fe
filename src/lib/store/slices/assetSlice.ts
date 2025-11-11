@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import { Asset, AssetFilter, AssetStatus, AssetType, PaginatedResponse } from "@/types/asset";
 import { axiosInstance } from "@/lib/api";
+import toast from "react-hot-toast";
 
 // Bulk location update types
 interface LocationUpdateItem {
@@ -149,6 +150,21 @@ export const bulkUpdateAssetLocations = createAsyncThunk(
   }
 );
 
+export const proposeAssetLiquidation = createAsyncThunk(
+  "asset/proposeLiquidation",
+  async ({ id, note }: { id: string; note?: string }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.patch(`api/v1/assets/${id}/propose-liquidation`, { note });
+      toast.success("Đã đề xuất thanh lý tài sản");
+      return response.data as Asset;
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Đề xuất thanh lý thất bại";
+      toast.error(message);
+      return rejectWithValue(message);
+    }
+  }
+);
+
 const assetSlice = createSlice({
   name: "asset",
   initialState,
@@ -241,6 +257,23 @@ const assetSlice = createSlice({
       .addCase(bulkUpdateAssetLocations.rejected, (state, action) => {
         state.bulkUpdateLoading = false;
         state.error = action.error.message || "Failed to update asset locations";
+      })
+      // Propose liquidation
+      .addCase(proposeAssetLiquidation.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(proposeAssetLiquidation.fulfilled, (state, action) => {
+        state.loading = false;
+        // If we have this asset loaded, update it
+        if (state.asset && state.asset.id === action.payload.id) {
+          state.asset = action.payload as any;
+        }
+        state.error = null;
+      })
+      .addCase(proposeAssetLiquidation.rejected, (state, action) => {
+        state.loading = false;
+        state.error = (action.payload as string) || action.error.message || "Failed to propose liquidation";
       });
   },
 });
