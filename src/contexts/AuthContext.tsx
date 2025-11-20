@@ -55,7 +55,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           roles: userData.roles,
           permissions: userData.permissions,
           accessScopeTypes: userData.accessScopeTypes || [],
-          unitId: userData.unitId || ''
+          unitId: userData.unitId || '',
+          unitName: userData.unitName
         }
         console.log(legacyUser)
         setUser(legacyUser)

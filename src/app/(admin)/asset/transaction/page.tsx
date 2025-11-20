@@ -487,9 +487,6 @@ export default function TransactionPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Quản lý bàn giao</h1>
-            <p className="text-gray-600 mt-2">
-              Quản lý các bàn giao tài sản
-            </p>
           </div>
           {canCreate && (
             <Button
@@ -580,21 +577,6 @@ export default function TransactionPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-
-            {/* Type Filter */}
-            <select
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={typeFilter}
-              onChange={(e) =>
-                setTypeFilter(e.target.value as TransactionType | "")
-              }
-            >
-              <option value="">Tất cả loại</option>
-              <option value={TransactionType.TRANSFER}>Bàn giao</option>
-              <option value={TransactionType.INTERNAL_MOVE}>
-                Di chuyển nội bộ
-              </option>
-            </select>
 
             {/* Status Filter */}
             <select

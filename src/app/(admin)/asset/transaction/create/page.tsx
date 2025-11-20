@@ -9,6 +9,8 @@ import {
   resetTransactionState,
   removeAssetFromHandover,
   createTransaction,
+  setSelectedAssetsForHandover,
+  setHandoverContext,
 } from "@/lib/store/slices/transactionSlice";
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { Button } from "@/components/ui/button";
@@ -232,15 +234,68 @@ export default function TransactionPage() {
   // State cho ghi chú tài sản
   const [assetNotes, setAssetNotes] = useState<Record<string, string>>({});
 
-  // Redirect nếu không có tài sản nào được chọn
+  // Load handover draft from sessionStorage if available
+  useEffect(() => {
+    const loadHandoverDraft = () => {
+      try {
+        const savedDraft = sessionStorage.getItem('handoverDraft');
+        if (savedDraft) {
+          const handoverDraft = JSON.parse(savedDraft);
+          console.log("Loading handover draft from sessionStorage:", handoverDraft);
+
+          // Restore filter context
+          if (handoverDraft.filterContext) {
+            const { filterContext } = handoverDraft;
+            if (filterContext.selectedCampusId) {
+              setSelectedCampusId(filterContext.selectedCampusId);
+            }
+            if (filterContext.selectedUnitId) {
+              setSelectedUnitId(filterContext.selectedUnitId);
+            }
+          }
+
+          // Restore assets to Redux if not already loaded
+          if (selectedAssetsForHandover.length === 0 && handoverDraft.assets) {
+            dispatch(setSelectedAssetsForHandover(handoverDraft.assets));
+            
+            // Restore handover context
+            if (handoverDraft.handoverContext) {
+              dispatch(setHandoverContext(handoverDraft.handoverContext));
+            }
+          }
+
+          // Set default transaction note
+          if (!transactionNote && handoverDraft.assets?.length > 0) {
+            const unitName = handoverDraft.filterContext?.unitName || "đơn vị được chọn";
+            setTransactionNote(`Bàn giao ${handoverDraft.assets.length} tài sản đến ${unitName}`);
+          }
+
+          // Thông báo đã khôi phục dữ liệu
+          if (handoverDraft.assets?.length > 0) {
+            toast.success(`Đã khôi phục ${handoverDraft.assets.length} tài sản từ phiên trước`);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading handover draft from sessionStorage:", error);
+      }
+    };
+
+    loadHandoverDraft();
+  }, [dispatch, selectedAssetsForHandover.length, transactionNote]);
+
+  // Redirect nếu không có tài sản nào được chọn và không có draft
   useEffect(() => {
     if (selectedAssetsForHandover.length === 0) {
-      // Delay redirect một chút để tránh race condition
-      const timer = setTimeout(() => {
-        router.push("/asset/asset-book");
-      }, 100);
+      // Kiểm tra xem có draft trong sessionStorage không
+      const savedDraft = sessionStorage.getItem('handoverDraft');
+      if (!savedDraft) {
+        // Delay redirect một chút để tránh race condition
+        const timer = setTimeout(() => {
+          router.push("/asset/asset-book");
+        }, 100);
 
-      return () => clearTimeout(timer);
+        return () => clearTimeout(timer);
+      }
     }
   }, [selectedAssetsForHandover, router]);
 
@@ -364,6 +419,8 @@ export default function TransactionPage() {
   }, [selectedAssetsForHandover, handoverContext]);
 
   const handleCancelHandover = () => {
+    // Xóa handover draft khỏi sessionStorage
+    sessionStorage.removeItem('handoverDraft');
     // Xóa tất cả dữ liệu transaction
     dispatch(resetTransactionState());
     // Quay về trang sổ tài sản
@@ -429,6 +486,9 @@ export default function TransactionPage() {
 
       // Kiểm tra kết quả
       if (result && result.id) {
+        // Xóa handover draft khỏi sessionStorage
+        sessionStorage.removeItem('handoverDraft');
+        
         // Hiển thị thông báo thành công
         const statusText = selectedStatus === TransactionStatus.DRAFT ? "nháp" : "đề xuất";
         toast.success(
@@ -623,8 +683,8 @@ export default function TransactionPage() {
                   <>
                     <Save className="h-4 w-4 mr-2" />
                     {selectedStatus === TransactionStatus.DRAFT 
-                      ? "Lưu nháp yêu cầu bàn giao"
-                      : "Tạo đề xuất bàn giao"
+                      ? "Lưu nháp"
+                      : "Tạo đề xuất"
                     }
                   </>
                 )}

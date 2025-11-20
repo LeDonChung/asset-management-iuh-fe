@@ -1,527 +1,821 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useSelector } from "react-redux";
+import { RootState } from "@/lib/store";
 import {
   ArrowLeft,
   Save,
   Package2,
-  AlertCircle,
   Building,
   Calendar,
   Hash,
+  FileText,
+  MapPin,
   User,
+  CheckSquare,
+  ChevronDown,
+  Check,
+  RefreshCw,
+  AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
-import { Asset, AssetType, AssetFormData, AssetStatus, RoomStatus, UnitStatus, UnitType } from "@/types/asset";
+import { 
+  AssetType, 
+  AssetFormData, 
+  RoomStatus, 
+  UnitStatus, 
+  UnitType,
+  AccessScopeType,
+  Unit,
+  Room,
+  Asset
+} from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { updateAsset, fetchAssetById } from "@/lib/store/slices/assetSlice";
+import { getUnitCampus } from "@/lib/store/slices/unitSlice";
+import { fetchRoomsByUnitId } from "@/lib/store/slices/roomSlice";
+import { axiosInstance } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import toast from "react-hot-toast";
 
-// Mock data
-const mockAsset: Asset = {
-  id: "1",
-  ktCode: "24-0001/01",
-  fixedCode: "4001.00001",
-  name: "Máy tính Dell Latitude 5520",
-  specs: "Intel Core i5-1135G7, 8GB RAM, 256GB SSD, Windows 11 Pro",
-  entryDate: "2024-01-15",
-  currentRoomId: "1",
-  unit: "Cái",
-  quantity: 1,
-  origin: "Dell Việt Nam",
-  purchasePackage: 1,
-  type: AssetType.TSCD,
-  isLocked: false,
-  categoryId: "4",
-  status: AssetStatus.CHO_PHAN_BO,
-  createdBy: "user1",
-  createdAt: "2024-01-15T10:00:00Z",
-  updatedAt: "2024-01-15T10:00:00Z",
-  category: { id: "4", name: "Máy tính", code: "4" },
-  room: { id: "1", building: "B", floor: "1", roomNumber: "Phòng IT 09", name: "Phòng IT 09", status: RoomStatus.ACTIVE, unitId: "unit1", createdAt: "2024-01-15T10:00:00Z", updatedAt: "2024-01-15T10:00:00Z", createdBy: "admin" }
+// CardSelect Component (reused from create page)
+interface CardSelectProps {
+  label: string;
+  icon: React.ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+  disabled?: boolean;
+  loading?: boolean;
+  className?: string;
+  required?: boolean;
+}
+
+const CardSelect: React.FC<CardSelectProps> = ({
+  label,
+  icon,
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled = false,
+  loading = false,
+  className = "",
+  required = false,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const selectedOption = options.find((opt) => opt.value === value);
+
+  // Update dropdown position when opening
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  }, [isOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (isOpen && !target.closest(".card-select-container")) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className={`relative group card-select-container ${className}`}>
+      <label className={`block font-medium text-gray-700 mb-2 ${className.includes('text-lg') ? 'text-base' : className.includes('text-base') ? 'text-sm' : 'text-xs'}`}>
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <div className="relative">
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
+          className={`
+            w-full ${className.includes('text-lg') ? 'min-h-[3.5rem] text-lg' : className.includes('text-base') ? 'min-h-[2.75rem] text-base' : 'min-h-[2.5rem] text-sm'} pl-3 pr-10 border border-gray-200 rounded-lg 
+            bg-white text-left transition-all duration-200
+            hover:border-gray-300 hover:shadow-sm
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+            disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
+            ${isOpen ? "ring-2 ring-blue-500 border-blue-500" : ""}
+            ${loading ? "cursor-wait" : "cursor-pointer"}
+            relative
+          `}
+        >
+          <div className="flex items-center justify-between h-full py-2.5">
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
+              {icon && (
+                <div
+                  className={`transition-colors flex-shrink-0 ${
+                    isOpen ? "text-blue-500" : "text-gray-400"
+                  }`}
+                >
+                  {icon}
+                </div>
+              )}
+              <span
+                className={`flex-1 truncate ${
+                  selectedOption ? "text-gray-900" : "text-gray-500"
+                }`}
+                title={selectedOption ? selectedOption.label : placeholder}
+              >
+                {selectedOption ? selectedOption.label : placeholder}
+              </span>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ml-2 ${
+                isOpen ? "rotate-180" : ""
+              }`}
+            />
+          </div>
+        </button>
+
+        {loading && (
+          <div className="absolute right-8 top-1/2 transform -translate-y-1/2 z-10">
+            <RefreshCw className="h-4 w-4 text-gray-400 animate-spin" />
+          </div>
+        )}
+
+        {isOpen && (
+          <div className="absolute z-[9999] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto">
+            {options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className={`
+                  w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors
+                  flex items-start justify-between min-h-[3rem]
+                  ${
+                    option.value === value
+                      ? "bg-blue-50 text-blue-900"
+                      : "text-gray-900"
+                  }
+                `}
+              >
+                <span className="flex-1 leading-relaxed break-words">
+                  {option.label}
+                </span>
+                {option.value === value && (
+                  <Check className="h-4 w-4 text-blue-600" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
-const mockCategories = [
-  { id: "3", name: "Thiết bị văn phòng", code: "3" },
-  { id: "4", name: "Máy tính", code: "4" },
-  { id: "5", name: "Máy in", code: "5" },
-];
-
-const mockUnits = [
-  { id: "unit1", name: "Phòng CNTT", type: UnitType.DON_VI_SU_DUNG, status: UnitStatus.ACTIVE },
-  { id: "unit2", name: "Phòng Kế toán", type: UnitType.DON_VI_SU_DUNG, status: UnitStatus.ACTIVE },
-  { id: "unit3", name: "Phòng Nhân sự", type: UnitType.DON_VI_SU_DUNG, status: UnitStatus.ACTIVE },
-  { id: "unit4", name: "Phòng Quản trị", type: UnitType.PHONG_QUAN_TRI, status: UnitStatus.ACTIVE },
-  { id: "unit5", name: "Phòng Kế hoạch Đầu tư", type: UnitType.PHONG_KE_HOACH_DAU_TU, status: UnitStatus.ACTIVE },
-];
-
-const mockRooms = [
-  { id: "1", building: "B", floor: "1", roomNumber: "Phòng IT 09", status: RoomStatus.ACTIVE, unitId: "unit1", name: "Phòng IT 09", createdAt: "2024-01-15T10:00:00Z", updatedAt: "2024-01-15T10:00:00Z", createdBy: "admin" },
-  { id: "2", building: "B", floor: "1", roomNumber: "Phòng Kế toán 10", status: RoomStatus.ACTIVE, unitId: "unit2", name: "Phòng Kế toán 10", createdAt: "2024-01-15T10:00:00Z", updatedAt: "2024-01-15T10:00:00Z", createdBy: "admin" },
-  { id: "3", building: "B", floor: "2", roomNumber: "Phòng Nhân sự 05", status: RoomStatus.ACTIVE, unitId: "unit3", name: "Phòng Nhân sự 05", createdAt: "2024-01-15T10:00:00Z", updatedAt: "2024-01-15T10:00:00Z", createdBy: "admin" },
-  { id: "4", building: "C", floor: "1", roomNumber: "Phòng Quản trị 03", status: RoomStatus.ACTIVE, unitId: "unit4", name: "Phòng Quản trị 03", createdAt: "2024-01-15T10:00:00Z", updatedAt: "2024-01-15T10:00:00Z", createdBy: "admin" },
-  { id: "5", building: "C", floor: "2", roomNumber: "Phòng KHĐT 07", status: RoomStatus.ACTIVE, unitId: "unit5", name: "Phòng KHĐT 07", createdAt: "2024-01-15T10:00:00Z", updatedAt: "2024-01-15T10:00:00Z", createdBy: "admin" },
-];
-
 export default function EditAssetPage() {
-  const params = useParams();
   const router = useRouter();
-  const [asset, setAsset] = useState<Asset | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [unitId, setUnitId] = useState<string>("");
-  const [filteredRooms, setFilteredRooms] = useState(mockRooms);
-  const [formData, setFormData] = useState<AssetFormData>({
+  const params = useParams();
+  const assetId = params.id as string;
+  const dispatch = useAppDispatch();
+  const { user } = useAuth();
+  const { loading, asset } = useAppSelector((state) => state.asset);
+  const { campuses } = useSelector((state: RootState) => state.unit);
+  const { loading: roomsLoading } = useSelector((state: RootState) => state.room);
+
+  // Access scope types
+  const accessScopeTypes = user?.accessScopeTypes || [];
+  const hasGlobalAccess = accessScopeTypes.includes(AccessScopeType.GLOBAL);
+  const hasChildUnitsAccess = accessScopeTypes.includes(AccessScopeType.CHILD_UNITS);
+  const hasUnitAccess = accessScopeTypes.includes(AccessScopeType.UNIT);
+  const hasSelfAccess = accessScopeTypes.includes(AccessScopeType.SELF);
+  
+  const [categories, setCategories] = useState<any[]>([]);
+  const [formData, setFormData] = useState<AssetFormData & { locationInRoom?: string; rfid?: string }>({
     name: "",
     specs: "",
-    entryDate: "",
+    entryDate: new Date().toISOString().split('T')[0],
     currentRoomId: undefined,
+    locationInRoom: "",
     unit: "",
     quantity: 1,
     origin: "",
     purchasePackage: 0,
-    type: AssetType.TSCD,
+    type: AssetType.FIXED_ASSET,
     categoryId: "",
+    rfid: "",
   });
 
+  // State cho việc chọn đơn vị và phòng
+  const [selectedCampusId, setSelectedCampusId] = useState("");
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [selectedUnitId, setSelectedUnitId] = useState("");
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasCurrentRoom, setHasCurrentRoom] = useState(false);
+  const [originalAsset, setOriginalAsset] = useState<Asset | null>(null);
+
+  // Load asset data on mount
   useEffect(() => {
-    // Mock API call to fetch asset
-    const fetchAsset = async () => {
-      setIsLoading(true);
+    const loadAssetData = async () => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setAsset(mockAsset);
+        const asset = await dispatch(fetchAssetById(assetId)).unwrap();
+        setOriginalAsset(asset);
         
-        // Set the unit ID if the asset has a room with unitId
-        if (mockAsset.room?.unitId) {
-          setUnitId(mockAsset.room.unitId);
-        }
-        
+        // Check if asset has current room
+        const hasRoom = asset.currentRoom !== null;
+        setHasCurrentRoom(hasRoom);
+
         // Populate form data
         setFormData({
-          name: mockAsset.name,
-          specs: mockAsset.specs || "",
-          entryDate: mockAsset.entryDate,
-          currentRoomId: mockAsset.currentRoomId,
-          unit: mockAsset.unit,
-          quantity: mockAsset.quantity,
-          origin: mockAsset.origin || "",
-          purchasePackage: mockAsset.purchasePackage,
-          type: mockAsset.type,
-          categoryId: mockAsset.categoryId,
+          name: asset.name || "",
+          specs: asset.specs || "",
+          entryDate: asset.entrydate ? new Date(asset.entrydate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          currentRoomId: asset.currentRoom?.id,
+          locationInRoom: asset.locationInRoom || "",
+          unit: asset.unit || "",
+          quantity: asset.quantity || 1,
+          origin: asset.origin || "",
+          purchasePackage: asset.purchasePackage || 0,
+          type: asset.type,
+          categoryId: asset.category?.id || "",
+          rfid: asset.rfidTag?.rfidId || "",
         });
+
+        // Set unit and campus based on current room
+        if (asset.currentRoom?.unit) {
+          setSelectedUnitId(asset.currentRoom.unit.id);
+          
+          // Find campus that contains this unit
+          const campusesResult = await dispatch(getUnitCampus()).unwrap();
+          for (const campus of campusesResult) {
+            if (campus.childUnits?.some((unit: Unit) => unit.id === asset.currentRoom?.unit?.id)) {
+              setSelectedCampusId(campus.id);
+              setUnits(campus.childUnits);
+              break;
+            }
+          }
+
+          // Load rooms for the unit
+          const roomsResult = await dispatch(fetchRoomsByUnitId(asset.currentRoom.unit.id)).unwrap();
+          setRooms(roomsResult);
+        }
       } catch (error) {
-        console.error("Error fetching asset:", error);
-      } finally {
-        setIsLoading(false);
+        console.error('Error loading asset:', error);
+        toast.error('Có lỗi xảy ra khi tải thông tin tài sản');
+        router.push('/asset');
       }
     };
 
-    fetchAsset();
-  }, [params.id]);
-  
-  // Filter rooms based on selected unit
-  useEffect(() => {
-    if (unitId) {
-      setFilteredRooms(mockRooms.filter(room => room.unitId === unitId));
-    } else {
-      setFilteredRooms(mockRooms);
+    if (assetId) {
+      loadAssetData();
     }
-  }, [unitId]);
+  }, [assetId, dispatch, router]);
+
+  // Load initial data based on access scope
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        // Load categories
+        const categoriesResponse = await axiosInstance.get('/api/v1/categories');
+        setCategories(categoriesResponse.data);
+
+        // Load campuses and units based on access scope (only if asset doesn't have a room yet)
+        if (!hasCurrentRoom && !selectedCampusId) {
+          const campusesResult = await dispatch(getUnitCampus()).unwrap();
+          if (campusesResult && user) {
+            if (hasChildUnitsAccess) {
+              const userCampus = campusesResult.find(
+                (campus: Unit) => campus.id === user?.unitId
+              );
+              if (userCampus) {
+                setUnits(userCampus.childUnits ?? []);
+                setSelectedCampusId(userCampus.id);
+              } else {
+                setUnits([]);
+                setSelectedCampusId("");
+              }
+            } else if (hasUnitAccess || hasSelfAccess) {
+              let userUnit: Unit | undefined;
+              let userCampus: Unit | undefined;
+
+              const unitId = user.unitId;
+
+              for (const campus of campusesResult) {
+                const foundUnit = campus.childUnits?.find(
+                  (unit: Unit) => unit.id === unitId
+                );
+                if (foundUnit) {
+                  userUnit = foundUnit;
+                  userCampus = campus;
+                  break;
+                }
+              }
+
+              if (userCampus && userUnit) {
+                setSelectedCampusId(userCampus.id);
+                setUnits(userCampus.childUnits ?? []);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+        toast.error('Có lỗi xảy ra khi tải dữ liệu.');
+      }
+    };
+
+    loadInitialData();
+  }, [dispatch, hasGlobalAccess, hasChildUnitsAccess, hasUnitAccess, hasSelfAccess, user, hasCurrentRoom, selectedCampusId]);
+
+  // Update units when campus changes
+  useEffect(() => {
+    if (selectedCampusId && !hasCurrentRoom) {
+      const campus = campuses.find((campus) => campus.id === selectedCampusId);
+      setUnits(campus?.childUnits ?? []);
+      setSelectedUnitId(""); // Reset unit selection
+      setRooms([]); // Reset rooms
+      setFormData(prev => ({ ...prev, currentRoomId: undefined })); // Reset room selection
+    }
+  }, [selectedCampusId, campuses, hasCurrentRoom]);
+
+  // Fetch rooms when unit changes
+  useEffect(() => {
+    const fetchRooms = async () => {
+      if (selectedUnitId && !hasCurrentRoom) {
+        try {
+          const res = await dispatch(
+            fetchRoomsByUnitId(selectedUnitId)
+          ).unwrap();
+          setRooms(res);
+        } catch (error) {
+          console.error("Error fetching rooms:", error);
+          setRooms([]);
+        }
+      } else if (!selectedUnitId && !hasCurrentRoom) {
+        setRooms([]);
+        setFormData(prev => ({ ...prev, currentRoomId: undefined }));
+      }
+    };
+    fetchRooms();
+  }, [dispatch, selectedUnitId, hasCurrentRoom]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
-    if (name === 'unitId') {
-      setUnitId(value);
-      // Reset room selection when unit changes
-      if (unitId !== value) {
-        setFormData(prev => ({
-          ...prev,
-          plannedRoomId: undefined
-        }));
-      }
-    } else {
-      setFormData(prev => ({
+    setFormData(prev => {
+      const newData = {
         ...prev,
-        [name]: name === 'quantity' || name === 'purchasePackage' 
+        [name]: name === 'quantity' || name === 'purchasePackage'
           ? (value === '' ? undefined : Number(value))
-          : name === 'plannedRoomId' 
-          ? (value === '' ? undefined : value)
-          : value
-      }));
-    }
+          : name === 'currentRoomId'
+            ? (value === '' ? undefined : value)
+            : value
+      };
+
+      // Nếu thay đổi loại tài sản thành "Tài sản cố định", set số lượng về 1
+      if (name === 'type' && value === AssetType.FIXED_ASSET) {
+        newData.quantity = 1;
+        // Xóa RFID nếu chuyển từ công cụ dụng cụ sang tài sản cố định
+        if (prev.type === AssetType.TOOLS_EQUIPMENT) {
+          newData.rfid = "";
+        }
+      }
+
+      // Nếu thay đổi từ tài sản cố định sang công cụ dụng cụ, xóa RFID
+      if (name === 'type' && value === AssetType.TOOLS_EQUIPMENT && prev.type === AssetType.FIXED_ASSET) {
+        newData.rfid = "";
+      }
+
+      return newData;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!asset) return;
-    
-    if (!unitId) {
-      alert("Vui lòng chọn đơn vị sử dụng");
-      return;
-    }
-    
-    setIsSaving(true);
+    setIsSubmitting(true);
 
     try {
-      // Mock API call
-      const updatedAsset = {
-        ...asset,
-        ...formData,
-        unitId: unitId, // Add the unit ID
-        updatedAt: new Date().toISOString(),
-      };
+      await dispatch(updateAsset({
+        id: assetId,
+        data: {
+          name: formData.name,
+          specs: formData.specs,
+          entrydate: formData.entryDate,
+          currentRoomId: formData.currentRoomId,
+          locationInRoom: formData.locationInRoom,
+          unit: formData.unit,
+          quantity: formData.quantity,
+          origin: formData.origin,
+          purchasePackage: formData.purchasePackage,
+          type: formData.type,
+          categoryId: formData.categoryId,
+          rfid: formData.rfid,
+        }
+      })).unwrap();
 
-      console.log("Updating asset:", updatedAsset);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      router.push(`/asset/${asset.id}`);
-    } catch (error) {
+      toast.success("Cập nhật tài sản thành công!");
+      router.push(`/asset/${assetId}`);
+    } catch (error: any) {
       console.error("Error updating asset:", error);
-      alert("Có lỗi xảy ra khi cập nhật tài sản");
+      toast.error(error.message || "Có lỗi xảy ra khi cập nhật tài sản.");
     } finally {
-      setIsSaving(false);
+      setIsSubmitting(false);
     }
   };
 
-  if (isLoading) {
+  if (!originalAsset) {
     return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Đang tải thông tin tài sản...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!asset) {
-    return (
-      <div className="text-center py-12">
-        <Package2 className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900">Không tìm thấy tài sản</h3>
-        <p className="mt-1 text-sm text-gray-500">Tài sản không tồn tại hoặc đã bị xóa.</p>
-        <div className="mt-6">
-          <Link
-            href="/asset"
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Quay lại danh sách
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (asset.isLocked) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-4">
-          <Link 
-            href={`/asset/${asset.id}`}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Chỉnh sửa tài sản</h1>
-            <p className="text-gray-600">{asset.name}</p>
-          </div>
-        </div>
-
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-6 text-center">
-          <AlertCircle className="mx-auto h-12 w-12 text-orange-400" />
-          <h3 className="mt-2 text-lg font-medium text-orange-900">Không thể chỉnh sửa</h3>
-          <p className="mt-1 text-sm text-orange-700">
-            Tài sản này đã được bàn giao và không thể chỉnh sửa thông tin.
-          </p>
-          <div className="mt-6">
-            <Link
-              href={`/asset/${asset.id}`}
-              className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-            >
-              Quay lại chi tiết
-            </Link>
-          </div>
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6">
       {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Link href={`/asset/${asset.id}`}>
-          <Button variant="ghost" size="icon" className="rounded-lg">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Chỉnh sửa tài sản</h1>
-          <p className="text-gray-600">{asset.name}</p>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Link href={`/asset/${assetId}`}>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Chỉnh sửa tài sản
+            </h1>
+            <p className="text-gray-600">
+              {originalAsset.name} - {originalAsset.ktCode}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Asset codes info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-blue-900">Mã kế toán</label>
-            <div className="font-mono text-sm text-blue-800">{asset.ktCode}</div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-blue-900">Mã tài sản cố định</label>
-            <div className="font-mono text-sm text-blue-800">{asset.fixedCode}</div>
+      {/* Warning for assets with current room */}
+      {hasCurrentRoom && (
+        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-5 w-5 text-amber-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-amber-700">
+                <strong>Lưu ý:</strong> Tài sản này đã được phân bổ cho phòng <strong>{originalAsset.currentRoom?.name}</strong>.
+                Một số thông tin quan trọng như loại tài sản, danh mục, mã KT và mã RFID không thể thay đổi.
+                Để cập nhật những thông tin này, vui lòng thu hồi tài sản trước.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
-              <Package2 className="h-5 w-5 text-white" />
-            </div>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-lg font-medium text-gray-900">Cập nhật thông tin</h3>
-                <p className="text-sm text-gray-500">Chỉnh sửa thông tin chi tiết của tài sản</p>
-              </div>
-            </div>
-          </div>
+      <div className="bg-white rounded-xl border border-gray-300">
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="space-y-6">
+            {/* Basic Information */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                Thông tin cơ bản
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tên tài sản <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder="Nhập tên tài sản"
+                    required
+                    disabled={isSubmitting}
+                    className="w-full"
+                  />
+                </div>
 
-          <div className="px-6 py-6 space-y-6">
-            {/* Tên tài sản và Loại tài sản */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tên tài sản <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Loại tài sản <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleInputChange}
-                  required
-                  className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                >
-                  <option value={AssetType.TSCD}>Tài sản cố định</option>
-                  <option value={AssetType.CCDC}>Công cụ dụng cụ</option>
-                </select>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Thông số kỹ thuật
+                  </label>
+                  <Input
+                    name="specs"
+                    value={formData.specs}
+                    onChange={handleInputChange}
+                    placeholder="Nhập thông số kỹ thuật"
+                    disabled={isSubmitting}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Loại tài sản <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="type"
+                    value={formData.type}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                    disabled={isSubmitting || hasCurrentRoom}
+                  >
+                    <option value={AssetType.FIXED_ASSET}>Tài sản cố định</option>
+                    <option value={AssetType.TOOLS_EQUIPMENT}>Công cụ dụng cụ</option>
+                  </select>
+                  {hasCurrentRoom && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Không thể thay đổi loại tài sản khi đã có phòng sử dụng
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Danh mục <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="categoryId"
+                    value={formData.categoryId}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                    disabled={isSubmitting || hasCurrentRoom}
+                  >
+                    <option value="">Chọn danh mục</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  {hasCurrentRoom && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Không thể thay đổi danh mục khi đã có phòng sử dụng
+                    </p>
+                  )}
+                </div>
+
+                {/* RFID field - chỉ hiển thị cho tài sản cố định */}
+                {formData.type === AssetType.FIXED_ASSET && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Mã RFID (tùy chọn)
+                    </label>
+                    <Input
+                      name="rfid"
+                      value={formData.rfid || ""}
+                      onChange={handleInputChange}
+                      placeholder="Nhập mã RFID nếu có"
+                      disabled={isSubmitting || hasCurrentRoom}
+                      className="w-full"
+                    />
+                    {hasCurrentRoom ? (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Không thể thay đổi RFID khi đã có phòng sử dụng
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Nếu để trống, tài sản sẽ có trạng thái "Chưa định danh"
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Danh mục và Ngày nhập */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Danh mục <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="categoryId"
-                  value={formData.categoryId}
-                  onChange={handleInputChange}
-                  required
-                  className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                >
-                  <option value="">Chọn danh mục</option>
-                  {mockCategories.map(category => (
-                    <option key={category.id} value={category.id}>{category.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ngày nhập <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
+            {/* Additional Information */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                Thông tin bổ sung
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                    Ngày nhập
+                  </label>
                   <Input
                     type="date"
                     name="entryDate"
                     value={formData.entryDate}
                     onChange={handleInputChange}
-                    required
+                    disabled={isSubmitting}
+                    className="w-full"
                   />
-                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
-              </div>
-            </div>
 
-            {/* Đơn vị tính và Số lượng */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Đơn vị tính <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="text"
-                  name="unit"
-                  value={formData.unit}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Số lượng <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                    Số lượng
+                  </label>
                   <Input
                     type="number"
                     name="quantity"
-                    value={formData.quantity}
+                    value={formData.quantity || ""}
                     onChange={handleInputChange}
-                    required
+                    placeholder="Nhập số lượng"
                     min="1"
+                    disabled={isSubmitting || formData.type === AssetType.FIXED_ASSET}
+                    className="w-full"
                   />
-                  <Hash className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  {formData.type === AssetType.FIXED_ASSET && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Tài sản cố định luôn có số lượng = 1
+                    </p>
+                  )}
                 </div>
-                {formData.type === AssetType.TSCD && (
-                  <p className="mt-1 text-xs text-gray-500">Tài sản cố định có số lượng = 1</p>
-                )}
-              </div>
-            </div>
 
-            {/* Đơn vị sử dụng */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Đơn vị sử dụng <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <select
-                    name="unitId"
-                    value={unitId}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Đơn vị
+                  </label>
+                  <Input
+                    name="unit"
+                    value={formData.unit}
                     onChange={handleInputChange}
-                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                    required
-                  >
-                    <option value="">Chọn đơn vị sử dụng</option>
-                    {mockUnits.map(unit => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.name}
-                      </option>
-                    ))}
-                  </select>
-                  <User className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    placeholder="Nhập đơn vị (cái, chiếc...)"
+                    disabled={isSubmitting}
+                    className="w-full"
+                  />
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Xuất xứ
-                </label>
-                <Input
-                  type="text"
-                  name="origin"
-                  value={formData.origin}
-                  onChange={handleInputChange}
-                />
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nguồn gốc
+                  </label>
+                  <Input
+                    name="origin"
+                    value={formData.origin}
+                    onChange={handleInputChange}
+                    placeholder="Nhập nguồn gốc"
+                    disabled={isSubmitting}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Gói thầu
+                  </label>
+                  <Input
+                    type="number"
+                    name="purchasePackage"
+                    value={formData.purchasePackage || ""}
+                    onChange={handleInputChange}
+                    placeholder="Nhập gói thầu"
+                    min="0"
+                    disabled={isSubmitting}
+                    className="w-full"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Vị trí theo kế hoạch */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Location Information - only show if not restricted by current room */}
+            {!hasCurrentRoom && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   Vị trí
-                </label>
-                <div className="relative">
-                  <select
-                    name="plannedRoomId"
-                    value={formData.currentRoomId || ""}
-                    onChange={handleInputChange}
-                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                    disabled={!unitId}
-                  >
-                    <option value="">Chưa phân bổ</option>
-                    {filteredRooms.map(room => (
-                      <option key={room.id} value={room.id}>
-                        {room.roomNumber} (Tòa {room.building}, Tầng {room.floor})
-                      </option>
-                    ))}
-                  </select>
-                  <Building className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Campus Selection (Global access only) */}
+                  {hasGlobalAccess && (
+                    <CardSelect
+                      label="Cơ sở"
+                      icon={<Building className="w-4 h-4" />}
+                      value={selectedCampusId}
+                      onChange={setSelectedCampusId}
+                      options={[
+                        { value: "", label: "Chọn cơ sở" },
+                        ...campuses.map((campus: Unit) => ({
+                          value: campus.id,
+                          label: campus.name,
+                        })),
+                      ]}
+                      placeholder="Chọn cơ sở"
+                      disabled={isSubmitting}
+                      className="text-base"
+                    />
+                  )}
+
+                  {/* Unit Selection */}
+                  {(hasChildUnitsAccess || hasGlobalAccess || hasUnitAccess || hasSelfAccess) && (
+                    <CardSelect
+                      label="Đơn vị sử dụng"
+                      icon={<Building className="w-4 h-4" />}
+                      value={selectedUnitId}
+                      onChange={setSelectedUnitId}
+                      options={[
+                        { value: "", label: "Chọn đơn vị sử dụng" },
+                        ...(units?.map((unit: Unit) => ({
+                          value: unit.id,
+                          label: unit.name,
+                        })) || []),
+                      ]}
+                      placeholder="Chọn đơn vị sử dụng"
+                      disabled={isSubmitting || (hasGlobalAccess && !selectedCampusId)}
+                      className="text-base"
+                    />
+                  )}
+
+                  {/* Room Selection */}
+                  <div className={hasGlobalAccess ? "md:col-span-2" : ""}>
+                    <CardSelect
+                      label="Phòng (không bắt buộc)"
+                      icon={<MapPin className="w-4 h-4" />}
+                      value={formData.currentRoomId || ""}
+                      onChange={(value) => setFormData(prev => ({ ...prev, currentRoomId: value || undefined }))}
+                      options={[
+                        { value: "", label: "Chọn phòng" },
+                        ...rooms.map((room: Room) => ({
+                          value: room.id,
+                          label: `${room.name || room.roomCode} - Tòa ${room.building}, Tầng ${room.floor}`,
+                        })),
+                      ]}
+                      placeholder="Chọn phòng"
+                      disabled={isSubmitting || !selectedUnitId}
+                      loading={roomsLoading}
+                      className="text-base"
+                    />
+                  </div>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  {!unitId ? "Vui lòng chọn đơn vị sử dụng trước" : "Để trống nếu tài sản chưa được bàn giao"}
-                </p>
               </div>
-              <div></div>
-            </div>
+            )}
 
-            {/* Gói mua */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Gói mua <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="number"
-                  name="purchasePackage"
-                  value={formData.purchasePackage}
-                  onChange={handleInputChange}
-                  required
-                  min="0"
-                />
-              </div>
-            </div>
-
-            {/* Thông số kỹ thuật */}
+            {/* Location in room - always show */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Thông số kỹ thuật
+                Vị trí trong phòng
               </label>
-              <textarea
-                name="specs"
-                value={formData.specs}
+              <Input
+                name="locationInRoom"
+                value={formData.locationInRoom}
                 onChange={handleInputChange}
-                rows={4}
-                className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                placeholder="Mô tả chi tiết về thông số kỹ thuật của tài sản..."
+                placeholder="Nhập vị trí cụ thể trong phòng (ví dụ: 29)"
+                className="w-full"
+                disabled={isSubmitting}
               />
             </div>
-          </div>
-        </div>
 
-        {/* Form Actions */}
-        <div className="flex items-center justify-end space-x-4 pt-6">
-          <Link href={`/asset/${asset.id}`}>
-            <Button variant="outline">
-              Hủy
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex items-center justify-end space-x-4 pt-8 mt-8 border-t border-gray-200">
+            <Link href={`/asset/${assetId}`}>
+              <Button variant="outline" disabled={loading || isSubmitting}>
+                Hủy
+              </Button>
+            </Link>
+            <Button
+              type="submit"
+              disabled={loading || isSubmitting}
+              className="min-w-[140px]"
+            >
+              {(loading || isSubmitting) ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Đang cập nhật...
+                </div>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Cập nhật tài sản
+                </>
+              )}
             </Button>
-          </Link>
-          <Button
-            type="submit"
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            {isSaving ? "Đang lưu..." : "Cập nhật tài sản"}
-          </Button>
-        </div>
-      </form>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

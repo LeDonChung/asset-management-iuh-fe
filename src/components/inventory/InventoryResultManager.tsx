@@ -33,6 +33,7 @@ import {
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { inventoryApi, ExportMultiRoomInventoryExcelRequest, ExportInventoryExcelRequest } from "@/lib/api/inventoryApi";
+import { createAssetBookFromInventory, CreateAssetBookFromInventoryRequest } from "@/lib/store/slices/assetBookSlice";
 
 interface FilterState {
   sessionUnitId: string;
@@ -157,6 +158,9 @@ export const InventoryResultManager = () => {
   const [assignments, setAssignments] = useState<InventoryGroupAssignment[]>(
     []
   );
+
+  // State for asset book creation
+  const [isCreatingAssetBook, setIsCreatingAssetBook] = useState(false);
 
   // Tự động khởi tạo filters dựa trên access scope
   useEffect(() => {
@@ -434,6 +438,90 @@ export const InventoryResultManager = () => {
     // TODO: Implement add asset logic
   };
 
+  // Kiểm tra xem có thể tạo sổ tài sản hay không
+  const canCreateAssetBook = (): { canCreate: boolean; assignmentId?: string; unitId?: string } => {
+    // Tìm assignment dựa trên filters hiện tại
+    let targetAssignmentId: string | undefined;
+    let targetUnitId: string | undefined;
+
+    if (currentScopeType === 'UNIT' && currentUser?.unitId) {
+      // Với UNIT scope, tìm assignment của user
+      for (const sessionUnit of sessionUnits) {
+        const availableGroups = sessionUnit.subInventory?.groups ?? [];
+        for (const group of availableGroups) {
+          const assignment = group.assignments?.find(
+            (a: InventoryGroupAssignment) => a.unitId === currentUser.unitId
+          );
+          if (assignment) {
+            targetAssignmentId = assignment.id;
+            targetUnitId = assignment.unitId;
+            break;
+          }
+        }
+        if (targetAssignmentId) break;
+      }
+    } else {
+      // Với GLOBAL và CHILD_UNITS scope, sử dụng filter
+      const selectedAssignment = assignments.find(a => a.unit?.id === filters.unitId);
+      if (selectedAssignment) {
+        targetAssignmentId = selectedAssignment.id;
+        targetUnitId = selectedAssignment.unitId;
+      }
+    }
+
+    // Kiểm tra điều kiện:
+    // 1. Có assignmentId
+    // 2. Có kết quả kiểm kê (roomInventoryResults hoặc multiRoomInventoryResults)
+    // 3. Assignment đã hoàn thành (có thể check qua thời gian hoặc status)
+    const hasAssignment = !!targetAssignmentId;
+    const hasResults = !!(roomInventoryResults || multiRoomInventoryResults);
+    
+    return {
+      canCreate: hasAssignment && hasResults,
+      assignmentId: targetAssignmentId,
+      unitId: targetUnitId
+    };
+  };
+
+  // Xử lý tạo sổ tài sản từ kết quả kiểm kê
+  const handleCreateAssetBook = async () => {
+    const { canCreate, assignmentId, unitId } = canCreateAssetBook();
+    
+    if (!canCreate || !assignmentId) {
+      toast.error("Không thể tạo sổ tài sản. Vui lòng kiểm tra lại điều kiện.");
+      return;
+    }
+
+    try {
+      setIsCreatingAssetBook(true);
+      
+      const nextYear = new Date().getFullYear() + 1;
+      const createRequest: CreateAssetBookFromInventoryRequest = {
+        assignmentId: assignmentId,
+        year: nextYear, // Tạo cho năm tiếp theo
+        note: `Sổ tài sản năm ${nextYear} được tạo từ kết quả kiểm kê ngày ${new Date().toLocaleDateString('vi-VN')}`
+      };
+
+      const resultAction = await dispatch(createAssetBookFromInventory(createRequest));
+      
+      if (createAssetBookFromInventory.fulfilled.match(resultAction)) {
+        const result = resultAction.payload;
+        toast.success(`Tạo sổ tài sản thành công! Sổ tài sản năm ${result.year} (năm tiếp theo) đã được tạo từ kết quả kiểm kê.`);
+      } else {
+        throw new Error(resultAction.payload as string);
+      }
+      
+      // Có thể navigate đến trang quản lý sổ tài sản
+      // router.push(`/admin/asset-books/${result.id}`);
+      
+    } catch (error: any) {
+      console.error("Error creating asset book:", error);
+      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi tạo sổ tài sản");
+    } finally {
+      setIsCreatingAssetBook(false);
+    }
+  };
+
   useEffect(() => {}, [filters.sessionUnitId, filters.groupId, filters.unitId]);
 
   // Define table columns for Fixed Assets
@@ -635,6 +723,25 @@ export const InventoryResultManager = () => {
               </div>
             </div>
             <div className="flex space-x-3">
+              {/* Button tạo sổ tài sản */}
+              {(() => {
+                const { canCreate } = canCreateAssetBook();
+                return canCreate && (
+                  <Button
+                    onClick={handleCreateAssetBook}
+                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-md transition-all duration-200 hover:shadow-lg"
+                    disabled={isCreatingAssetBook}
+                  >
+                    {isCreatingAssetBook ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4 mr-2" />
+                    )}
+                    {isCreatingAssetBook ? "Đang tạo..." : `Tạo sổ tài sản ${new Date().getFullYear() + 1}`}
+                  </Button>
+                );
+              })()}
+              
               <Button
                 onClick={handleExportExcel}
                 className="bg-green-600 hover:bg-green-700 text-white shadow-md transition-all duration-200 hover:shadow-lg"

@@ -374,7 +374,6 @@ export default function PersonalInfoModalNew({
                 </div>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <Save className="h-4 w-4" />
                   <span>Lưu thông tin</span>
                 </div>
               )}

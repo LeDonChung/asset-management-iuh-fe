@@ -8,6 +8,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import ChangePasswordModalNew from "@/components/modal/ChangePasswordModalNew";
 import PersonalInfoModalNew from "@/components/modal/PersonalInfoModalNew";
 import toast from "react-hot-toast";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { 
+  changePassword, 
+  updateProfile, 
+  clearChangePasswordError, 
+  clearChangePasswordSuccess,
+  clearUpdateProfileError,
+  clearUpdateProfileSuccess,
+  ChangePasswordRequest,
+  UpdateProfileRequest 
+} from "@/lib/store/slices/authSlice";
 
 import {
   LayoutDashboard,
@@ -19,6 +30,9 @@ import {
   Building,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   BarChart3,
   ClipboardList,
   Trash2,
@@ -117,9 +131,11 @@ const Header = React.memo(function Header({
             <h1 className="text-xl font-bold text-blue-800 leading-tight">
               ĐẠI HỌC CÔNG NGHIỆP THÀNH PHỐ HỒ CHÍ MINH
             </h1>
-            <p className="text-sm font-semibold text-red-600 mt-1">
-              KHOA CÔNG NGHỆ THÔNG TIN
-            </p>
+            {user?.unitName && (
+              <p className="text-sm font-semibold text-red-600 mt-1">
+                {user.unitName.toUpperCase()}
+              </p>
+            )}
           </div>
         </div>
         
@@ -187,6 +203,16 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
           name: "Bàn giao",
           href: "/asset/transaction",
           permissions: [PermissionConstants.PERM_VIEW_TRANSACTION],
+        },
+        {
+          name: "Định danh",
+          href: "/asset/unidentified",
+          // permissions: [PermissionConstants.PERM_IDENTIFY_ASSET],
+        },
+        {
+          name: "Danh mục",
+          href: "/asset/category",
+          permissions: [PermissionConstants.PERM_VIEW_CATEGORY],
         },
         {
           name: "Di chuyển",
@@ -734,12 +760,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isNavigating, setIsNavigating] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showPersonalInfoModal, setShowPersonalInfoModal] = useState(false);
-  const [isLoadingAction, setIsLoadingAction] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   // Use real auth context
   const { user, isLoading, isAuthenticated, getUserPermissions, logout } = useAuth();
+  
+  // Redux dispatch and selectors
+  const dispatch = useAppDispatch();
+  const { 
+    changePasswordLoading,
+    changePasswordError,
+    changePasswordSuccess,
+    updateProfileLoading,
+    updateProfileError,
+    updateProfileSuccess
+  } = useAppSelector((state) => state.auth);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -767,40 +803,37 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Modal handlers
   const handleChangePassword = async (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
-    setIsLoadingAction(true);
+    const changePasswordData: ChangePasswordRequest = {
+      currentPassword: data.currentPassword,
+      newPassword: data.newPassword,
+      confirmPassword: data.confirmPassword
+    };
+
     try {
-      // TODO: Implement API call to change password
-      console.log('Changing password:', data);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await dispatch(changePassword(changePasswordData)).unwrap();
       toast.success('Mật khẩu đã được cập nhật thành công!');
       setShowChangePasswordModal(false);
-    } catch (error) {
-      toast.error('Có lỗi xảy ra khi cập nhật mật khẩu. Vui lòng thử lại.');
-      console.error('Change password error:', error);
-    } finally {
-      setIsLoadingAction(false);
+      dispatch(clearChangePasswordSuccess());
+    } catch (error: any) {
+      toast.error(error.message || 'Có lỗi xảy ra khi cập nhật mật khẩu. Vui lòng thử lại.');
     }
   };
 
   const handleUpdatePersonalInfo = async (data: { fullName: string; email: string; phone: string; dateOfBirth: string }) => {
-    setIsLoadingAction(true);
+    const updateProfileData: UpdateProfileRequest = {
+      fullName: data.fullName,
+      email: data.email,
+      phoneNumber: data.phone,
+      birthDate: data.dateOfBirth
+    };
+
     try {
-      // TODO: Implement API call to update personal info
-      console.log('Updating personal info:', data);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await dispatch(updateProfile(updateProfileData)).unwrap();
       toast.success('Thông tin cá nhân đã được cập nhật thành công!');
       setShowPersonalInfoModal(false);
-    } catch (error) {
-      toast.error('Có lỗi xảy ra khi cập nhật thông tin. Vui lòng thử lại.');
-      console.error('Update personal info error:', error);
-    } finally {
-      setIsLoadingAction(false);
+      dispatch(clearUpdateProfileSuccess());
+    } catch (error: any) {
+      toast.error(error.message || 'Có lỗi xảy ra khi cập nhật thông tin. Vui lòng thử lại.');
     }
   };
 
@@ -947,23 +980,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 isCollapsed={isCollapsed || !isDesktopSidebarOpen}
               />
               
-              {/* Date display and toggle button at bottom */}
+              {/* Toggle button at bottom */}
               <div className="mt-auto border-t border-gray-200 bg-white">
-                {!isCollapsed && isDesktopSidebarOpen && (
-                  <div className="px-6 py-4 text-center">
-                    <div className="text-sm text-gray-600 font-medium">
-                      {new Date().toLocaleDateString("vi-VN", {
-                        weekday: "long",
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
-                    </div>
-                  </div>
-
-                )}
-                {/* Toggle button */}
-                <div className={`px-4 py-3 border-t border-gray-200  ${isCollapsed || !isDesktopSidebarOpen ? 'flex justify-center' : ''}`}>
+                <div className={`px-4 py-3 ${isCollapsed || !isDesktopSidebarOpen ? 'flex justify-center' : ''}`}>
                   <button
                     className={`w-full flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors ${
                       isCollapsed || !isDesktopSidebarOpen ? 'w-10 h-10' : 'px-3 py-2'
@@ -975,11 +994,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     title={isDesktopSidebarOpen && !isCollapsed ? "Thu gọn sidebar" : isCollapsed || !isDesktopSidebarOpen ? "Mở rộng sidebar" : "Mở sidebar"}
                   >
                     {isCollapsed || !isDesktopSidebarOpen ? (
-                      <Menu className="h-5 w-5" />
+                      <ChevronsRight className="h-5 w-5" />
                     ) : (
-                      <>
-                        <PanelLeftClose className="h-5 w-5 mr-2" />
-                      </>
+                      <ChevronsLeft className="h-5 w-5" />
                     )}
                   </button>
                 </div>
@@ -1011,14 +1028,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Modals */}
         <ChangePasswordModalNew
           isOpen={showChangePasswordModal}
-          onClose={() => setShowChangePasswordModal(false)}
+          onClose={() => {
+            setShowChangePasswordModal(false);
+            dispatch(clearChangePasswordError());
+          }}
           onSubmit={handleChangePassword}
-          loading={isLoadingAction}
+          loading={changePasswordLoading}
         />
 
         <PersonalInfoModalNew
           isOpen={showPersonalInfoModal}
-          onClose={() => setShowPersonalInfoModal(false)}
+          onClose={() => {
+            setShowPersonalInfoModal(false);
+            dispatch(clearUpdateProfileError());
+          }}
           onSubmit={handleUpdatePersonalInfo}
           initialData={{
             fullName: user?.fullName || "",
@@ -1026,7 +1049,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             phone: user?.phoneNumber || "",
             dateOfBirth: user?.birthDate || ""
           }}
-          loading={isLoadingAction}
+          loading={updateProfileLoading}
         />
       </div>
     );

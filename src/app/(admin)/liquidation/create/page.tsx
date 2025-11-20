@@ -317,6 +317,9 @@ export default function LiquidationCreatePage() {
   const [filteredAssets, setFilteredAssets] = useState<any[]>([]);
   const hasLoadedRef = useRef(false); // Để tránh load nhiều lần
 
+  // State for filter context loaded from draft
+  const [filterContext, setFilterContext] = useState<any>(null);
+
   useEffect(() => {
       if (!canCreate && !canPropose) {
           router.push("/unauthorized");
@@ -333,21 +336,65 @@ export default function LiquidationCreatePage() {
     console.log("Loading assets from sessionStorage...");
     
     try {
+      // Try to load a draft object first (allows restoring form fields + ids)
+      const draftRaw = sessionStorage.getItem('liquidationDraft');
+      if (draftRaw && draftRaw !== 'null' && draftRaw !== 'undefined') {
+        const draft = JSON.parse(draftRaw);
+        // draft shape: { selectedIds: string[], status?: LiquidationStatus, note?: string, assetType?: AssetType, assets?: any[] }
+        if (draft.selectedIds && Array.isArray(draft.selectedIds) && draft.selectedIds.length > 0) {
+          setSelectedAssets(draft.selectedIds);
+        }
+        if (draft.status) {
+          setSelectedStatus(draft.status);
+        }
+        if (draft.note) {
+          setTransactionNote(draft.note);
+        }
+        if (draft.assetType) {
+          setSelectedAssetType(draft.assetType);
+        }
+
+        // If the draft contains full asset objects (written by asset-book), use them
+        if (draft.assets && Array.isArray(draft.assets) && draft.assets.length > 0) {
+          setAssetsFromStore(draft.assets);
+          setFilteredAssets(draft.assets);
+          console.log('Loaded assets from draft in sessionStorage:', draft.assets);
+          hasLoadedRef.current = true;
+          
+          // Thông báo đã khôi phục dữ liệu
+          toast.success(`Đã khôi phục ${draft.assets.length} tài sản từ phiên trước`);
+        }
+
+        // Load filter context if available
+        if (draft.filterContext) {
+          setFilterContext(draft.filterContext);
+          console.log('Loaded filter context from draft:', draft.filterContext);
+        }
+      }
+
+      // Backwards compatibility: old key used by asset-book to save full objects
       const storedAssets = sessionStorage.getItem('selectedAssetsForLiquidation');
       console.log("Raw stored data:", storedAssets);
-      
       if (storedAssets && storedAssets !== 'null' && storedAssets !== 'undefined') {
         const assets = JSON.parse(storedAssets);
         console.log("Parsed assets:", assets);
-        
+
         if (Array.isArray(assets) && assets.length > 0) {
-          setAssetsFromStore(assets);
-          setFilteredAssets(assets); // Initially show all assets
-          console.log('Loaded selected assets from sessionStorage:', assets);
+          // If assetsFromStore already set by draft, merge unique
+          if (assetsFromStore.length === 0) {
+            setAssetsFromStore(assets);
+            setFilteredAssets(assets); // Initially show all assets
+          } else {
+            // merge by id
+            const existingIds = new Set(assetsFromStore.map(a => a.id));
+            const merged = [...assetsFromStore, ...assets.filter(a => !existingIds.has(a.id))];
+            setAssetsFromStore(merged);
+            setFilteredAssets(merged);
+          }
+
+          console.log('Loaded selected assets from sessionStorage (legacy key):', assets);
           hasLoadedRef.current = true; // Đánh dấu đã load
-          
-          // Clear sessionStorage sau khi load thành công
-          sessionStorage.removeItem('selectedAssetsForLiquidation');
+          // Do NOT remove the sessionStorage entry here — keep draft persisted across reloads
         } else {
           console.log("Assets array is empty or invalid");
           if (!hasLoadedRef.current) {
@@ -357,7 +404,8 @@ export default function LiquidationCreatePage() {
           }
         }
       } else {
-        console.log("No stored assets found");
+        console.log("No stored assets found (legacy key)");
+        // If there was no draft and no legacy stored assets, show an error and redirect
         if (!hasLoadedRef.current) {
           hasLoadedRef.current = true;
           toast.error('Không có tài sản được chọn. Vui lòng chọn tài sản từ sổ tài sản.');
@@ -376,6 +424,31 @@ export default function LiquidationCreatePage() {
 
   // State for selected assets
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+  
+  // Persist a small draft object to sessionStorage so page reload can restore selection and form fields
+  useEffect(() => {
+    try {
+      const draft = {
+        selectedIds: selectedAssets,
+        status: selectedStatus,
+        note: transactionNote,
+        assetType: selectedAssetType,
+        // include full asset objects only if available
+        assets: assetsFromStore && assetsFromStore.length > 0 ? assetsFromStore : undefined,
+        // keep filter context if available
+        filterContext: filterContext || undefined,
+        timestamp: new Date().toISOString(),
+      } as any;
+
+      sessionStorage.setItem('liquidationDraft', JSON.stringify(draft));
+      // Also keep legacy key for compatibility with asset-book flow
+      if (assetsFromStore && assetsFromStore.length > 0) {
+        sessionStorage.setItem('selectedAssetsForLiquidation', JSON.stringify(assetsFromStore));
+      }
+    } catch (e) {
+      console.error('Error saving liquidation draft to sessionStorage:', e);
+    }
+  }, [selectedAssets, selectedStatus, transactionNote, selectedAssetType, assetsFromStore, filterContext]);
   
   // State for detail modal
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -598,6 +671,15 @@ export default function LiquidationCreatePage() {
         `Đã tạo đề xuất thanh lý cho ${selectedAssets.length} tài sản ${statusMessage}!`
       );
       
+      // Clear draft từ sessionStorage sau khi tạo thành công
+      try {
+        sessionStorage.removeItem('liquidationDraft');
+        sessionStorage.removeItem('selectedAssetsForLiquidation');
+        console.log('Cleared liquidation draft from sessionStorage');
+      } catch (e) {
+        console.error('Error clearing draft from sessionStorage:', e);
+      }
+      
       // Chuyển hướng về trang danh sách đề xuất
       router.push("/liquidation");
       
@@ -647,7 +729,7 @@ export default function LiquidationCreatePage() {
               <Button
                 onClick={handleCreateProposal}
                 disabled={isSubmitting || isCreatingProposal || selectedAssets.length === 0}
-                className="flex items-center bg-red-600 hover:bg-red-700 text-white"
+                className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {isCreatingProposal || isSubmitting ? (
                   <>
@@ -656,7 +738,6 @@ export default function LiquidationCreatePage() {
                   </>
                 ) : (
                   <>
-                    <Plus className="h-4 w-4 mr-2" />
                     {selectedStatus === LiquidationStatus.PROPOSED ? "Gửi đề xuất thanh lý" : "Lưu nháp yêu cầu thanh lý"}
                   </>
                 )}
@@ -664,7 +745,6 @@ export default function LiquidationCreatePage() {
             </div>
           </div>
         </div>
-
       {/* Status Selection */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-300 mb-6">
         <div className="bg-gradient-to-r from-red-50 to-orange-50 px-6 py-4 border-b border-gray-100 rounded-t-xl">

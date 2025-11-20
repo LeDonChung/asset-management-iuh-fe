@@ -12,6 +12,7 @@ export enum AssetStatus {
   LOST = "LOST", // đã mất
   PROPOSED_LIQUIDATION = "PROPOSED_LIQUIDATION", // đề xuất thanh lý
   LIQUIDATED = "LIQUIDATED", // đã thanh lý
+  UNIDENTIFIED = "UNIDENTIFIED", // chưa định danh
 }
 
 // Asset Log Types
@@ -199,6 +200,7 @@ export interface Asset {
   specs?: string; // Thông số kỹ thuật
   entrydate: string; // Ngày nhập (date)
   currentRoomId?: string; // Vị trí hiện tại, null là đang nhập kho, chưa phân bổ
+  locationInRoom?: string; // Vị trí cụ thể trong phòng
   unit: string; // Đơn vị tính
   quantity: number; // Số lượng (Với tài sản cố định = 1)
   origin?: string; // Xuất xứ
@@ -400,6 +402,7 @@ export interface AssetFormData {
   purchasePackage: number;
   type: AssetType;
   categoryId: string;
+  rfid?: string; // Mã RFID (chỉ dành cho tài sản cố định)
 }
 
 // Additional interfaces for Asset Book Management with Role-based Access
