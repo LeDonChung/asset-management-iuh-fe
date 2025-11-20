@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronsUpDown,
   Package2,
+  MoreVertical,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -295,8 +296,8 @@ export default function LiquidationPage() {
         <div className="flex justify-start">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
-                Hành động
+              <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -399,9 +400,6 @@ export default function LiquidationPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Quản lý thanh lý tài sản</h1>
-          <p className="text-gray-600 mt-2">
-            Quản lý đề xuất và phê duyệt thanh lý tài sản
-          </p>
         </div>
         {canCreate && (
           <Link href="/liquidation/create">
@@ -476,13 +474,13 @@ export default function LiquidationPage() {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg border border-gray-300">
-        <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
           {/* Search */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Tìm kiếm theo lý do thanh lý..."
-              className="pl-10"
+              className="pl-10 h-11"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -490,7 +488,7 @@ export default function LiquidationPage() {
 
           {/* Status Filter */}
           <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="h-11 min-w-[170px] px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={statusFilter}
             onChange={(e) =>
               setStatusFilter(e.target.value as LiquidationStatus | "")
@@ -507,7 +505,7 @@ export default function LiquidationPage() {
           {/* Unit Filter - Chỉ hiển thị cho GLOBAL và CHILD_UNITS scope */}
           {(hasGlobalScope || hasChildUnitsScope) && (
             <select
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="h-11 min-w-[170px] px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={unitFilter}
               onChange={(e) => setUnitFilter(e.target.value)}
             >
@@ -525,7 +523,7 @@ export default function LiquidationPage() {
 
           {/* Year Filter */}
           <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="h-11 min-w-[170px] px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={yearFilter}
             onChange={(e) =>
               setYearFilter(e.target.value ? Number(e.target.value) : "")

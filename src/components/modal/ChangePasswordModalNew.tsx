@@ -332,7 +332,6 @@ export default function ChangePasswordModalNew({
                 </div>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <Shield className="h-4 w-4" />
                   <span>Cập nhật</span>
                 </div>
               )}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -9,20 +10,13 @@ import {
   AlertCircle,
   Edit,
   Trash2,
-  MoreHorizontal,
   RefreshCw,
 } from "lucide-react";
-import Link from "next/link";
 import { RootState, AppDispatch } from "@/lib/store";
-import {
-  fetchAssetById,
-  clearAsset,
-  clearError,
-} from "@/lib/store/slices/assetSlice";
+import { fetchAssetById, clearAsset } from "@/lib/store/slices/assetSlice";
+import { AssetStatus, AssetType } from "@/types/asset";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import AssetDetailCard from "@/components/asset/AssetDetailCard";
-import HandoverHistoryCard from "@/components/asset/HandoverHistoryCard";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 export default function AssetDetailPage() {
   const params = useParams();
@@ -128,58 +122,224 @@ export default function AssetDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="container mx-auto p-6">
       {/* Header */}
-      <div className="">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-4">
-              <Link href="/asset/asset-book">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-xl font-semibold">Chi tiết tài sản</h1>
-                <p className="text-sm text-gray-600 truncate max-w-md">
-                  {asset?.name}
-                </p>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" onClick={handleRefresh}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Làm mới
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleEdit}>
-                <Edit className="w-4 h-4 mr-2" />
-                Chỉnh sửa
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleDelete}>
-                <Trash2 className="w-4 h-4 mr-2" />
-                Xóa
-              </Button>
-            </div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.back()}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Quay lại
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Chi tiết tài sản</h1>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEdit}
+            className="flex items-center gap-2"
+          >
+            Chỉnh sửa
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDelete}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center gap-2"
+          >
+            Xóa
+          </Button>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="space-y-6">
-          {/* Asset Detail */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <AssetDetailCard asset={asset} />
-          </div>
+      {/* Layout 2 cột */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 ">
+        {/* Cột trái - Thông tin chính */}
+        <div className="xl:col-span-2 ">
+          <Card>
+            <CardHeader></CardHeader>
+            <CardContent>
+              <div className="space-y-8">
+                {/* Thông tin chính */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                    Thông tin chính
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Tên tài sản</span>
+                      <span className="font-medium">
+                        {asset?.name || "N/A"}
+                      </span>
+                    </div>
 
-          {/* Handover History */}
-          <div className="bg-white rounded-lg  border border-gray-200 overflow-hidden">
-            <HandoverHistoryCard
-              transactionItems={asset.transactionItems || []}
-            />
-          </div>
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Mã KT</span>
+                      <span className="font-medium">
+                        {asset?.ktCode || "N/A"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Mã TS</span>
+                      <span className="font-medium">
+                        {asset?.fixedCode || "N/A"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Ngày nhập</span>
+                      <span className="font-medium">
+                        {asset?.entrydate
+                          ? new Date(asset.entrydate).toLocaleDateString(
+                              "vi-VN"
+                            )
+                          : "N/A"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Loại tài sản</span>
+                      <span className="font-medium">
+                        {asset?.type === AssetType.FIXED_ASSET
+                          ? "Tài sản cố định"
+                          : "Công cụ dụng cụ"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Trạng thái</span>
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          asset?.status === AssetStatus.IN_USE
+                            ? "bg-green-100 text-green-800"
+                            : asset?.status === AssetStatus.UNIDENTIFIED
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {asset?.status === AssetStatus.IN_USE
+                          ? "Đang sử dụng"
+                          : asset?.status === AssetStatus.UNIDENTIFIED
+                          ? "Chưa định danh"
+                          : "Khác"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Thông tin số lượng & danh mục */}
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Số lượng</span>
+                      <span className="font-medium">
+                        {asset?.quantity || 1}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Đơn vị tính</span>
+                      <span className="font-medium">
+                        {asset?.unit || "N/A"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Danh mục</span>
+                      <span className="font-medium">
+                        {asset?.category?.name || "N/A"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* RFID Tag */}
+                {asset?.rfidTag && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                      RFID Tag
+                    </h3>
+                    <div className="bg-gray-50 p-4 rounded-lg border">
+                      <div className="font-mono text-sm break-all">
+                        {asset.rfidTag.rfidId}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Thông số kỹ thuật */}
+                {asset?.specs && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                      Thông số kỹ thuật
+                    </h3>
+                    <div className="bg-gray-50 p-4 rounded-lg border">
+                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">
+                        {asset.specs}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Cột phải - Vị trí hiện tại */}
+        <div className="xl:col-span-1">
+          {asset?.currentRoom && (
+            <Card className="sticky top-6">
+              <CardHeader>
+                <CardTitle>Vị trí hiện tại</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-600">Phòng</div>
+                    <div className="font-medium">{asset.currentRoom.name}</div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-600">Tòa</div>
+                    <div className="font-medium">
+                      {asset.currentRoom.building}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-600">Tầng</div>
+                    <div className="font-medium">{asset.currentRoom.floor}</div>
+                  </div>
+
+                  {asset.currentRoom.unit && (
+                    <div className="space-y-1">
+                      <div className="text-sm text-gray-600">Đơn vị</div>
+                      <div className="font-medium">
+                        {asset.currentRoom.unit.name}
+                      </div>
+                    </div>
+                  )}
+
+                  {asset.locationInRoom && (
+                    <div className="space-y-1">
+                      <div className="text-sm text-gray-600">
+                        Vị trí trong phòng
+                      </div>
+                      <div className="font-medium">{asset.locationInRoom}</div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

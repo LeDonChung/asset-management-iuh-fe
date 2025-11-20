@@ -28,6 +28,7 @@ import { useAppDispatch } from "@/lib/store/hooks";
 import {
   filterAssetBook,
   AssetBookFilterRequest,
+  exportAssetBookToExcel,
 } from "@/lib/store/slices/assetBookSlice";
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { fetchRoomsByUnitId } from "@/lib/store/slices/roomSlice";
@@ -160,7 +161,7 @@ const assetTypeOptions = [
 const getYearOptions = () => {
   const currentYear = new Date().getFullYear();
   const years = [];
-  for (let i = currentYear; i >= currentYear - 3; i--) {
+  for (let i = currentYear + 1; i >= currentYear - 3; i--) {
     years.push({ value: i.toString(), label: i.toString() });
   }
   return years;
@@ -345,7 +346,7 @@ export default function AssetBookPage() {
     new Date().getFullYear().toString()
   );
   const [selectedRoomId, setSelectedRoomId] = useState("");
-  const [selectedAssetType, setSelectedAssetType] = useState("");
+  const [selectedAssetType, setSelectedAssetType] = useState("FIXED_ASSET"); // Mặc định chọn tài sản cố định
 
   // Selection mode states
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -363,7 +364,7 @@ export default function AssetBookPage() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Redux selectors
-  const { currentFilter, filteredAssetBooks, loading, error } = useSelector(
+  const { currentFilter, filteredAssetBooks, loading, error, isExporting, exportError } = useSelector(
     (state: RootState) => state.assetBook
   );
   const { campuses } = useSelector((state: RootState) => state.unit);
@@ -421,8 +422,8 @@ export default function AssetBookPage() {
       // 2. Phải chọn năm
       if (!selectedYear) return false;
       
-      // 3. Phải chọn loại tài sản (đây là điều kiện cuối cùng để trigger API)
-      if (!selectedAssetType) return false;
+      // 3. Loại tài sản là tùy chọn - có thể để trống để tải tất cả
+      // if (!selectedAssetType) return false;
       
       return hasUnitInfo;
     };
@@ -457,9 +458,54 @@ export default function AssetBookPage() {
     dispatch(filterAssetBook(filterRequest));
   };
 
-  const handleExport = () => {
-    console.log("Exporting asset book data...");
-    toast.success("Đang xuất sổ tài sản...");
+  const handleExport = async () => {
+    try {
+      // Kiểm tra điều kiện để xuất
+      if (!selectedAssetType) {
+        toast.error("Vui lòng chọn loại tài sản để xuất sổ!");
+        return;
+      }
+
+      if (!selectedYear) {
+        toast.error("Vui lòng chọn năm để xuất sổ!");
+        return;
+      }
+
+      // Xác định unitId để xuất
+      let exportUnitId: string | undefined = selectedUnitId;
+      
+      // Nếu chưa có selectedUnitId, thử lấy từ user (cho Unit/Self access)
+      if (!exportUnitId && (hasUnitAccess || hasSelfAccess) && user?.unitId) {
+        exportUnitId = user.unitId;
+      }
+
+      if (!exportUnitId) {
+        toast.error("Vui lòng chọn đơn vị để xuất sổ!");
+        return;
+      }
+
+      console.log("Exporting asset book data...", {
+        type: selectedAssetType,
+        unitId: exportUnitId,
+        year: parseInt(selectedYear),
+      });
+
+      toast.loading("Đang xuất sổ tài sản...");
+      
+      await dispatch(exportAssetBookToExcel({
+        type: selectedAssetType as AssetType,
+        unitId: exportUnitId,
+        year: parseInt(selectedYear),
+      })).unwrap();
+
+      toast.dismiss();
+      toast.success("Xuất sổ tài sản thành công!");
+      
+    } catch (error: any) {
+      toast.dismiss();
+      toast.error(error?.message || "Có lỗi xảy ra khi xuất sổ tài sản!");
+      console.error("Export error:", error);
+    }
   };
 
   const handleToggleSelectionMode = () => {
@@ -542,9 +588,6 @@ export default function AssetBookPage() {
       selectedAssets.includes(asset.id)
     );
 
-    // Lưu danh sách tài sản đã chọn vào Redux store
-    dispatch(setSelectedAssetsForHandover(selectedAssetObjects));
-    
     // Logic cải thiện để xác định sourceUnitId
     let sourceUnitId: string | undefined = selectedUnitId || undefined;
     
@@ -571,18 +614,61 @@ export default function AssetBookPage() {
                    campuses.flatMap(c => c.childUnits || []).find(u => u.id === sourceUnitId)) : 
                   undefined,
     };
+
+    try {
+      // Tạo handover draft để lưu vào sessionStorage
+      const handoverDraft = {
+        selectedIds: selectedAssetObjects.map(asset => asset.id),
+        assets: selectedAssetObjects,
+        handoverContext: handoverContext,
+        filterContext: {
+          selectedCampusId: selectedCampusId || undefined,
+          selectedUnitId: selectedUnitId || ((hasUnitAccess || hasSelfAccess) && user?.unitId ? user.unitId : undefined),
+          selectedYear: selectedYear || undefined,
+          selectedRoomId: selectedRoomId || undefined,
+          selectedAssetType: selectedAssetType || undefined,
+          campusName: selectedCampusId ? campuses.find(c => c.id === selectedCampusId)?.name : undefined,
+          unitName: selectedUnitId ? 
+                    (units?.find(u => u.id === selectedUnitId)?.name || 
+                     campuses.flatMap(c => c.childUnits || []).find(u => u.id === selectedUnitId)?.name) :
+                    undefined,
+          roomName: selectedRoomId ? rooms?.find(r => r.id === selectedRoomId)?.name : undefined,
+        },
+        status: 'DRAFT',
+        timestamp: new Date().toISOString(),
+      };
+
+      // Lưu draft vào sessionStorage
+      sessionStorage.setItem('handoverDraft', JSON.stringify(handoverDraft));
+      
+      console.log("Saved handover draft to sessionStorage:", handoverDraft);
+
+      // Kiểm tra lại xem có lưu được không
+      const saved = sessionStorage.getItem('handoverDraft');
+      console.log("Verification - saved handover draft data:", saved);
+
+    } catch (error) {
+      console.error("Error saving handover draft to sessionStorage:", error);
+      toast.error("Có lỗi khi lưu dữ liệu. Vui lòng thử lại.");
+      return;
+    }
+
+    // Lưu danh sách tài sản đã chọn vào Redux store
+    dispatch(setSelectedAssetsForHandover(selectedAssetObjects));
     
     console.log("handoverContext:", handoverContext);
     dispatch(setHandoverContext(handoverContext));
     
-    // Chuyển đến trang transaction để hoàn tất bàn giao
-    router.push('/asset/transaction/create');
+    toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để bàn giao`);
     
     // Thoát khỏi selection mode
     setIsSelectionMode(false);
     setSelectedAssets([]);
     
-    toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để bàn giao`);
+    // Delay một chút rồi mới chuyển trang để đảm bảo sessionStorage đã lưu
+    setTimeout(() => {
+      router.push('/asset/transaction/create');
+    }, 100);
   };
 
   const handleBulkMove = () => {
@@ -595,26 +681,66 @@ export default function AssetBookPage() {
       selectedAssetsForMoveLocal.includes(asset.id)
     );
 
-    // Lưu danh sách tài sản đã chọn vào Redux store
-    dispatch(setSelectedAssetsForMove(selectedAssetObjects));
-    
     // Lưu context di chuyển (thông tin phòng nguồn)
     const moveContext = {
       sourceRoomId: selectedRoomId || undefined,
       sourceRoom: selectedRoomId ? rooms?.find(r => r.id === selectedRoomId) : undefined,
     };
+
+    try {
+      // Tạo move draft để lưu vào sessionStorage
+      const moveDraft = {
+        selectedIds: selectedAssetObjects.map(asset => asset.id),
+        assets: selectedAssetObjects,
+        moveContext: moveContext,
+        filterContext: {
+          selectedCampusId: selectedCampusId || undefined,
+          selectedUnitId: selectedUnitId || ((hasUnitAccess || hasSelfAccess) && user?.unitId ? user.unitId : undefined),
+          selectedYear: selectedYear || undefined,
+          selectedRoomId: selectedRoomId || undefined,
+          selectedAssetType: selectedAssetType || undefined,
+          campusName: selectedCampusId ? campuses.find(c => c.id === selectedCampusId)?.name : undefined,
+          unitName: selectedUnitId ? 
+                    (units?.find(u => u.id === selectedUnitId)?.name || 
+                     campuses.flatMap(c => c.childUnits || []).find(u => u.id === selectedUnitId)?.name) :
+                    undefined,
+          roomName: selectedRoomId ? rooms?.find(r => r.id === selectedRoomId)?.name : undefined,
+        },
+        status: 'DRAFT',
+        timestamp: new Date().toISOString(),
+      };
+
+      // Lưu draft vào sessionStorage
+      sessionStorage.setItem('moveDraft', JSON.stringify(moveDraft));
+      
+      console.log("Saved move draft to sessionStorage:", moveDraft);
+
+      // Kiểm tra lại xem có lưu được không
+      const saved = sessionStorage.getItem('moveDraft');
+      console.log("Verification - saved move draft data:", saved);
+
+    } catch (error) {
+      console.error("Error saving move draft to sessionStorage:", error);
+      toast.error("Có lỗi khi lưu dữ liệu. Vui lòng thử lại.");
+      return;
+    }
+
+    // Lưu danh sách tài sản đã chọn vào Redux store
+    dispatch(setSelectedAssetsForMove(selectedAssetObjects));
     
     console.log("moveContext:", moveContext);
     dispatch(setMoveContext(moveContext));
     
-    // Chuyển đến trang move để hoàn tất di chuyển
-    router.push('/asset/move/create');
+    toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để di chuyển`);
     
     // Thoát khỏi move mode
     setIsMoveMode(false);
     setSelectedAssetsForMoveLocal([]);
     
-    toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để di chuyển`);
+    // Delay một chút rồi mới chuyển trang để đảm bảo sessionStorage đã lưu
+    setTimeout(() => {
+      router.push('/asset/move/create');
+    }, 100);
   };
 
   const handleBulkLiquidation = () => {
@@ -629,17 +755,40 @@ export default function AssetBookPage() {
 
     console.log("Selected assets for liquidation:", selectedAssetObjects);
 
-    // Lưu danh sách tài sản đã chọn vào session storage
     try {
-      sessionStorage.setItem(
-        'selectedAssetsForLiquidation',
-        JSON.stringify(selectedAssetObjects)
-      );
-      console.log("Saved to sessionStorage successfully");
+      const liquidationDraft = {
+        selectedIds: selectedAssetObjects.map(asset => asset.id),
+        assets: selectedAssetObjects,
+        filterContext: {
+          selectedCampusId: selectedCampusId || undefined,
+          selectedUnitId: selectedUnitId || ((hasUnitAccess || hasSelfAccess) && user?.unitId ? user.unitId : undefined),
+          selectedYear: selectedYear || undefined,
+          selectedRoomId: selectedRoomId || undefined,
+          selectedAssetType: selectedAssetType || undefined,
+          campusName: selectedCampusId ? campuses.find(c => c.id === selectedCampusId)?.name : undefined,
+          unitName: selectedUnitId ? 
+                    (units?.find(u => u.id === selectedUnitId)?.name || 
+                     campuses.flatMap(c => c.childUnits || []).find(u => u.id === selectedUnitId)?.name) :
+                    undefined,
+          roomName: selectedRoomId ? rooms?.find(r => r.id === selectedRoomId)?.name : undefined,
+        },
+        status: 'DRAFT',
+        note: '',
+        assetType: selectedAssetType || 'FIXED_ASSET',
+        timestamp: new Date().toISOString(),
+      };
+
+      // Lưu draft mới
+      sessionStorage.setItem('liquidationDraft', JSON.stringify(liquidationDraft));
+      
+      // Lưu legacy key để backward compatibility
+      sessionStorage.setItem('selectedAssetsForLiquidation', JSON.stringify(selectedAssetObjects));
+      
+      console.log("Saved liquidation draft to sessionStorage:", liquidationDraft);
 
       // Kiểm tra lại xem có lưu được không
-      const saved = sessionStorage.getItem('selectedAssetsForLiquidation');
-      console.log("Verification - saved data:", saved);
+      const saved = sessionStorage.getItem('liquidationDraft');
+      console.log("Verification - saved draft data:", saved);
 
     } catch (error) {
       console.error("Error saving to sessionStorage:", error);
@@ -810,17 +959,6 @@ export default function AssetBookPage() {
                   <span>Chỉnh sửa</span>
                 </DropdownMenuItem>
 
-                {/* Chức năng RFID */}
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.location.href = `/asset/${asset.id}/rfid`;
-                  }}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <span>Quét RFID</span>
-                </DropdownMenuItem>
-
                 {/* Separator cho actions khác */}
                 {(canSelectForHandover(asset.bookItemStatus as AssetBookItemStatus) && !isMoveMode) ||
                 (canSelectForMove(asset.bookItemStatus as AssetBookItemStatus) && !isSelectionMode) ||
@@ -888,7 +1026,7 @@ export default function AssetBookPage() {
                     }}
                     className="flex items-center gap-2 cursor-pointer text-red-600"
                   >
-                    <span>Chọn thanh lý</span>
+                    <span>Thanh lý</span>
                   </DropdownMenuItem>
                 )}
 
@@ -991,9 +1129,17 @@ export default function AssetBookPage() {
             {isLiquidationMode ? "Hủy thanh lý" : "Thanh lý tài sản"}
           </Button>
 
-          <Button onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />
-            Xuất sổ tài sản
+          <Button 
+            onClick={handleExport}
+            disabled={isExporting || !selectedAssetType || !selectedYear}
+            className="min-w-[150px]"
+          >
+            {isExporting ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
+            {isExporting ? "Đang xuất..." : "Xuất sổ tài sản"}
           </Button>
         </div>
       </div>

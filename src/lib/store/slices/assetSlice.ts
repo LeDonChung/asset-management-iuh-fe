@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-import { Asset, AssetFilter, AssetStatus, AssetType, PaginatedResponse } from "@/types/asset";
+import { Asset, AssetFilter, AssetStatus, AssetType, PaginatedResponse, BaseFilterRequest } from "@/types/asset";
 import { axiosInstance } from "@/lib/api";
 import toast from "react-hot-toast";
 
@@ -23,6 +23,11 @@ interface BulkLocationUpdateResult {
   errors: string[];
   executedAt: string;
   executedBy: string;
+}
+
+// Unidentified asset types
+interface UnidentifiedAssetFilter extends BaseFilterRequest {
+  type?: AssetType;
 }
 
 // Warehouse asset types
@@ -82,10 +87,12 @@ interface WarehouseAsset {
 
 interface AssetState {
   asset: Asset | null;
+  unidentifiedAssets: PaginatedResponse<Asset>;
   warehouseAssets: PaginatedResponse<WarehouseAsset>;
   warehouseUnits: { id: string; name: string; unitCode: number }[];
   bulkUpdateResult: BulkLocationUpdateResult | null;
   loading: boolean;
+  unidentifiedLoading: boolean;
   warehouseLoading: boolean;
   unitsLoading: boolean;
   bulkUpdateLoading: boolean;
@@ -94,6 +101,21 @@ interface AssetState {
 
 const initialState: AssetState = {
   asset: null,
+  unidentifiedAssets: {
+    data: [],
+    pagination: {
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
+      hasNext: false,
+      hasPrev: false,
+      nextPage: null,
+      prevPage: null,
+      firstPage: 1,
+      lastPage: 1,
+    },
+  },
   warehouseAssets: {
     data: [],
     pagination: {
@@ -112,6 +134,7 @@ const initialState: AssetState = {
   warehouseUnits: [],
   bulkUpdateResult: null,
   loading: false,
+  unidentifiedLoading: false,
   warehouseLoading: false,
   unitsLoading: false,
   bulkUpdateLoading: false,
@@ -122,6 +145,14 @@ export const fetchAssetById = createAsyncThunk(
   "asset/fetchAssetById",
   async (id: string) => {
     const response = await axiosInstance.get(`api/v1/assets/${id}`);
+    return response.data;
+  }
+);
+
+export const fetchUnidentifiedAssets = createAsyncThunk(
+  "asset/fetchUnidentifiedAssets",
+  async (filter: UnidentifiedAssetFilter) => {
+    const response = await axiosInstance.post("api/v1/assets/unidentified", filter);
     return response.data;
   }
 );
@@ -165,6 +196,65 @@ export const proposeAssetLiquidation = createAsyncThunk(
   }
 );
 
+export const createAsset = createAsyncThunk(
+  "asset/createAsset",
+  async (assetData: {
+    name: string;
+    specs?: string;
+    entrydate: string;
+    currentRoomId?: string;
+    locationInRoom?: string;
+    unit: string;
+    quantity?: number;
+    origin?: string;
+    purchasePackage?: number;
+    type: AssetType;
+    categoryId: string;
+    rfid?: string;
+  }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post("api/v1/assets", assetData);
+      toast.success(`Tạo tài sản thành công! Mã KT: ${response.data.ktCode}, Mã TSCD: ${response.data.fixedCode}`);
+      return response.data as Asset;
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Tạo tài sản thất bại";
+      toast.error(message);
+      return rejectWithValue(message);
+    }
+  }
+);
+
+export const updateAsset = createAsyncThunk(
+  "asset/updateAsset",
+  async ({ id, data }: {
+    id: string;
+    data: {
+      name?: string;
+      specs?: string;
+      entrydate?: string;
+      currentRoomId?: string;
+      locationInRoom?: string;
+      unit?: string;
+      quantity?: number;
+      origin?: string;
+      purchasePackage?: number;
+      type?: AssetType;
+      categoryId?: string;
+      rfid?: string;
+    };
+  }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.patch(`api/v1/assets/${id}`, data);
+      toast.success("Cập nhật tài sản thành công!");
+      return response.data as Asset;
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Cập nhật tài sản thất bại";
+      toast.error(message);
+      return rejectWithValue(message);
+    }
+  }
+);
+
 const assetSlice = createSlice({
   name: "asset",
   initialState,
@@ -178,6 +268,23 @@ const assetSlice = createSlice({
     },
     clearWarehouseAssets: (state) => {
       state.warehouseAssets = {
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+          nextPage: null,
+          prevPage: null,
+          firstPage: 1,
+          lastPage: 1,
+        },
+      };
+    },
+    clearUnidentifiedAssets: (state) => {
+      state.unidentifiedAssets = {
         data: [],
         pagination: {
           page: 1,
@@ -215,6 +322,20 @@ const assetSlice = createSlice({
       .addCase(fetchAssetById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || "Failed to fetch asset";
+      })
+      // Fetch unidentified assets
+      .addCase(fetchUnidentifiedAssets.pending, (state) => {
+        state.unidentifiedLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchUnidentifiedAssets.fulfilled, (state, action) => {
+        state.unidentifiedLoading = false;
+        state.unidentifiedAssets = action.payload;
+        state.error = null;
+      })
+      .addCase(fetchUnidentifiedAssets.rejected, (state, action) => {
+        state.unidentifiedLoading = false;
+        state.error = action.error.message || "Failed to fetch unidentified assets";
       })
       // Fetch warehouse assets
       .addCase(fetchWarehouseAssets.pending, (state) => {
@@ -274,12 +395,40 @@ const assetSlice = createSlice({
       .addCase(proposeAssetLiquidation.rejected, (state, action) => {
         state.loading = false;
         state.error = (action.payload as string) || action.error.message || "Failed to propose liquidation";
+      })
+      // Create asset
+      .addCase(createAsset.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createAsset.fulfilled, (state, action) => {
+        state.loading = false;
+        state.asset = action.payload as any;
+        state.error = null;
+      })
+      .addCase(createAsset.rejected, (state, action) => {
+        state.loading = false;
+        state.error = (action.payload as string) || action.error.message || "Failed to create asset";
+      })
+      // Update asset
+      .addCase(updateAsset.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateAsset.fulfilled, (state, action) => {
+        state.loading = false;
+        state.asset = action.payload as any;
+        state.error = null;
+      })
+      .addCase(updateAsset.rejected, (state, action) => {
+        state.loading = false;
+        state.error = (action.payload as string) || action.error.message || "Failed to update asset";
       });
   },
 });
 
-export const { clearAsset, clearError, clearWarehouseAssets, clearWarehouseUnits, clearBulkUpdateResult } = assetSlice.actions;
+export const { clearAsset, clearError, clearUnidentifiedAssets, clearWarehouseAssets, clearWarehouseUnits, clearBulkUpdateResult } = assetSlice.actions;
 
-export type { LocationUpdateItem, BulkLocationUpdateRequest, BulkLocationUpdateResult, WarehouseAsset };
+export type { UnidentifiedAssetFilter, LocationUpdateItem, BulkLocationUpdateRequest, BulkLocationUpdateResult, WarehouseAsset };
 
 export default assetSlice.reducer;

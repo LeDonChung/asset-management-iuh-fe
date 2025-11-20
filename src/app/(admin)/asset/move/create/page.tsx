@@ -10,6 +10,8 @@ import {
   removeAssetFromMove,
   createMovement,
   MoveStatus,
+  setSelectedAssetsForMove,
+  setMoveContext,
 } from "@/lib/store/slices/moveSlice";
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { fetchRoomsByUnitId } from "@/lib/store/slices/roomSlice";
@@ -234,15 +236,71 @@ export default function MoveCreatePage() {
   // State cho ghi chú tài sản
   const [assetNotes, setAssetNotes] = useState<Record<string, string>>({});
 
-  // Redirect nếu không có tài sản nào được chọn
+  // Load move draft from sessionStorage if available
+  useEffect(() => {
+    const loadMoveDraft = () => {
+      try {
+        const savedDraft = sessionStorage.getItem('moveDraft');
+        if (savedDraft) {
+          const moveDraft = JSON.parse(savedDraft);
+          console.log("Loading move draft from sessionStorage:", moveDraft);
+
+          // Restore filter context
+          if (moveDraft.filterContext) {
+            const { filterContext } = moveDraft;
+            if (filterContext.selectedCampusId) {
+              setSelectedCampusId(filterContext.selectedCampusId);
+            }
+            if (filterContext.selectedUnitId) {
+              setSelectedUnitId(filterContext.selectedUnitId);
+            }
+            if (filterContext.selectedRoomId) {
+              setSelectedRoomId(filterContext.selectedRoomId);
+            }
+          }
+
+          // Restore assets to Redux if not already loaded
+          if (selectedAssetsForMove.length === 0 && moveDraft.assets) {
+            dispatch(setSelectedAssetsForMove(moveDraft.assets));
+            
+            // Restore move context
+            if (moveDraft.moveContext) {
+              dispatch(setMoveContext(moveDraft.moveContext));
+            }
+          }
+
+          // Set default movement note
+          if (!movementNote && moveDraft.assets?.length > 0) {
+            const roomName = moveDraft.filterContext?.roomName || "phòng được chọn";
+            setMovementNote(`Di chuyển ${moveDraft.assets.length} tài sản đến ${roomName}`);
+          }
+
+          // Thông báo đã khôi phục dữ liệu
+          if (moveDraft.assets?.length > 0) {
+            toast.success(`Đã khôi phục ${moveDraft.assets.length} tài sản từ phiên trước`);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading move draft from sessionStorage:", error);
+      }
+    };
+
+    loadMoveDraft();
+  }, [dispatch, selectedAssetsForMove.length, movementNote]);
+
+  // Redirect nếu không có tài sản nào được chọn và không có draft
   useEffect(() => {
     if (selectedAssetsForMove.length === 0) {
-      // Delay redirect một chút để tránh race condition
-      const timer = setTimeout(() => {
-        router.push("/asset/asset-book");
-      }, 100);
+      // Kiểm tra xem có draft trong sessionStorage không
+      const savedDraft = sessionStorage.getItem('moveDraft');
+      if (!savedDraft) {
+        // Delay redirect một chút để tránh race condition
+        const timer = setTimeout(() => {
+          router.push("/asset/asset-book");
+        }, 100);
 
-      return () => clearTimeout(timer);
+        return () => clearTimeout(timer);
+      }
     }
   }, [selectedAssetsForMove, router]);
 
@@ -332,6 +390,8 @@ export default function MoveCreatePage() {
   }, [dispatch, selectedUnitId]);
 
   const handleCancelMove = () => {
+    // Xóa move draft khỏi sessionStorage
+    sessionStorage.removeItem('moveDraft');
     // Xóa tất cả dữ liệu movement
     dispatch(resetMoveState());
     // Quay về trang sổ tài sản
@@ -384,6 +444,9 @@ export default function MoveCreatePage() {
 
       // Kiểm tra kết quả
       if (result && result.id) {
+        // Xóa move draft khỏi sessionStorage
+        sessionStorage.removeItem('moveDraft');
+        
         // Hiển thị thông báo thành công
         const statusText = selectedStatus === MoveStatus.DRAFT ? "nháp" : "đề xuất";
         toast.success(

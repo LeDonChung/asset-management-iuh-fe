@@ -280,7 +280,6 @@ export default function MovementManagementPage() {
   const { hasAnyPermission } = useAuth();
   const canApprove = hasAnyPermission([PermissionConstants.PERM_APPROVE_MOVEMENT]);
   const canPropose = hasAnyPermission([PermissionConstants.PERM_PROPOSE_MOVEMENT]);
-  const canExecute = hasAnyPermission([PermissionConstants.PERM_EXECUTE_MOVEMENT]);
   const canDelete = hasAnyPermission([PermissionConstants.PERM_REMOVE_MOVEMENT]);
   const canView = hasAnyPermission([PermissionConstants.PERM_VIEW_MOVEMENT]);
   const canPerformAction = (movement: SimplifiedMovementResponseDto, action: string) => {
