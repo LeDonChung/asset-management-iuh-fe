@@ -56,6 +56,7 @@ import { RoleBase } from "@/lib/constants/role";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { PermissionConstants } from "@/constants";
+import TransactionStatusModal from "@/components/modal/TransactionStatusModal";
 
 // Helper function to render movement status badge
 const getMovementStatusBadge = (status: MoveStatus) => {
@@ -135,20 +136,19 @@ export default function MovementManagementPage() {
   const [selectedStatus, setSelectedStatus] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  // Dialog states
-  const [actionDialog, setActionDialog] = useState<{
+  // Dialog states for delete
+  const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
-    type: "propose" | "approve" | "reject" | "execute" | "delete" | null;
     movement: SimplifiedMovementResponseDto | null;
-    note: string;
-    rejectionReason: string;
   }>({
     isOpen: false,
-    type: null,
     movement: null,
-    note: "",
-    rejectionReason: "",
   });
+
+  // Modal states for propose/approve/reject
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<"propose" | "approve" | "reject" | null>(null);
+  const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null);
 
   // Load movements on component mount and filter changes
   useEffect(() => {
@@ -191,40 +191,57 @@ export default function MovementManagementPage() {
   };
 
   const openActionDialog = (
-    type: "propose" | "approve" | "reject" | "execute" | "delete",
+    type: "propose" | "approve" | "reject" | "delete",
     movement: SimplifiedMovementResponseDto
   ) => {
-    setActionDialog({
-      isOpen: true,
-      type,
-      movement,
-      note: "",
-      rejectionReason: "",
-    });
+    if (type === "delete") {
+      setDeleteDialog({
+        isOpen: true,
+        movement,
+      });
+    } else {
+      setSelectedMovementId(movement.id);
+      setModalType(type);
+      setIsModalOpen(true);
+    }
   };
 
-  const closeActionDialog = () => {
-    setActionDialog({
+  const closeDeleteDialog = () => {
+    setDeleteDialog({
       isOpen: false,
-      type: null,
       movement: null,
-      note: "",
-      rejectionReason: "",
     });
   };
 
-  const handleAction = async () => {
-    if (!actionDialog.movement || !actionDialog.type) return;
+  const handleDelete = async () => {
+    if (!deleteDialog.movement) return;
 
     try {
-      const movementId = actionDialog.movement.id;
+      await dispatch(deleteMovement(deleteDialog.movement.id)).unwrap();
+      toast.success("Đã xóa yêu cầu di chuyển thành công!");
+      closeDeleteDialog();
+      handleRefresh();
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      toast.error(error.message || "Có lỗi xảy ra khi xóa!");
+    }
+  };
 
-      switch (actionDialog.type) {
+  const handleModalConfirm = async (data: {
+    note?: string;
+    approvalNote?: string;
+    rejectionReason?: string;
+    evidenceUrl?: string;
+  }) => {
+    if (!selectedMovementId) return;
+
+    try {
+      switch (modalType) {
         case "propose":
           await dispatch(
             proposeMovement({
-              id: movementId,
-              proposeDto: { note: actionDialog.note },
+              id: selectedMovementId,
+              proposeDto: { note: data.note },
             })
           ).unwrap();
           toast.success("Đã đề xuất yêu cầu di chuyển thành công!");
@@ -233,44 +250,32 @@ export default function MovementManagementPage() {
         case "approve":
           await dispatch(
             approveMovement({
-              id: movementId,
-              approveDto: { approvalNote: actionDialog.note },
+              id: selectedMovementId,
+              approveDto: { 
+                approvalNote: data.approvalNote,
+                evidenceUrl: data.evidenceUrl 
+              },
             })
           ).unwrap();
           toast.success("Đã phê duyệt yêu cầu di chuyển thành công!");
           break;
 
         case "reject":
-          if (!actionDialog.rejectionReason.trim()) {
+          if (!data.rejectionReason?.trim()) {
             toast.error("Vui lòng nhập lý do từ chối!");
             return;
           }
           await dispatch(
             rejectMovement({
-              id: movementId,
-              rejectDto: { rejectionReason: actionDialog.rejectionReason },
+              id: selectedMovementId,
+              rejectDto: { rejectionReason: data.rejectionReason },
             })
           ).unwrap();
           toast.success("Đã từ chối yêu cầu di chuyển!");
           break;
-
-        case "execute":
-          await dispatch(
-            executeMovement({
-              id: movementId,
-              executeDto: { note: actionDialog.note },
-            })
-          ).unwrap();
-          toast.success("Đã thực hiện di chuyển tài sản thành công!");
-          break;
-
-        case "delete":
-          await dispatch(deleteMovement(movementId)).unwrap();
-          toast.success("Đã xóa yêu cầu di chuyển thành công!");
-          break;
       }
 
-      closeActionDialog();
+      setIsModalOpen(false);
       handleRefresh();
     } catch (error: any) {
       console.error("Action error:", error);
@@ -425,16 +430,6 @@ export default function MovementManagementPage() {
                 </DropdownMenuItem>
               )}
 
-              {/* Execute */}
-              {canPerformAction(record, "execute") && (
-                <DropdownMenuItem
-                  onClick={() => openActionDialog("execute", record)}
-                  className="flex items-center gap-2 cursor-pointer text-purple-600"
-                >
-                  <span>Thực hiện</span>
-                </DropdownMenuItem>
-              )}
-
               {/* Delete */}
               {canPerformAction(record, "delete") && (
                 <>
@@ -547,100 +542,56 @@ export default function MovementManagementPage() {
         }}
       />
 
-      {/* Action Dialog */}
-      <Dialog open={actionDialog.isOpen} onOpenChange={closeActionDialog}>
+      {/* Delete Dialog */}
+      <Dialog open={deleteDialog.isOpen} onOpenChange={closeDeleteDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {actionDialog.type === "propose" && "Đề xuất yêu cầu di chuyển"}
-              {actionDialog.type === "approve" && "Phê duyệt yêu cầu di chuyển"}
-              {actionDialog.type === "reject" && "Từ chối yêu cầu di chuyển"}
-              {actionDialog.type === "delete" && "Xóa yêu cầu di chuyển"}
-            </DialogTitle>
+            <DialogTitle>Xóa yêu cầu di chuyển</DialogTitle>
             <DialogDescription>
-              {actionDialog.type === "propose" && "Gửi yêu cầu di chuyển để chờ phê duyệt."}
-              {actionDialog.type === "approve" && "Phê duyệt yêu cầu di chuyển này."}
-              {actionDialog.type === "reject" && "Từ chối yêu cầu di chuyển này."}
-              {actionDialog.type === "delete" && "Xóa vĩnh viễn yêu cầu di chuyển này. Thao tác này không thể hoàn tác."}
+              Xóa vĩnh viễn yêu cầu di chuyển này. Thao tác này không thể hoàn tác.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            {actionDialog.type === "reject" && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Lý do từ chối *
-                </label>
-                <textarea
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={3}
-                  placeholder="Nhập lý do từ chối..."
-                  value={actionDialog.rejectionReason}
-                  onChange={(e) =>
-                    setActionDialog((prev) => ({
-                      ...prev,
-                      rejectionReason: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            )}
-
-            {(actionDialog.type === "propose" || 
-              actionDialog.type === "approve" || 
-              actionDialog.type === "execute") && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ghi chú
-                </label>
-                <textarea
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={3}
-                  placeholder="Nhập ghi chú (tùy chọn)..."
-                  value={actionDialog.note}
-                  onChange={(e) =>
-                    setActionDialog((prev) => ({
-                      ...prev,
-                      note: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            )}
-          </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={closeActionDialog}>
+            <Button variant="outline" onClick={closeDeleteDialog}>
               Hủy
             </Button>
             <Button
-              onClick={handleAction}
-              disabled={
-                isProposingMovement ||
-                isApprovingMovement ||
-                isRejectingMovement ||
-                loading
-              }
-              className={
-                actionDialog.type === "delete" || actionDialog.type === "reject"
-                  ? "bg-red-600 hover:bg-red-700 text-white"
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
-              }
+              onClick={handleDelete}
+              disabled={loading}
+              className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {(isProposingMovement ||
-                isApprovingMovement ||
-                isRejectingMovement ||
-                loading) && (
+              {loading && (
                 <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
               )}
-              {actionDialog.type === "propose" && "Đề xuất"}
-              {actionDialog.type === "approve" && "Phê duyệt"}
-              {actionDialog.type === "reject" && "Từ chối"}
-              {actionDialog.type === "delete" && "Xóa"}
+              Xóa
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Status Update Modal */}
+      <TransactionStatusModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleModalConfirm}
+        title={
+          modalType === "propose"
+            ? "Đề xuất yêu cầu di chuyển"
+            : modalType === "approve"
+            ? "Phê duyệt yêu cầu di chuyển"
+            : "Từ chối yêu cầu di chuyển"
+        }
+        description={
+          modalType === "propose"
+            ? "Gửi yêu cầu di chuyển để chờ phê duyệt."
+            : modalType === "approve"
+            ? "Phê duyệt yêu cầu di chuyển này. Bạn có thể đính kèm file minh chứng."
+            : "Từ chối yêu cầu di chuyển này."
+        }
+        action={modalType || "propose"}
+        isLoading={isProposingMovement || isApprovingMovement || isRejectingMovement}
+      />
     </div>
   );
 }

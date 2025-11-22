@@ -229,6 +229,11 @@ export default function TransactionPage() {
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [transactionNote, setTransactionNote] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<TransactionStatus>(TransactionStatus.DRAFT);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    // Mặc định là ngày hiện tại
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // State cho ghi chú tài sản
@@ -447,6 +452,16 @@ export default function TransactionPage() {
       return;
     }
 
+    if (!selectedDate) {
+      toast.error("Vui lòng chọn ngày tạo yêu cầu!");
+      return;
+    }
+
+    // Kiểm tra ngày không được lớn hơn ngày hiện tại
+    const selectedDateObj = new Date(selectedDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // Set to end of day for comparison
+
     setIsSubmitting(true);
 
     try {
@@ -479,6 +494,7 @@ export default function TransactionPage() {
         status: selectedStatus,
         requestNote: transactionNote || `Bàn giao ${selectedAssetsForHandover.length} tài sản đến ${unitName}`,
         items: transactionItems,
+        createdAt: new Date(selectedDate).toISOString(),
       };
 
       // Gọi API để tạo transaction
@@ -758,6 +774,21 @@ export default function TransactionPage() {
                 placeholder="Nhập ghi chú cho yêu cầu bàn giao (tùy chọn)..."
                 value={transactionNote}
                 onChange={(e) => setTransactionNote(e.target.value)}
+                disabled={isSubmitting || isCreatingTransaction}
+                className="w-full"
+              />
+            </div>
+
+            {/* Date Selection */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Ngày bàn giao
+                <span className="text-red-500 ml-1">*</span>
+              </label>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
                 disabled={isSubmitting || isCreatingTransaction}
                 className="w-full"
               />

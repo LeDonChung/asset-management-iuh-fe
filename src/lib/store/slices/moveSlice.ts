@@ -24,6 +24,7 @@ export interface CreateMovementDto {
   items: CreateMovementItemDto[]
   requestNote?: string
   status?: MoveStatus
+  createdAt?: string
   approvalNote?: string
 }
 
@@ -46,6 +47,7 @@ export interface ProposeMovementDto {
 
 export interface ApproveMovementDto {
   approvalNote?: string
+  evidenceUrl?: string
 }
 
 export interface RejectMovementDto {
@@ -66,6 +68,7 @@ export interface MovementHistoryResponseDto {
   oldStatus: MoveStatus
   newStatus: MoveStatus
   note?: string
+  evidenceUrl?: string
   createdAt: Date
   changer: {
     id: string

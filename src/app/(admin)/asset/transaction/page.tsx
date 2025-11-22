@@ -257,7 +257,10 @@ export default function TransactionPage() {
           await dispatch(
             approveTransaction({
               id: selectedTransactionId,
-              approveDto: { approvalNote: data.note },
+              approveDto: { 
+                approvalNote: data.note,
+                evidenceUrl: data.evidenceUrl 
+              },
             })
           ).unwrap();
           toast.success("Đã phê duyệt giao dịch");
@@ -331,7 +334,7 @@ export default function TransactionPage() {
     },
     {
       key: "createdAt",
-      title: "Ngày tạo",
+      title: "Ngày bàn giao",
       render: (_, transaction: any) => (
         <div className="text-sm font-medium text-gray-900">
           {new Date(transaction.createdAt).toLocaleDateString("vi-VN")}
