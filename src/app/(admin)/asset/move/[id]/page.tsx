@@ -208,6 +208,19 @@ const MovementHistory: React.FC<{
                     {history.note}
                   </div>
                 )}
+                {history.evidenceUrl && (
+                  <div className="mt-2">
+                    <a
+                      href={history.evidenceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+                    >
+                      <FileText className="w-3 h-3" />
+                      Xem minh chứng
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           ))}

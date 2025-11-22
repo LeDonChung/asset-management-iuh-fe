@@ -231,6 +231,11 @@ export default function MoveCreatePage() {
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [movementNote, setMovementNote] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<MoveStatus>(MoveStatus.DRAFT);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    // Mặc định là ngày hiện tại
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // State cho ghi chú tài sản
@@ -418,6 +423,16 @@ export default function MoveCreatePage() {
       return;
     }
 
+    if (!selectedDate) {
+      toast.error("Vui lòng chọn ngày tạo yêu cầu!");
+      return;
+    }
+
+    // Kiểm tra ngày không được lớn hơn ngày hiện tại
+    const selectedDateObj = new Date(selectedDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // Set to end of day for comparison
+
     setIsSubmitting(true);
 
     try {
@@ -437,6 +452,7 @@ export default function MoveCreatePage() {
         requestNote: movementNote || `Di chuyển ${selectedAssetsForMove.length} tài sản đến ${roomName}`,
         status: selectedStatus,
         approvalNote: selectedStatus === MoveStatus.PENDING_APPROVAL ? "Tự động phê duyệt" : undefined,
+        createdAt: new Date(selectedDate).toISOString(),
       };
 
       // Gọi API để tạo movement
@@ -735,6 +751,20 @@ export default function MoveCreatePage() {
                 placeholder="Nhập ghi chú cho yêu cầu di chuyển (tùy chọn)..."
                 value={movementNote}
                 onChange={(e) => setMovementNote(e.target.value)}
+                disabled={isSubmitting || isCreatingMovement}
+                className="w-full"
+              />
+            </div>
+
+            {/* Created Date */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Ngày di chuyển <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
                 disabled={isSubmitting || isCreatingMovement}
                 className="w-full"
               />

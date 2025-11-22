@@ -14,6 +14,7 @@ export interface CreateTransactionDto {
   toUnitId: string
   status?: TransactionStatus
   requestNote?: string
+  createdAt: string
   items: CreateTransactionItemDto[]
 }
 
@@ -37,6 +38,7 @@ export interface ProposeTransactionDto {
 
 export interface ApproveTransactionDto {
   approvalNote?: string
+  evidenceUrl?: string
 }
 
 export interface RejectTransactionDto {
@@ -65,6 +67,7 @@ export interface TransactionHistoryResponseDto {
     username: string
   }
   note?: string
+  evidenceUrl?: string
   createdAt: Date
 }
 
