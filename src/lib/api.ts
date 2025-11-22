@@ -10,6 +10,47 @@ export const axiosInstance = axios.create({
   timeout: 10000, // 10 seconds timeout
 })
 
+// Map để lưu các request đang pending, tránh gọi API trùng lặp
+const pendingRequests = new Map<string, Promise<any>>()
+
+// Tạo key duy nhất cho mỗi request dựa trên method, URL, params
+function generateRequestKey(config: any): string {
+  // Nếu config là string, đó là URL
+  if (typeof config === 'string') {
+    return `GET_${config}__`
+  }
+  
+  // Nếu config là object
+  const { method, url, params, data } = config
+  const paramsStr = params ? JSON.stringify(params) : ''
+  const dataStr = data ? JSON.stringify(data) : ''
+  return `${method?.toUpperCase() || 'GET'}_${url || config}_${paramsStr}_${dataStr}`
+}
+
+// Wrapper function để xử lý request deduplication
+const originalRequest = axiosInstance.request.bind(axiosInstance)
+
+axiosInstance.request = function (config: any) {
+  const requestKey = generateRequestKey(config)
+  
+  // Kiểm tra xem có request trùng đang pending không
+  if (pendingRequests.has(requestKey)) {
+    // Trả về promise của request đang pending thay vì tạo request mới
+    return pendingRequests.get(requestKey)!
+  }
+  
+  // Tạo request mới
+  const requestPromise = originalRequest(config).finally(() => {
+    // Xóa request khỏi Map sau khi hoàn thành (thành công hoặc lỗi)
+    pendingRequests.delete(requestKey)
+  })
+  
+  // Lưu request vào Map
+  pendingRequests.set(requestKey, requestPromise)
+  
+  return requestPromise
+}
+
 // Request interceptor to add auth token
 axiosInstance.interceptors.request.use(
   (config) => {

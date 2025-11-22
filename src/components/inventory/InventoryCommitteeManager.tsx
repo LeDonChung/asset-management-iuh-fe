@@ -94,11 +94,11 @@ export default function InventoryCommitteeManager({
         return nameA.localeCompare(nameB, "vi");
       },
       render: (_, record) => (
-        <div className="py-1">
-          <div className="font-medium text-gray-900 mb-1">
+        <div className="py-2">
+          <div className="font-semibold text-gray-900 mb-1">
             {record.user?.fullName || "Trưởng các đơn vị thuộc trường"}
           </div>
-          <div className="text-sm text-blue-600">
+          <div className="text-sm text-gray-500">
             {record.user?.email || "N/A"}
           </div>
         </div>
@@ -119,8 +119,8 @@ export default function InventoryCommitteeManager({
       title: "NHIỆM VỤ",
       render: (_, record) => (
         <div className="max-w-sm">
-          <div className="text-sm text-gray-700" title={record.role}>
-            {record.role || "aaa"}
+          <div className="text-sm text-gray-700 font-medium" title={record.role}>
+            {record.role || "-"}
           </div>
         </div>
       ),
@@ -131,19 +131,19 @@ export default function InventoryCommitteeManager({
       width: "140px",
       className: "text-center",
       render: (_, record) => (
-        <div className="flex justify-center gap-1">
+        <div className="flex justify-center gap-2">
           {canEdit && (
             <>
               <button
                 onClick={() => setEditingMember(record)}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded"
                 title="Sửa"
               >
                 <Edit className="h-4 w-4" />
               </button>
               <button
                 onClick={() => handleDeleteMember(record.id)}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded"
                 title="Xóa"
               >
                 <Trash2 className="h-4 w-4" />
@@ -183,8 +183,7 @@ export default function InventoryCommitteeManager({
   // Return early if no session
   if (!session) {
     return (
-      <div className="p-12 text-center">
-        <div className="text-5xl mb-4">👥</div>
+      <div className="p-6 text-center">
         <p className="text-gray-500">Vui lòng tải lại trang để xem thông tin.</p>
       </div>
     );
@@ -193,14 +192,19 @@ export default function InventoryCommitteeManager({
   return (
     <>
       <div className="overflow-hidden">
-        <Table
-          columns={columns}
-          data={session.members ?? []}
-          rowKey="id"
-          emptyText="Chưa có thành viên nào trong ban kiểm kê"
-          emptyIcon={<div className="text-5xl mb-4">👥</div>}
-          className="border-0"
-        />
+        {session.members && session.members.length > 0 ? (
+          <Table
+            columns={columns}
+            data={session.members}
+            rowKey="id"
+            className="border-0"
+            emptyText="Chưa có thành viên nào trong ban kiểm kê"
+          />
+        ) : (
+          <div className="p-6 text-center">
+            <p className="text-gray-500">Chưa có thành viên nào trong ban kiểm kê</p>
+          </div>
+        )}
       </div>
       
       {/* Member Modals */}

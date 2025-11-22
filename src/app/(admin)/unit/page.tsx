@@ -280,7 +280,7 @@ export default function UnitsPage() {
 
           {/* Type Filter */}
           <select
-            className="px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as UnitType)}
           >

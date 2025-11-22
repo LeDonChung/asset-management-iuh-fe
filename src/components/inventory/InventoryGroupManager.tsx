@@ -443,7 +443,7 @@ export function InventoryGroupManager({ subCommittee, groups, onUpdate }: Invent
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow-md transition-all"
         >
           <Plus size={16} />
-          <span>Thêm nhóm</span>
+          <span>Thêm</span>
         </Button>
       </div>
       

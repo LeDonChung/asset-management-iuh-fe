@@ -30,6 +30,7 @@ import {
   sendLiquidationProposal,
   approveLiquidationProposal,
   finalizeLiquidationProposal,
+  exportLiquidationToExcel,
 } from "@/lib/store/slices/liquidationSlice";
 import {
   LiquidationStatus,
@@ -39,7 +40,6 @@ import {
   LiquidationHistoryResponseDto,
 } from "@/types/asset";
 import { PermissionConstants } from "@/hooks/usePermissions";
-import { RoleBase } from "@/lib/constants/role";
 import toast from "react-hot-toast";
 import LiquidationStatusModal from "@/components/modal/LiquidationStatusModal";
 import { format } from "date-fns";
@@ -64,8 +64,6 @@ const statusLabels = {
 const assetTypeLabels = {
   [AssetType.FIXED_ASSET]: "Tài sản cố định",
   [AssetType.TOOLS_EQUIPMENT]: "Công cụ dụng cụ",
-  [AssetType.TSCD]: "Tài sản cố định",
-  [AssetType.CCDC]: "Công cụ dụng cụ",
 };
 
 // Component để hiển thị hình ảnh có thể click
@@ -269,8 +267,10 @@ const LiquidationHistory: React.FC<{
 const LiquidationActions: React.FC<{
   proposal: LiquidationProposalResponseDto;
   onAction: (type: "send" | "approve" | "finalize", data: any) => void;
+  onExport: () => void;
   isLoading: boolean;
-}> = ({ proposal, onAction, isLoading }) => {
+  isExporting: boolean;
+}> = ({ proposal, onAction, onExport, isLoading, isExporting }) => {
   const { hasAnyPermission } = useAuth();
 
   const canApprove = hasAnyPermission([
@@ -302,7 +302,26 @@ const LiquidationActions: React.FC<{
       case LiquidationStatus.PROPOSED:
         if (canApprove) {
           return (
-            <div className="flex gap-2">
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onExport}
+                disabled={isExporting}
+                className="flex items-center gap-2"
+              >
+                {isExporting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                    Đang xuất...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Xuất danh mục thanh lý
+                  </>
+                )}
+              </Button>
               <Button
                 onClick={() => onAction("approve", {})}
                 disabled={isLoading}
@@ -310,7 +329,7 @@ const LiquidationActions: React.FC<{
               >
                 Phê duyệt
               </Button>
-            </div>
+            </>
           );
         }
         return null;
@@ -343,8 +362,12 @@ export default function LiquidationDetailPage() {
   const { hasAnyPermission } = useAuth();
   const dispatch = useAppDispatch();
 
-  const { currentLiquidationProposal, isFetchingProposal, fetchProposalError } =
-    useAppSelector((state: RootState) => state.liquidation);
+  const { 
+    currentLiquidationProposal, 
+    isFetchingProposal, 
+    fetchProposalError,
+    isExportingToExcel,
+  } = useAppSelector((state: RootState) => state.liquidation);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<
@@ -414,6 +437,15 @@ export default function LiquidationDetailPage() {
     }
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      await dispatch(exportLiquidationToExcel(proposalId)).unwrap();
+      toast.success("Xuất danh mục thanh lý thành công");
+    } catch (error: any) {
+      toast.error(error.message || "Có lỗi xảy ra khi xuất file");
+    }
+  };
+
   if (isFetchingProposal) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -473,7 +505,9 @@ export default function LiquidationDetailPage() {
           <LiquidationActions
             proposal={currentLiquidationProposal}
             onAction={handleAction}
+            onExport={handleExportToExcel}
             isLoading={isFetchingProposal}
+            isExporting={isExportingToExcel}
           />
         </div>
       </div>

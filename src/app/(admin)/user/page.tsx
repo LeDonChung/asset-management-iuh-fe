@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Users, MoreVertical } from "lucide-react";
-import { User, UserStatus } from "@/types/asset";
+import { User, UserStatus, Unit, AccessScopeType } from "@/types/asset";
 import Link from "next/link";
 import UserDetailModal from "@/components/user/UserDetailModal";
 import { useRouter } from "next/navigation";
@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PermissionConstants } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
-import { RoleBase } from "@/lib/constants/role";
 
 const statusLabels = {
   [UserStatus.ACTIVE]: "Đang hoạt động",
@@ -59,28 +58,29 @@ export default function UsersPage() {
   const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const { hasAnyPermission, hasRole, user: currentUser } = useAuth();
-  const isAdmin = hasRole([RoleBase.ADMIN]);
-  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
-  const isUserDept = hasRole([RoleBase.USER_DEPT]);
+  const { hasAnyPermission, user: currentUser } = useAuth();
 
-  // Tính toán danh sách units để hiển thị trong dropdown filter dựa vào role
+  // Tính toán danh sách units để hiển thị trong dropdown filter dựa vào access scope
   const getFilterUnits = () => {
-    if (isAdmin) {
-      // Admin chỉ thấy các cơ sở (campuses)
+    if (!currentUser || !currentUser.accessScopeTypes) return [];
+
+    const accessScopeTypes = currentUser.accessScopeTypes;
+
+    // AccessScopeType.GLOBAL - có thể thấy tất cả campuses (cơ sở)
+    if (accessScopeTypes.includes(AccessScopeType.GLOBAL)) {
       return campuses;
     }
-    
-    if (isAdminDept && currentUser?.unitId) {
-      // Admin Dept: tìm campus của mình và lấy tất cả children
+
+    // AccessScopeType.CHILD_UNITS - thấy campus của mình và tất cả unit con
+    if (accessScopeTypes.includes(AccessScopeType.CHILD_UNITS) && currentUser.unitId) {
       const userCampus = campuses.find(campus => campus.id === currentUser.unitId);
       if (userCampus) {
         return [userCampus, ...(userCampus.childUnits || [])];
       }
     }
-    
-    if (isUserDept && currentUser?.unitId) {
-      // User Dept: chỉ thấy unit của mình
+
+    // AccessScopeType.UNIT - chỉ thấy unit của mình
+    if (accessScopeTypes.includes(AccessScopeType.UNIT) && currentUser.unitId) {
       const allUnits = campuses.flatMap(campus => [
         campus,
         ...(campus.childUnits || [])
@@ -88,7 +88,17 @@ export default function UsersPage() {
       const userUnit = allUnits.find(unit => unit.id === currentUser.unitId);
       return userUnit ? [userUnit] : [];
     }
-    
+
+    // AccessScopeType.SELF - tương tự UNIT, chỉ thấy unit của mình
+    if (accessScopeTypes.includes(AccessScopeType.SELF) && currentUser.unitId) {
+      const allUnits = campuses.flatMap(campus => [
+        campus,
+        ...(campus.childUnits || [])
+      ]);
+      const userUnit = allUnits.find(unit => unit.id === currentUser.unitId);
+      return userUnit ? [userUnit] : [];
+    }
+
     return [];
   };
 

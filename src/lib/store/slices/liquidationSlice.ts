@@ -48,6 +48,8 @@ interface LiquidationState {
   isApprovingProposal: boolean;
   isFinalizingProposal: boolean;
   isFetchingProposal: boolean;
+  isExportingToExcel: boolean;
+  isExportingAssetsToExcel: boolean;
   createProposalError: string | null;
   updateProposalError: string | null;
   updateStatusError: string | null;
@@ -56,6 +58,8 @@ interface LiquidationState {
   approveProposalError: string | null;
   finalizeProposalError: string | null;
   fetchProposalError: string | null;
+  exportToExcelError: string | null;
+  exportAssetsToExcelError: string | null;
 }
 
 // Legacy interface - keeping for backward compatibility if needed
@@ -103,6 +107,8 @@ const initialState: LiquidationState = {
   isApprovingProposal: false,
   isFinalizingProposal: false,
   isFetchingProposal: false,
+  isExportingToExcel: false,
+  isExportingAssetsToExcel: false,
   createProposalError: null,
   updateProposalError: null,
   updateStatusError: null,
@@ -111,6 +117,8 @@ const initialState: LiquidationState = {
   approveProposalError: null,
   finalizeProposalError: null,
   fetchProposalError: null,
+  exportToExcelError: null,
+  exportAssetsToExcelError: null,
 };
 
 export const filterLiquidationProposals = createAsyncThunk(
@@ -282,6 +290,74 @@ export const updateLiquidationProposal = createAsyncThunk(
       return response.data as LiquidationProposalResponseDto;
     } catch (error: any) {
       console.error("Update liquidation proposal error:", error);
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const exportLiquidationToExcel = createAsyncThunk(
+  "liquidation/exportLiquidationToExcel",
+  async (id: string, { rejectWithValue }) => {
+    try {
+      console.log("Exporting liquidation proposal to Excel:", id);
+      const response = await axiosInstance.get(
+        `/api/v1/liquidations/${id}/export`,
+        {
+          responseType: "blob",
+        }
+      );
+      
+      // Tạo URL để download file
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Danh_muc_thanh_ly_${id}_${new Date().getTime()}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      console.log("Export liquidation proposal to Excel successful");
+      return { success: true };
+    } catch (error: any) {
+      console.error("Export liquidation proposal to Excel error:", error);
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const exportLiquidationAssetsToExcel = createAsyncThunk(
+  "liquidation/exportLiquidationAssetsToExcel",
+  async (id: string, { rejectWithValue }) => {
+    try {
+      console.log("Exporting liquidation assets to Excel:", id);
+      const response = await axiosInstance.get(
+        `/api/v1/liquidations/${id}/export-assets`,
+        {
+          responseType: "blob",
+        }
+      );
+      
+      // Tạo URL để download file
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Danh_sach_tai_san_thanh_ly_${id}_${new Date().getTime()}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      console.log("Export liquidation assets to Excel successful");
+      return { success: true };
+    } catch (error: any) {
+      console.error("Export liquidation assets to Excel error:", error);
       return rejectWithValue(error.response?.data || error.message);
     }
   }
@@ -502,6 +578,38 @@ const liquidationSlice = createSlice({
         const errorPayload = action.payload as any;
         state.updateProposalError = errorPayload?.message || errorPayload?.response?.data?.message || "Có lỗi xảy ra khi cập nhật đề xuất thanh lý";
         console.error("Update liquidation proposal failed:", action.payload);
+      })
+      
+      // Export liquidation to Excel
+      .addCase(exportLiquidationToExcel.pending, (state) => {
+        state.isExportingToExcel = true;
+        state.exportToExcelError = null;
+      })
+      .addCase(exportLiquidationToExcel.fulfilled, (state) => {
+        state.isExportingToExcel = false;
+        state.exportToExcelError = null;
+        console.log("Export liquidation to Excel successful");
+      })
+      .addCase(exportLiquidationToExcel.rejected, (state, action) => {
+        state.isExportingToExcel = false;
+        state.exportToExcelError = action.payload as string;
+        console.error("Export liquidation to Excel failed:", action.payload);
+      })
+      
+      // Export liquidation assets to Excel
+      .addCase(exportLiquidationAssetsToExcel.pending, (state) => {
+        state.isExportingAssetsToExcel = true;
+        state.exportAssetsToExcelError = null;
+      })
+      .addCase(exportLiquidationAssetsToExcel.fulfilled, (state) => {
+        state.isExportingAssetsToExcel = false;
+        state.exportAssetsToExcelError = null;
+        console.log("Export liquidation assets to Excel successful");
+      })
+      .addCase(exportLiquidationAssetsToExcel.rejected, (state, action) => {
+        state.isExportingAssetsToExcel = false;
+        state.exportAssetsToExcelError = action.payload as string;
+        console.error("Export liquidation assets to Excel failed:", action.payload);
       });
   },
 });

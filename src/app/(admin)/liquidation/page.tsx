@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronsUpDown,
   Package2,
+  MoreVertical,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -44,7 +45,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { RoleBase } from "@/lib/constants/role";
+import { AccessScopeType } from "@/types/asset";
 import LiquidationStatusModal from "@/components/modal/LiquidationStatusModal";
 import { 
   sendLiquidationProposal, 
@@ -71,12 +72,10 @@ const statusLabels = {
 const assetTypeLabels = {
   [AssetType.FIXED_ASSET]: "Tài sản cố định",
   [AssetType.TOOLS_EQUIPMENT]: "Công cụ dụng cụ",
-  [AssetType.TSCD]: "Tài sản cố định",
-  [AssetType.CCDC]: "Công cụ dụng cụ",
 };
 
 export default function LiquidationPage() {
-  const { user, hasAnyPermission, hasRole } = useAuth();
+  const { user, hasAnyPermission } = useAuth();
   const router = useRouter();
   const dispatch = useAppDispatch();
 
@@ -95,11 +94,10 @@ export default function LiquidationPage() {
   const [modalType, setModalType] = useState<"send" | "approve" | "finalize" | null>(null);
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
 
-  // Permissions
-
-  const isAdmin = hasRole([RoleBase.ADMIN]);
-  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
-  const isUserDept = hasRole([RoleBase.USER_DEPT]);
+  // Kiểm tra access scope types
+  const hasGlobalScope = user?.accessScopeTypes?.includes(AccessScopeType.GLOBAL) || false;
+  const hasChildUnitsScope = user?.accessScopeTypes?.includes(AccessScopeType.CHILD_UNITS) || false;
+  const hasUnitScope = user?.accessScopeTypes?.includes(AccessScopeType.UNIT) || false;
 
   const canView = hasAnyPermission([PermissionConstants.PERM_VIEW_LIQUIDATION]);
   const canApprove = hasAnyPermission([
@@ -130,15 +128,15 @@ export default function LiquidationPage() {
   }, [canView, router]);
   const [units, setUnits] = useState<Unit[]>([]);
   
-  // Tính toán danh sách units để hiển thị trong dropdown filter dựa vào role
-  // Chỉ dành cho Admin và Admin Dept (User Dept không cần dropdown filter)
+  // Tính toán danh sách units để hiển thị trong dropdown filter dựa vào access scope
+  // Chỉ dành cho GLOBAL và CHILD_UNITS scope
   const getFilterUnits = () => {
-    if (isAdmin) {
-      // Admin thấy tất cả units từ tất cả campuses
+    if (hasGlobalScope) {
+      // GLOBAL scope: thấy tất cả units từ tất cả campuses
       return campuses.flatMap(campus => [campus, ...(campus.childUnits ?? [])]);
     }
-    if (isAdminDept && user?.unitId) {
-      // Admin Dept: tìm campus của mình và lấy tất cả children + chính campus đó
+    if (hasChildUnitsScope && user?.unitId) {
+      // CHILD_UNITS scope: tìm campus của mình và lấy tất cả children + chính campus đó
       const userCampus = campuses.find(campus => campus.id === user.unitId);
       if (userCampus) {
         return [userCampus, ...(userCampus.childUnits ?? [])];
@@ -153,8 +151,8 @@ export default function LiquidationPage() {
       try {
         dispatch(filterLiquidationProposals(currentFilter));
         const result = await dispatch(getUnitCampus()).unwrap();
-        // Chỉ Admin và Admin Dept mới cần xử lý units cho dropdown filter
-        // User Dept không cần dropdown filter nên không cần set units
+        // Chỉ GLOBAL và CHILD_UNITS scope mới cần xử lý units cho dropdown filter
+        // UNIT scope không cần dropdown filter nên không cần set units
         if (result && result.length > 0) {
           setUnits([]); // Reset units, sẽ dùng getFilterUnits() để tính toán động
         }
@@ -163,7 +161,7 @@ export default function LiquidationPage() {
       }
     };
     loadData();
-  }, [isAdmin, isAdminDept, isUserDept, user?.unitId]);
+  }, [hasGlobalScope, hasChildUnitsScope, hasUnitScope, user?.unitId]);
 
   // Calculate stats from filtered data
   const stats = React.useMemo(() => {
@@ -298,8 +296,8 @@ export default function LiquidationPage() {
         <div className="flex justify-start">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
-                Hành động
+              <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -402,9 +400,6 @@ export default function LiquidationPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Quản lý thanh lý tài sản</h1>
-          <p className="text-gray-600 mt-2">
-            Quản lý đề xuất và phê duyệt thanh lý tài sản
-          </p>
         </div>
         {canCreate && (
           <Link href="/liquidation/create">
@@ -479,13 +474,13 @@ export default function LiquidationPage() {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg border border-gray-300">
-        <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
           {/* Search */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Tìm kiếm theo lý do thanh lý..."
-              className="pl-10"
+              className="pl-10 h-11"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -493,7 +488,7 @@ export default function LiquidationPage() {
 
           {/* Status Filter */}
           <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="h-11 min-w-[170px] px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={statusFilter}
             onChange={(e) =>
               setStatusFilter(e.target.value as LiquidationStatus | "")
@@ -507,15 +502,15 @@ export default function LiquidationPage() {
             ))}
           </select>
 
-          {/* Unit Filter - Chỉ hiển thị cho Admin và Admin Dept */}
-          {(isAdmin || isAdminDept) && (
+          {/* Unit Filter - Chỉ hiển thị cho GLOBAL và CHILD_UNITS scope */}
+          {(hasGlobalScope || hasChildUnitsScope) && (
             <select
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="h-11 min-w-[170px] px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={unitFilter}
               onChange={(e) => setUnitFilter(e.target.value)}
             >
               <option value="">
-                {isAdmin ? "Tất cả đơn vị" : "Tất cả đơn vị trong cơ sở"}
+                {hasGlobalScope ? "Tất cả đơn vị" : "Tất cả đơn vị trong cơ sở"}
               </option>
               {getFilterUnits().map((unit) => (
                 <option key={unit.id} value={unit.id}>
@@ -528,7 +523,7 @@ export default function LiquidationPage() {
 
           {/* Year Filter */}
           <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="h-11 min-w-[170px] px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={yearFilter}
             onChange={(e) =>
               setYearFilter(e.target.value ? Number(e.target.value) : "")

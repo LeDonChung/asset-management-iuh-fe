@@ -9,13 +9,13 @@ import {
   resetTransactionState,
   removeAssetFromHandover,
   createTransaction,
+  setSelectedAssetsForHandover,
+  setHandoverContext,
 } from "@/lib/store/slices/transactionSlice";
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
-import { fetchRoomsByUnitId } from "@/lib/store/slices/roomSlice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
-import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import {
   ArrowLeft,
   Package2,
@@ -35,12 +35,11 @@ import {
   Asset,
   AssetTransaction,
   Unit,
-  Room,
   TransactionType,
   TransactionStatus,
+  AccessScopeType,
 } from "@/types/asset";
 import { useAuth } from "@/contexts/AuthContext";
-import { RoleBase } from "@/lib/constants/role";
 import toast from "react-hot-toast";
 
 // CardSelect Component
@@ -203,11 +202,14 @@ const CardSelect: React.FC<CardSelectProps> = ({
 export default function TransactionPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { hasRole, user } = useAuth();
+  const { user } = useAuth();
 
-  const isAdmin = hasRole([RoleBase.ADMIN]);
-  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
-  const isUserDept = hasRole([RoleBase.USER_DEPT]);
+  // Access scope types
+  const accessScopeTypes = user?.accessScopeTypes || [];
+  const hasGlobalAccess = accessScopeTypes.includes(AccessScopeType.GLOBAL);
+  const hasChildUnitsAccess = accessScopeTypes.includes(AccessScopeType.CHILD_UNITS);
+  const hasUnitAccess = accessScopeTypes.includes(AccessScopeType.UNIT);
+  const hasSelfAccess = accessScopeTypes.includes(AccessScopeType.SELF);
 
   const {
     selectedAssetsForHandover,
@@ -220,40 +222,85 @@ export default function TransactionPage() {
   } = useSelector((state: RootState) => state.transaction);
   
   const { campuses } = useSelector((state: RootState) => state.unit);
-  const { loading: roomsLoading } = useSelector(
-    (state: RootState) => state.room
-  );
 
-  // State cho việc chọn đơn vị và phòng
+  // State cho việc chọn đơn vị và trạng thái
   const [selectedCampusId, setSelectedCampusId] = useState("");
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState("");
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [selectedRoomId, setSelectedRoomId] = useState("");
   const [transactionNote, setTransactionNote] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState<TransactionStatus>(TransactionStatus.DRAFT);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    // Mặc định là ngày hiện tại
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // State cho việc chọn phòng đích cho từng tài sản
-  const [assetDestinations, setAssetDestinations] = useState<
-    Record<string, string>
-  >({});
 
   // State cho ghi chú tài sản
   const [assetNotes, setAssetNotes] = useState<Record<string, string>>({});
 
-  // State for confirmation modal
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [selectedTransactionStatus, setSelectedTransactionStatus] = useState<TransactionStatus>(TransactionStatus.PROPOSED);
+  // Load handover draft from sessionStorage if available
+  useEffect(() => {
+    const loadHandoverDraft = () => {
+      try {
+        const savedDraft = sessionStorage.getItem('handoverDraft');
+        if (savedDraft) {
+          const handoverDraft = JSON.parse(savedDraft);
+          console.log("Loading handover draft from sessionStorage:", handoverDraft);
 
-  // Redirect nếu không có tài sản nào được chọn
+          // Restore filter context
+          if (handoverDraft.filterContext) {
+            const { filterContext } = handoverDraft;
+            if (filterContext.selectedCampusId) {
+              setSelectedCampusId(filterContext.selectedCampusId);
+            }
+            if (filterContext.selectedUnitId) {
+              setSelectedUnitId(filterContext.selectedUnitId);
+            }
+          }
+
+          // Restore assets to Redux if not already loaded
+          if (selectedAssetsForHandover.length === 0 && handoverDraft.assets) {
+            dispatch(setSelectedAssetsForHandover(handoverDraft.assets));
+            
+            // Restore handover context
+            if (handoverDraft.handoverContext) {
+              dispatch(setHandoverContext(handoverDraft.handoverContext));
+            }
+          }
+
+          // Set default transaction note
+          if (!transactionNote && handoverDraft.assets?.length > 0) {
+            const unitName = handoverDraft.filterContext?.unitName || "đơn vị được chọn";
+            setTransactionNote(`Bàn giao ${handoverDraft.assets.length} tài sản đến ${unitName}`);
+          }
+
+          // Thông báo đã khôi phục dữ liệu
+          if (handoverDraft.assets?.length > 0) {
+            toast.success(`Đã khôi phục ${handoverDraft.assets.length} tài sản từ phiên trước`);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading handover draft from sessionStorage:", error);
+      }
+    };
+
+    loadHandoverDraft();
+  }, [dispatch, selectedAssetsForHandover.length, transactionNote]);
+
+  // Redirect nếu không có tài sản nào được chọn và không có draft
   useEffect(() => {
     if (selectedAssetsForHandover.length === 0) {
-      // Delay redirect một chút để tránh race condition
-      const timer = setTimeout(() => {
-        router.push("/asset/asset-book");
-      }, 100);
+      // Kiểm tra xem có draft trong sessionStorage không
+      const savedDraft = sessionStorage.getItem('handoverDraft');
+      if (!savedDraft) {
+        // Delay redirect một chút để tránh race condition
+        const timer = setTimeout(() => {
+          router.push("/asset/asset-book");
+        }, 100);
 
-      return () => clearTimeout(timer);
+        return () => clearTimeout(timer);
+      }
     }
   }, [selectedAssetsForHandover, router]);
 
@@ -263,8 +310,8 @@ export default function TransactionPage() {
       try {
         const campusesResult = await dispatch(getUnitCampus()).unwrap();
         if (campusesResult && user) {
-          if (isAdminDept) {
-            // AdminDept: unitId chính là campus ID
+          if (hasChildUnitsAccess) {
+            // Child units access: unitId chính là campus ID
             const campusId = handoverContext?.sourceCampusId || user?.unitId;
             const userCampus = campusesResult.find(
               (campus: Unit) => campus.id === campusId
@@ -276,8 +323,8 @@ export default function TransactionPage() {
               setUnits([]);
               setSelectedCampusId("");
             }
-          } else if (isUserDept) {
-            // UserDept: Tìm campus chứa đơn vị của user hoặc sử dụng context
+          } else if (hasUnitAccess || hasSelfAccess) {
+            // Unit/Self access: Tìm campus chứa đơn vị của user hoặc sử dụng context
             let userUnit: Unit | undefined;
             let userCampus: Unit | undefined;
 
@@ -297,11 +344,11 @@ export default function TransactionPage() {
             if (userCampus && userUnit) {
               setSelectedCampusId(userCampus.id);
               setUnits(userCampus.childUnits ?? []);
-              // UserDept có thể chọn đơn vị khác, không tự động set selectedUnitId
+              // Unit/Self access có thể chọn đơn vị khác, không tự động set selectedUnitId
               // setSelectedUnitId(userUnit.id);
             }
-          } else if (isAdmin) {
-            // Admin có thể chọn tất cả, nhưng ưu tiên context nếu có
+          } else if (hasGlobalAccess) {
+            // Global access có thể chọn tất cả, nhưng ưu tiên context nếu có
             if (handoverContext?.sourceCampusId) {
               setSelectedCampusId(handoverContext.sourceCampusId);
               const campus = campusesResult.find(
@@ -321,7 +368,7 @@ export default function TransactionPage() {
       }
     };
     loadInitialData();
-  }, [dispatch, isAdmin, isAdminDept, isUserDept, user, handoverContext]);
+  }, [dispatch, hasGlobalAccess, hasChildUnitsAccess, hasUnitAccess, hasSelfAccess, user, handoverContext]);
 
   // Update units when campus changes
   useEffect(() => {
@@ -329,31 +376,8 @@ export default function TransactionPage() {
       const campus = campuses.find((campus) => campus.id === selectedCampusId);
       setUnits(campus?.childUnits ?? []);
       setSelectedUnitId(""); // Reset unit selection
-      setSelectedRoomId(""); // Reset room selection
     }
   }, [selectedCampusId, campuses]);
-
-  // Load rooms when unit changes
-  useEffect(() => {
-    const fetchRooms = async () => {
-      if (selectedUnitId) {
-        try {
-          const res = await dispatch(
-            fetchRoomsByUnitId(selectedUnitId)
-          ).unwrap();
-          setRooms(res);
-          setSelectedRoomId(""); // Reset room selection
-        } catch (error) {
-          console.error("Error fetching rooms:", error);
-          setRooms([]);
-        }
-      } else {
-        setRooms([]);
-        setSelectedRoomId("");
-      }
-    };
-    fetchRooms();
-  }, [dispatch, selectedUnitId]);
 
   // Tính toán thông tin nguồn từ context hoặc tài sản đã chọn
   const sourceUnits = useMemo(() => {
@@ -400,47 +424,17 @@ export default function TransactionPage() {
   }, [selectedAssetsForHandover, handoverContext]);
 
   const handleCancelHandover = () => {
+    // Xóa handover draft khỏi sessionStorage
+    sessionStorage.removeItem('handoverDraft');
     // Xóa tất cả dữ liệu transaction
     dispatch(resetTransactionState());
     // Quay về trang sổ tài sản
     router.push("/asset/asset-book");
   };
 
-  // Hàm áp dụng phòng cho tất cả tài sản
-  const handleApplyRoomToAll = () => {
-    if (!selectedRoomId) {
-      toast.error("Vui lòng chọn phòng trước khi áp dụng!");
-      return;
-    }
-
-    const newDestinations: Record<string, string> = {};
-    selectedAssetsForHandover.forEach((asset) => {
-      newDestinations[asset.id] = selectedRoomId;
-    });
-    setAssetDestinations(newDestinations);
-    toast.success(
-      `Đã áp dụng phòng "${
-        rooms.find((r) => r.id === selectedRoomId)?.name
-      }" cho tất cả ${selectedAssetsForHandover.length} tài sản`
-    );
-  };
-
-  // Hàm cập nhật phòng đích cho một tài sản cụ thể
-  const handleAssetDestinationChange = (assetId: string, roomId: string) => {
-    setAssetDestinations((prev) => ({
-      ...prev,
-      [assetId]: roomId,
-    }));
-  };
-
   const handleRemoveAsset = (assetId: string) => {
-  dispatch(removeAssetFromHandover(assetId));
+    dispatch(removeAssetFromHandover(assetId));
     // Xóa các state liên quan
-    setAssetDestinations((prev) => {
-      const copy = { ...prev };
-      delete copy[assetId];
-      return copy;
-    });
     setAssetNotes((prev) => {
       const copy = { ...prev };
       delete copy[assetId];
@@ -452,57 +446,33 @@ export default function TransactionPage() {
     setAssetNotes((prev) => ({ ...prev, [assetId]: note }));
   };
 
-  const handleSubmitHandover = () => {
+  const handleSubmitHandover = async () => {
     if (!selectedUnitId) {
-      toast.error("Vui lòng chọn đơn vị sử dụng!");
+      toast.error("Vui lòng chọn đơn vị tiếp nhận!");
       return;
     }
 
-    // Determine fromUnitId from context or from the assets' current units
-    let fromUnitId: string | undefined = handoverContext?.sourceUnitId;
-    
-    // If no context, get fromUnitId from the first asset's current room unit
-    if (!fromUnitId && selectedAssetsForHandover.length > 0) {
-      const firstAsset = selectedAssetsForHandover[0];
-      fromUnitId = firstAsset.currentRoom?.unit?.id;
+    if (!selectedDate) {
+      toast.error("Vui lòng chọn ngày tạo yêu cầu!");
+      return;
     }
 
-    // Check if this is a transfer (between different units)
-    const isTransfer = fromUnitId !== selectedUnitId;
-    
-    if (isTransfer) {
-      // For transfers, show confirmation modal
-      setIsConfirmModalOpen(true);
-    } else {
-      // For internal moves, create transaction directly
-      handleConfirmCreate(TransactionStatus.PROPOSED);
-    }
-  };
+    // Kiểm tra ngày không được lớn hơn ngày hiện tại
+    const selectedDateObj = new Date(selectedDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // Set to end of day for comparison
 
-  const handleConfirmCreate = async (status: TransactionStatus) => {
     setIsSubmitting(true);
 
     try {
       const unitName = units.find((u) => u.id === selectedUnitId)?.name || "";
-      const roomName = rooms.find((r) => r.id === selectedRoomId)?.name || "";
 
       // Tạo transaction items từ selected assets
       const transactionItems = selectedAssetsForHandover.map((asset) => ({
         assetId: asset.id,
         fromRoomId: asset.currentRoom?.id,
-        toRoomId: assetDestinations[asset.id] || selectedRoomId,
-        note: assetNotes[asset.id] || `Bàn giao đến ${unitName}${
-          assetDestinations[asset.id]
-            ? ` - ${
-                rooms.find((r) => r.id === assetDestinations[asset.id])?.name
-              }`
-            : selectedRoomId
-            ? ` - ${roomName}`
-            : ""
-        }`,
+        note: assetNotes[asset.id] || `Bàn giao đến ${unitName}`,
       }));
-
-      console.log(transactionItems)
 
       // Determine fromUnitId from context or from the assets' current units
       let fromUnitId: string | undefined = handoverContext?.sourceUnitId;
@@ -513,15 +483,18 @@ export default function TransactionPage() {
         fromUnitId = firstAsset.currentRoom?.unit?.id;
       }
 
-      // Tạo transaction DTO
-      const type = fromUnitId !== selectedUnitId ? TransactionType.TRANSFER : TransactionType.INTERNAL_MOVE;
+      if (!fromUnitId) {
+        throw new Error("Không thể xác định đơn vị nguồn");
+      }
+
+      // Tạo transaction DTO cho API mới (chỉ TRANSFER)
       const createTransactionDto = {
-        type: type,
         fromUnitId: fromUnitId,
         toUnitId: selectedUnitId,
-        requestNote: transactionNote || `Bàn giao ${selectedAssetsForHandover.length} tài sản`,
-        status: status,
+        status: selectedStatus,
+        requestNote: transactionNote || `Bàn giao ${selectedAssetsForHandover.length} tài sản đến ${unitName}`,
         items: transactionItems,
+        createdAt: new Date(selectedDate).toISOString(),
       };
 
       // Gọi API để tạo transaction
@@ -529,17 +502,16 @@ export default function TransactionPage() {
 
       // Kiểm tra kết quả
       if (result && result.id) {
-        // Hiển thị thông báo thành công
-        const statusMessage = status === TransactionStatus.PROPOSED 
-          ? "và đã gửi yêu cầu" 
-          : "dưới dạng nháp";
+        // Xóa handover draft khỏi sessionStorage
+        sessionStorage.removeItem('handoverDraft');
         
+        // Hiển thị thông báo thành công
+        const statusText = selectedStatus === TransactionStatus.DRAFT ? "nháp" : "đề xuất";
         toast.success(
-          `Tạo yêu cầu bàn giao thành công ${statusMessage}! Mã giao dịch: ${result.id}`
+          `Tạo yêu cầu bàn giao ${statusText} thành công! Mã giao dịch: ${result.id}`
         );
 
-        // Close modal and reset state
-        setIsConfirmModalOpen(false);
+        // Reset state and redirect
         dispatch(resetTransactionState());
         router.push("/asset/asset-book");
       } else {
@@ -547,7 +519,6 @@ export default function TransactionPage() {
       }
     } catch (error: any) {
       console.error("Error creating transaction:", error);
-
       toast.error(error.message || "Có lỗi xảy ra khi tạo yêu cầu bàn giao.");
     } finally {
       setIsSubmitting(false);
@@ -628,46 +599,6 @@ export default function TransactionPage() {
         </div>
       ),
       sortable: true,
-    },
-    {
-      key: "destinationLocation",
-      title: "Đích đến",
-      render: (_, record) => {
-        const selectedDestinationRoomId =
-          assetDestinations[record.id] || selectedRoomId;
-        const selectedDestinationRoom = rooms.find(
-          (r) => r.id === selectedDestinationRoomId
-        );
-
-        return (
-          <div className="text-sm text-gray-900">
-            {selectedUnitId ? (
-              <div className="space-y-2">
-                {/* Dropdown chọn phòng riêng cho từng tài sản */}
-                <div className="relative">
-                  <select
-                    value={assetDestinations[record.id] || ""}
-                    onChange={(e) =>
-                      handleAssetDestinationChange(record.id, e.target.value)
-                    }
-                    disabled={!selectedUnitId || isSubmitting || isCreatingTransaction}
-                    className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Chọn phòng</option>
-                    {rooms.map((room) => (
-                      <option key={room.id} value={room.id}>
-                        {room.name || room.roomCode || `Phòng ${room.id}`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            ) : (
-              <span className="text-gray-400 italic">Chưa chọn đích</span>
-            )}
-          </div>
-        );
-      },
     },
     {
       key: "note",
@@ -767,7 +698,10 @@ export default function TransactionPage() {
                 ) : (
                   <>
                     <Save className="h-4 w-4 mr-2" />
-                    Tạo yêu cầu bàn giao
+                    {selectedStatus === TransactionStatus.DRAFT 
+                      ? "Lưu nháp"
+                      : "Tạo đề xuất"
+                    }
                   </>
                 )}
               </Button>
@@ -780,16 +714,16 @@ export default function TransactionPage() {
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100 ">
             <div className="flex items-center space-x-3">
               <h3 className="text-lg font-semibold text-gray-900">
-                Chọn địa điểm bàn giao
+                Chọn đơn vị tiếp nhận
               </h3>
             </div>
           </div>
 
           <div className="p-6">
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Campus Selection (Admin only) */}
-              {isAdmin && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Campus Selection (Global access only) */}
+              {hasGlobalAccess && (
                 <CardSelect
                   label="Cơ sở"
                   icon={<></>}
@@ -810,70 +744,25 @@ export default function TransactionPage() {
               )}
 
               {/* Unit Selection */}
-              {(isAdminDept || isAdmin || isUserDept) && (
+              {(hasChildUnitsAccess || hasGlobalAccess || hasUnitAccess || hasSelfAccess) && (
                 <CardSelect
-                  label="Đơn vị đích"
+                  label="Đơn vị tiếp nhận"
                   icon={<></>}
                   value={selectedUnitId}
                   onChange={setSelectedUnitId}
                   options={[
-                    { value: "", label: "Chọn đơn vị" },
+                    { value: "", label: "Chọn đơn vị tiếp nhận" },
                     ...(units?.map((unit) => ({
                       value: unit.id,
                       label: unit.name,
                     })) || []),
                   ]}
-                  placeholder="Chọn đơn vị đích"
-                  disabled={isSubmitting || isCreatingTransaction || (isAdmin && !selectedCampusId)}
+                  placeholder="Chọn đơn vị tiếp nhận"
+                  disabled={isSubmitting || isCreatingTransaction || (hasGlobalAccess && !selectedCampusId)}
                   required
                   className="text-base"
                 />
               )}
-
-              {/* Room Selection with Apply Button */}
-              <div className="space-y-3">
-                <div className="flex items-end space-x-3">
-                  <div className="flex-1">
-                    <CardSelect
-                      label="Phòng đích"
-                      icon={<></>}
-                      value={selectedRoomId}
-                      onChange={setSelectedRoomId}
-                      options={[
-                        { value: "", label: "Chọn phòng" },
-                        ...(rooms?.map((room) => ({
-                          value: room.id,
-                          label:
-                            room.name || room.roomCode || `Phòng ${room.id}`,
-                        })) || []),
-                      ]}
-                      placeholder={
-                        selectedUnitId
-                          ? "Chọn phòng"
-                          : "Vui lòng chọn đơn vị trước"
-                      }
-                      loading={roomsLoading}
-                      disabled={!selectedUnitId || isSubmitting || isCreatingTransaction}
-                      required
-                      className="text-base"
-                    />
-                  </div>
-
-                  {/* Apply to All Button - Same Row */}
-                  {selectedUnitId && selectedRoomId && (
-                    <Button
-                      onClick={handleApplyRoomToAll}
-                      variant="outline"
-                      disabled={isSubmitting || isCreatingTransaction}
-                      className="flex items-center space-x-2 text-blue-600 border-blue-200 hover:bg-blue-50 whitespace-nowrap min-h-[2.75rem] h-[2.75rem]"
-                      size="sm"
-                    >
-                      <Check className="h-4 w-4" />
-                      <span>Áp dụng cho tất cả</span>
-                    </Button>
-                  )}
-                </div>
-              </div>
             </div>
 
             {/* Transaction Note */}
@@ -889,6 +778,39 @@ export default function TransactionPage() {
                 className="w-full"
               />
             </div>
+
+            {/* Date Selection */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Ngày bàn giao
+                <span className="text-red-500 ml-1">*</span>
+              </label>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                disabled={isSubmitting || isCreatingTransaction}
+                className="w-full"
+              />
+            </div>
+
+            {/* Transaction Status */}
+            <div className="mt-6">
+              <CardSelect
+                label="Trạng thái yêu cầu"
+                icon={<></>}
+                value={selectedStatus}
+                onChange={(value) => setSelectedStatus(value as TransactionStatus)}
+                options={[
+                  { value: TransactionStatus.DRAFT, label: "Nháp" },
+                  { value: TransactionStatus.PROPOSED, label: "Đề xuất" },
+                ]}
+                placeholder="Chọn trạng thái yêu cầu"
+                disabled={isSubmitting || isCreatingTransaction}
+                required
+                className="text-base"
+              />
+            </div>
           </div>
         </div>
         <Table<Asset>
@@ -901,113 +823,6 @@ export default function TransactionPage() {
             <Package2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           }
         />
-
-        {/* Confirmation Modal */}
-        <Modal
-          isOpen={isConfirmModalOpen}
-          onClose={() => setIsConfirmModalOpen(false)}
-          title="Xác nhận tạo yêu cầu bàn giao"
-          size="lg"
-        >
-          <ModalBody className="p-6">
-            <div className="text-center mb-6">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
-                <ArrowRight className="h-6 w-6 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Bàn giao {selectedAssetsForHandover.length} tài sản sang đơn vị khác
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Bạn muốn tạo yêu cầu bàn giao ở trạng thái nào?
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <div 
-                className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                  selectedTransactionStatus === TransactionStatus.DRAFT
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                onClick={() => setSelectedTransactionStatus(TransactionStatus.DRAFT)}
-              >
-                <div className="flex items-center">
-                  <input
-                    type="radio"
-                    name="status"
-                    value={TransactionStatus.DRAFT}
-                    checked={selectedTransactionStatus === TransactionStatus.DRAFT}
-                    onChange={() => setSelectedTransactionStatus(TransactionStatus.DRAFT)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <div className="ml-3">
-                    <div className="text-sm font-medium text-gray-900">
-                      Lưu nháp
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Yêu cầu bàn giao sẽ được lưu dưới dạng nháp, có thể chỉnh sửa sau
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div 
-                className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                  selectedTransactionStatus === TransactionStatus.PROPOSED
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                onClick={() => setSelectedTransactionStatus(TransactionStatus.PROPOSED)}
-              >
-                <div className="flex items-center">
-                  <input
-                    type="radio"
-                    name="status"
-                    value={TransactionStatus.PROPOSED}
-                    checked={selectedTransactionStatus === TransactionStatus.PROPOSED}
-                    onChange={() => setSelectedTransactionStatus(TransactionStatus.PROPOSED)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <div className="ml-3">
-                    <div className="text-sm font-medium text-gray-900">
-                      Gửi yêu cầu ngay
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Yêu cầu bàn giao sẽ được gửi đi để xem xét và phê duyệt
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </ModalBody>
-          <ModalFooter className="flex justify-end gap-3 p-6 border-t">
-            <Button
-              variant="outline"
-              onClick={() => setIsConfirmModalOpen(false)}
-              disabled={isSubmitting || isCreatingTransaction}
-            >
-              Hủy
-            </Button>
-            <Button
-              variant="default"
-              onClick={() => handleConfirmCreate(selectedTransactionStatus)}
-              disabled={isSubmitting || isCreatingTransaction}
-              className="flex items-center gap-2"
-            >
-              {isSubmitting || isCreatingTransaction ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Đang tạo...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  {selectedTransactionStatus === TransactionStatus.PROPOSED ? "Gửi yêu cầu" : "Lưu nháp"}
-                </>
-              )}
-            </Button>
-          </ModalFooter>
-        </Modal>
       </div>
     </div>
   );

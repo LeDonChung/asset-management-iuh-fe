@@ -129,12 +129,19 @@ export default function InventoryPage() {
   };
 
   const handleDeleteSession = async (session: InventorySession) => {
+    // Chỉ cho phép xóa khi ở trạng thái Kế hoạch
+    if (session.status !== InventorySessionStatus.PLANNED) {
+      toast.error("Chỉ có thể xóa kỳ kiểm kê ở trạng thái Kế hoạch");
+      return;
+    }
+
     if (confirm(`Bạn có chắc chắn muốn xóa kỳ kiểm kê "${session.name}"?`)) {
       try {
         const result = await dispatch(
           deleteInventorySession(session.id)
         ).unwrap();
         if (result) {
+          // remove state sau khi xóa
           dispatch(deleteSessionById({ id: session.id }));
           toast.success(`Đã xóa kỳ kiểm kê thành công!`);
         }
@@ -177,7 +184,7 @@ export default function InventoryPage() {
               {session.name}
             </div>
             <div className="text-xs text-gray-500">
-              Năm {session.year} - Đợt {session.period}
+              Năm {session.year}
             </div>
           </div>
         </div>
@@ -230,7 +237,6 @@ export default function InventoryPage() {
           const StatusIcon = statusIcons[session.status];
           return (
             <Badge className={statusColors[session.status]}>
-              <StatusIcon className="h-3 w-3 mr-1" />
               {statusLabels[session.status]}
             </Badge>
           );
@@ -265,7 +271,7 @@ export default function InventoryPage() {
               )}
     
               {/* Chỉnh sửa */}
-              {canEdit && (
+              {canEdit && session.status === InventorySessionStatus.PLANNED && (
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
@@ -277,8 +283,8 @@ export default function InventoryPage() {
                 </DropdownMenuItem>
               )}
     
-              {/* Xóa */}
-              {canDelete && (
+              {/* Xóa - chỉ cho phép khi ở trạng thái Kế hoạch */}
+              {canDelete && session.status === InventorySessionStatus.PLANNED && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

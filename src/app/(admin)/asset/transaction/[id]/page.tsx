@@ -47,6 +47,7 @@ const statusColors: Record<TransactionStatus, string> = {
   [TransactionStatus.DRAFT]: "bg-gray-100 text-gray-800",
   [TransactionStatus.PROPOSED]: "bg-yellow-100 text-yellow-800",
   [TransactionStatus.APPROVED]: "bg-green-100 text-green-800",
+  [TransactionStatus.RECEIVED]: "bg-blue-100 text-blue-800",
   [TransactionStatus.REJECTED]: "bg-red-100 text-red-800",
 };
 
@@ -54,6 +55,7 @@ const statusLabels: Record<TransactionStatus, string> = {
   [TransactionStatus.DRAFT]: "Nháp",
   [TransactionStatus.PROPOSED]: "Đã đề xuất",
   [TransactionStatus.APPROVED]: "Đã phê duyệt",
+  [TransactionStatus.RECEIVED]: "Đã tiếp nhận",
   [TransactionStatus.REJECTED]: "Từ chối",
 };
 
@@ -200,6 +202,19 @@ const TransactionHistory: React.FC<{
                 {history.note && (
                   <div className="text-sm text-gray-600 mt-1">
                     {history.note}
+                  </div>
+                )}
+                {history.evidenceUrl && (
+                  <div className="mt-2">
+                    <a
+                      href={history.evidenceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+                    >
+                      <FileText className="w-3 h-3" />
+                      Xem minh chứng
+                    </a>
                   </div>
                 )}
               </div>
