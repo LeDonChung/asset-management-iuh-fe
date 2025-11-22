@@ -18,12 +18,16 @@ import {
   Upload,
   File,
   X,
+  Copy,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import {
   InventorySessionFormData,
   InventorySessionStatus,
   UnitStatus,
+  InventorySession,
+  CopyInventoryFormData,
 } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,10 +39,13 @@ import { uploadFileDocument } from "@/lib/store/slices/fileSlice";
 import {
   createInventorySession,
   CreateInventorySession,
+  copyInventorySession,
+  CopyInventorySession,
 } from "@/lib/store/slices/inventorySlice";
+import { CopyInventoryModal } from "@/components/inventory/CopyInventoryModal";
 import toast from "react-hot-toast";
 
-// Validation schema
+// Validation schema for regular create
 const validationSchema: yup.ObjectSchema<InventorySessionFormData> = yup
   .object()
   .shape({
@@ -46,14 +53,8 @@ const validationSchema: yup.ObjectSchema<InventorySessionFormData> = yup
       .number()
       .required("Năm là bắt buộc")
       .min(2020, "Năm phải từ 2020 trở lên")
-      .max(2030, "Năm không được quá 2030"),
-    period: yup
-      .number()
-      .required("Đợt là bắt buộc")
-      .min(1, "Đợt phải từ 1 trở lên")
-      .max(12, "Đợt không được quá 12"),
+      .max(2050, "Năm không được quá 2050"),
     name: yup.string().required("Tên kỳ kiểm kê là bắt buộc"),
-    isGlobal: yup.boolean().required(),
     startDate: yup.string().required("Ngày bắt đầu là bắt buộc"),
     endDate: yup
       .string()
@@ -68,16 +69,38 @@ const validationSchema: yup.ObjectSchema<InventorySessionFormData> = yup
         }
       ),
     status: yup.mixed<InventorySessionStatus>().required(),
-    unitIds: yup
-      .array()
-      .of(yup.string().required())
-      .when("isGlobal", {
-        is: false,
-        then: (schema) =>
-          schema.min(1, "Vui lòng chọn ít nhất một cơ sở/đơn vị"),
-        otherwise: (schema) => schema,
-      }),
     fileUrls: yup.array().of(yup.string().required()).optional(),
+  });
+
+// Validation schema for copy
+const copyValidationSchema: yup.ObjectSchema<CopyInventoryFormData> = yup
+  .object()
+  .shape({
+    year: yup
+      .number()
+      .required("Năm là bắt buộc")
+      .min(2020, "Năm phải từ 2020 trở lên")
+      .max(2050, "Năm không được quá 2050"),
+    name: yup.string().required("Tên kỳ kiểm kê là bắt buộc"),
+    startDate: yup.string().required("Ngày bắt đầu là bắt buộc"),
+    endDate: yup
+      .string()
+      .required("Ngày kết thúc là bắt buộc")
+      .test(
+        "is-after-start",
+        "Ngày kết thúc phải sau ngày bắt đầu",
+        function (value) {
+          const { startDate } = this.parent;
+          if (!startDate || !value) return true;
+          return new Date(value) > new Date(startDate);
+        }
+      ),
+    description: yup.string().optional(),
+    copyMembers: yup.boolean().optional(),
+    copyGroups: yup.boolean().optional(),
+    copyAssignments: yup.boolean().optional(),
+    copyFileUrls: yup.boolean().optional(),
+    copySubInventories: yup.boolean().optional(),
   });
 
 export default function CreateInventorySessionPage() {
@@ -90,13 +113,18 @@ export default function CreateInventorySessionPage() {
     error: unitsError,
   } = useAppSelector((state) => state.unit);
 
-  const { createSessionLoading } = useAppSelector((state) => state.inventory);
+  const { createSessionLoading, copySessionLoading } = useAppSelector((state) => state.inventory);
   const { hasAnyPermission } = usePermissions();
   const canCreate = hasAnyPermission([PermissionConstants.PERM_CREATE_INVENTORY]);
   const [evidenceFiles, setEvidenceFiles] = useState<
     { name: string; url: string; size: number }[]
   >([]);
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+  
+  // Copy mode states
+  const [isCopyMode, setIsCopyMode] = useState(false);
+  const [sourceSession, setSourceSession] = useState<InventorySession | null>(null);
+  const [showCopyModal, setShowCopyModal] = useState(false);
 
   // Redirect if not authorized
   useEffect(() => {
@@ -106,7 +134,7 @@ export default function CreateInventorySessionPage() {
     }
   }, [canCreate, router]);
 
-  // Initialize form with useForm
+  // Initialize form with useForm - use any to avoid TypeScript issues with dynamic schemas
   const {
     control,
     handleSubmit,
@@ -114,16 +142,24 @@ export default function CreateInventorySessionPage() {
     setValue,
     formState: { errors, isValid },
     reset,
-  } = useForm<InventorySessionFormData>({
-    resolver: yupResolver(validationSchema),
-    defaultValues: {
+  } = useForm<any>({
+    resolver: yupResolver(isCopyMode ? copyValidationSchema as any : validationSchema as any),
+    defaultValues: isCopyMode ? {
       year: new Date().getFullYear(),
-      name: `Kiểm kê tài sản - Đợt ${1}/${new Date().getFullYear()}`,
-      period: 1,
-      isGlobal: true,
+      name: `Kiểm kê tài sản năm ${new Date().getFullYear()}`,
       startDate: "",
       endDate: "",
-      unitIds: [],
+      description: "",
+      copyMembers: false,
+      copyGroups: false,
+      copyAssignments: false,
+      copyFileUrls: false,
+      copySubInventories: true,
+    } : {
+      year: new Date().getFullYear(),
+      name: `Kiểm kê tài sản năm ${new Date().getFullYear()}`,
+      startDate: "",
+      endDate: "",
       status: InventorySessionStatus.PLANNED,
       fileUrls: [],
     },
@@ -132,7 +168,7 @@ export default function CreateInventorySessionPage() {
 
   // Watch form values for dynamic updates
   const watchedValues = watch();
-  const { year, period, isGlobal, startDate, endDate } = watchedValues;
+  const { year, startDate, endDate } = watchedValues;
 
   // Fetch units when component mounts
   useEffect(() => {
@@ -218,46 +254,81 @@ export default function CreateInventorySessionPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  // Select all units if global is selected
-  useEffect(() => {
-    if (isGlobal) {
-      setValue(
-        "unitIds",
-        campuses.map((unit) => unit.id),
-        { shouldValidate: true }
-      );
-    }
-  }, [isGlobal, setValue, campuses]);
+  // Handle copy mode toggle
+  const handleToggleCopyMode = () => {
+    setIsCopyMode(!isCopyMode);
+    setSourceSession(null);
+    setEvidenceFiles([]);
+    reset();
+  };
 
-  const onSubmit = async (data: InventorySessionFormData) => {
+  // Handle source session selection
+  const handleSelectSourceSession = (session: InventorySession) => {
+    setSourceSession(session);
+    // Pre-fill form with source session data
+    setValue("name", `${session.name} - Copy ${new Date().getFullYear()}`);
+    setValue("year", new Date().getFullYear());
+  };
+
+
+  const onSubmit = async (data: any) => {
     try {
       if (!isValid) {
         toast.error("Vui lòng điền đầy đủ và đúng thông tin trong form.");
         return;
       }
 
-      // Create new inventory session object
+      if (isCopyMode) {
+        // Copy mode
+        if (!sourceSession) {
+          toast.error("Vui lòng chọn kì kiểm kê nguồn để sao chép.");
+          return;
+        }
+
+        const copyData = data as CopyInventoryFormData;
+        const copySession: CopyInventorySession = {
+          year: copyData.year,
+          name: copyData.name,
+          startDate: copyData.startDate,
+          endDate: copyData.endDate,
+          description: copyData.description,
+          copyMembers: copyData.copyMembers || false,
+          copyGroups: copyData.copyGroups || false,
+          copyAssignments: copyData.copyAssignments || false,
+          copyFileUrls: copyData.copyFileUrls || false,
+          copySubInventories: copyData.copySubInventories !== false, // default true
+        };
+
+        const result = await dispatch(
+          copyInventorySession({ sourceSessionId: sourceSession.id, copyData: copySession })
+        ).unwrap();
+        
+        if (result) {
+          toast.success("Sao chép kỳ kiểm kê thành công!");
+          router.push("/inventory");
+        }
+      } else {
+        // Regular create mode
+        const formData = data as InventorySessionFormData;
       const newSession: CreateInventorySession = {
-        year: data.year,
-        period: data.period,
-        name: data.name,
-        isGlobal: data.isGlobal,
-        startDate: data.startDate,
-        endDate: data.endDate,
+          year: formData.year,
+          name: formData.name,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
         fileUrls: evidenceFiles.map((file) => file.url),
-        unitIds: data.unitIds ?? [],
       };
 
-      // Dispatch the action and wait for result
       const result = await dispatch(
         createInventorySession(newSession)
       ).unwrap();
+        
       if (result) {
         toast.success("Tạo kỳ kiểm kê thành công!");
         router.push("/inventory");
+        }
       }
     } catch (error: any) {
-      toast.error(error.message || "Có lỗi xảy ra khi tạo kỳ kiểm kê");
+      toast.error(error.message || `Có lỗi xảy ra khi ${isCopyMode ? 'sao chép' : 'tạo'} kỳ kiểm kê`);
     }
   };
 
@@ -270,14 +341,15 @@ export default function CreateInventorySessionPage() {
     }));
 
   useEffect(() => {
-    setValue("name", `Kiểm kê tài sản đợt ${period} năm ${year}`, {
+    setValue("name", `Kiểm kê tài sản năm ${year}`, {
       shouldValidate: true,
     });
-  }, [year, period]);
+  }, [year, setValue]);
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
         <Link href="/inventory">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
             <ArrowLeft className="h-4 w-4" />
@@ -285,9 +357,39 @@ export default function CreateInventorySessionPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Tạo kỳ kiểm kê mới
+              {isCopyMode ? "Sao chép kỳ kiểm kê" : "Tạo kỳ kiểm kê mới"}
           </h1>
-          <p className="text-gray-600">Điền đầy đủ thông tin để tạo kỳ kiểm kê mới</p>
+            <p className="text-gray-600">
+              {isCopyMode 
+                ? "Sao chép từ kỳ kiểm kê có sẵn với các tùy chọn linh hoạt"
+                : "Điền đầy đủ thông tin để tạo kỳ kiểm kê mới"
+              }
+            </p>
+          </div>
+        </div>
+        
+        {/* Mode Toggle */}
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant={!isCopyMode ? "default" : "outline"}
+            size="sm"
+            onClick={handleToggleCopyMode}
+            disabled={createSessionLoading || copySessionLoading}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Tạo mới
+          </Button>
+          <Button
+            type="button"
+            variant={isCopyMode ? "default" : "outline"}
+            size="sm"
+            onClick={handleToggleCopyMode}
+            disabled={createSessionLoading || copySessionLoading}
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Sao chép
+          </Button>
         </div>
       </div>
 
@@ -295,7 +397,60 @@ export default function CreateInventorySessionPage() {
       <div className="bg-white rounded-xl border border-gray-300">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6">
           <div className="space-y-6">
-            {/* Năm và Đợt */}
+            {/* Source Session Selection - Only in Copy Mode */}
+            {isCopyMode && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-blue-900">
+                      Kỳ kiểm kê nguồn
+                    </h3>
+                    <p className="text-xs text-blue-700">
+                      Chọn kỳ kiểm kê để sao chép cấu trúc và dữ liệu
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCopyModal(true)}
+                    className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Chọn kỳ kiểm kê
+                  </Button>
+                </div>
+                
+                {sourceSession ? (
+                  <div className="bg-white border border-blue-200 rounded-md p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {sourceSession.name}
+                        </h4>
+                        <p className="text-xs text-gray-500">
+                          Năm {sourceSession.year} • {new Date(sourceSession.startDate).toLocaleDateString("vi-VN")} - {new Date(sourceSession.endDate).toLocaleDateString("vi-VN")}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSourceSession(null)}
+                        className="text-gray-400 hover:text-red-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-blue-600 text-sm">
+                    Chưa chọn kỳ kiểm kê nguồn
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Năm và Tên kỳ kiểm kê */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -309,7 +464,7 @@ export default function CreateInventorySessionPage() {
                       <Input
                         type="number"
                         min="2020"
-                        max="2030"
+                        max="2050"
                         placeholder="2024"
                         {...field}
                         value={field.value || ""}
@@ -321,173 +476,34 @@ export default function CreateInventorySessionPage() {
                 </div>
                 {errors.year && (
                   <p className="mt-1 text-xs text-red-600">
-                    {errors.year.message}
+                    {errors.year.message as string}
                   </p>
                 )}
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Đợt <span className="text-red-500">*</span>
+                  Tên kỳ kiểm kê <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <Controller
-                    name="period"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        type="number"
-                        min="1"
-                        max="12"
-                        placeholder="1"
-                        {...field}
-                        value={field.value || ""}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    )}
-                  />
-                  <Hash className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                </div>
-                {errors.period && (
-                  <p className="mt-1 text-xs text-red-600">
-                    {errors.period.message}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Tên kỳ kiểm kê */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tên kỳ kiểm kê <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="name"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    type="text"
-                    placeholder="VD: Kiểm kê tài sản cuối năm 2024"
-                    className="w-full"
-                    {...field}
-                  />
-                )}
-              />
-              {errors.name && (
-                <p className="mt-1 text-xs text-red-600">
-                  {errors.name.message}
-                </p>
-              )}
-            </div>
-
-            {/* Phạm vi kiểm kê */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phạm vi kiểm kê <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="isGlobal"
-                control={control}
-                render={({ field }) => (
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        id="global"
-                        value="true"
-                        checked={field.value === true}
-                        onChange={() => field.onChange(true)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                      />
-                      <label
-                        htmlFor="global"
-                        className="flex items-center space-x-3 text-sm text-gray-700 cursor-pointer flex-1"
-                      >
-                        <Globe className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <span className="font-medium">Toàn bộ cơ sở</span>
-                        </div>
-                      </label>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        id="unit-specific"
-                        value="false"
-                        checked={field.value === false}
-                        onChange={() => field.onChange(false)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                      />
-                      <label
-                        htmlFor="unit-specific"
-                        className="flex items-center space-x-3 text-sm text-gray-700 cursor-pointer flex-1"
-                      >
-                        <Building2 className="h-5 w-5 text-green-600" />
-                        <div>
-                          <span className="font-medium">Cơ sở cụ thể</span>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                )}
-              />
-            </div>
-
-            {/* Cơ sở/Đơn vị tham gia (chỉ hiện khi không phải global) */}
-            {!isGlobal && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cơ sở/Đơn vị tham gia <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  {unitsLoading ? (
-                    <div className="flex items-center justify-center p-4 border border-gray-300 rounded-lg bg-gray-50">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
-                      <span className="text-sm text-gray-600">
-                        Đang tải danh sách cơ sở...
-                      </span>
-                    </div>
-                  ) : unitsError ? (
-                    <div className="p-4 border border-red-300 rounded-lg bg-red-50">
-                      <div className="flex items-center space-x-2">
-                        <AlertCircle className="h-4 w-4 text-red-600" />
-                        <span className="text-sm text-red-800">
-                          Lỗi khi tải danh sách cơ sở: {unitsError}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => dispatch(getUnitCampus())}
-                        className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-                      >
-                        Thử lại
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <Controller
-                        name="unitIds"
-                        control={control}
-                        render={({ field }) => (
-                          <MultiSelect
-                            options={unitOptions}
-                            value={field.value || []}
-                            onChange={field.onChange}
-                            placeholder="Chọn các cơ sở"
-                            className="w-full"
-                          />
-                        )}
-                      />
-                      <Users className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-0" />
-                    </>
+                <Controller
+                  name="name"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      type="text"
+                      placeholder="VD: Kiểm kê tài sản cuối năm 2024"
+                      className="w-full"
+                      {...field}
+                    />
                   )}
-                </div>
-                {errors.unitIds && (
+                />
+                {errors.name && (
                   <p className="mt-1 text-xs text-red-600">
-                    {errors.unitIds.message}
+                    {errors.name.message as string}
                   </p>
                 )}
               </div>
-            )}
+            </div>
 
             {/* Ngày bắt đầu và kết thúc */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -508,7 +524,7 @@ export default function CreateInventorySessionPage() {
                 />
                 {errors.startDate && (
                   <p className="mt-1 text-xs text-red-600">
-                    {errors.startDate.message}
+                    {errors.startDate.message as string}
                   </p>
                 )}
               </div>
@@ -529,13 +545,165 @@ export default function CreateInventorySessionPage() {
                 />
                 {errors.endDate && (
                   <p className="mt-1 text-xs text-red-600">
-                    {errors.endDate.message}
+                    {errors.endDate.message as string}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* File minh chứng */}
+            {/* Copy Options - Only in Copy Mode */}
+            {isCopyMode && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-gray-900 mb-3">
+                  Tùy chọn sao chép
+                </h3>
+                
+                <div className="space-y-4">
+                  {/* Group 1: Basic Information */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Copy Members */}
+                    <div className="flex items-start space-x-3">
+                      <Controller
+                        name="copyMembers"
+                        control={control}
+                        render={({ field }) => (
+                          <input
+                            type="checkbox"
+                            id="copyMembers"
+                            checked={field.value || false}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                            className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                        )}
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="copyMembers" className="text-sm font-medium text-gray-700 cursor-pointer">
+                          Thành viên ban kiểm kê
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Copy File URLs */}
+                    <div className="flex items-start space-x-3">
+                      <Controller
+                        name="copyFileUrls"
+                        control={control}
+                        render={({ field }) => (
+                          <input
+                            type="checkbox"
+                            id="copyFileUrls"
+                            checked={field.value || false}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                            className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                        )}
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="copyFileUrls" className="text-sm font-medium text-gray-700 cursor-pointer">
+                          File minh chứng
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-gray-200"></div>
+
+                  {/* Group 2: Hierarchical Structure */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-gray-800">
+                      Cấu trúc tổ chức kiểm kê
+                    </h4>
+                    
+                    {/* Copy Sub Inventories - Level 1 */}
+                    <div className="flex items-start space-x-3 pl-0">
+                      <Controller
+                        name="copySubInventories"
+                        control={control}
+                        render={({ field }) => (
+                          <input
+                            type="checkbox"
+                            id="copySubInventories"
+                            checked={field.value !== false} // default true
+                            onChange={(e) => {
+                              field.onChange(e.target.checked);
+                              // Nếu bỏ chọn Sub Inventories, tự động bỏ chọn Groups và Assignments
+                              if (!e.target.checked) {
+                                setValue("copyGroups", false);
+                                setValue("copyAssignments", false);
+                              }
+                            }}
+                            className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                        )}
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="copySubInventories" className="text-sm font-medium text-gray-700 cursor-pointer">
+                          Tiểu ban kiểm kê
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Copy Groups - Level 2 (indent) */}
+                    {watchedValues.copySubInventories !== false && (
+                      <div className="flex items-start space-x-3 pl-6 border-l-2 border-blue-200 ml-2">
+                        <Controller
+                          name="copyGroups"
+                          control={control}
+                          render={({ field }) => (
+                            <input
+                              type="checkbox"
+                              id="copyGroups"
+                              checked={field.value || false}
+                              onChange={(e) => {
+                                field.onChange(e.target.checked);
+                                // Nếu bỏ chọn Groups, tự động bỏ chọn Assignments
+                                if (!e.target.checked) {
+                                  setValue("copyAssignments", false);
+                                }
+                              }}
+                              className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                          )}
+                        />
+                        <div className="flex-1">
+                          <label htmlFor="copyGroups" className="text-sm font-medium text-gray-700 cursor-pointer">
+                            Nhóm kiểm kê
+                          </label>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Copy Assignments - Level 3 (deeper indent) */}
+                    {watchedValues.copyGroups && (
+                      <div className="flex items-start space-x-3 pl-6 border-l-2 border-green-200 ml-8">
+                        <Controller
+                          name="copyAssignments"
+                          control={control}
+                          render={({ field }) => (
+                            <input
+                              type="checkbox"
+                              id="copyAssignments"
+                              checked={field.value || false}
+                              onChange={(e) => field.onChange(e.target.checked)}
+                              className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                          )}
+                        />
+                        <div className="flex-1">
+                          <label htmlFor="copyAssignments" className="text-sm font-medium text-gray-700 cursor-pointer">
+                            Phân công kiểm kê
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* File minh chứng - Only in regular create mode */}
+            {!isCopyMode && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 File minh chứng (PDF)
@@ -643,35 +811,43 @@ export default function CreateInventorySessionPage() {
                 kê, Kế hoạch chi tiết, Văn bản hướng dẫn, Biểu mẫu kiểm kê...
               </p>
             </div>
+            )}
           </div>
 
           {/* Form Actions */}
           <div className="flex items-center justify-end space-x-4 pt-8 mt-8 border-t border-gray-200">
             <Link href="/inventory">
-              <Button variant="outline" disabled={createSessionLoading}>
+              <Button variant="outline" disabled={createSessionLoading || copySessionLoading}>
                 Hủy
               </Button>
             </Link>
             <Button
               type="submit"
-              disabled={createSessionLoading}
+              disabled={createSessionLoading || copySessionLoading || (isCopyMode && !sourceSession)}
               className="min-w-[140px]"
             >
-              {createSessionLoading ? (
+              {(createSessionLoading || copySessionLoading) ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Đang tạo...
+                  {isCopyMode ? "Đang sao chép..." : "Đang tạo..."}
                 </div>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Tạo kỳ kiểm kê
+                  {isCopyMode ? <Copy className="h-4 w-4 mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  {isCopyMode ? "Sao chép kỳ kiểm kê" : "Tạo kỳ kiểm kê"}
                 </>
               )}
             </Button>
           </div>
         </form>
       </div>
+
+      {/* Copy Modal */}
+      <CopyInventoryModal
+        isOpen={showCopyModal}
+        onClose={() => setShowCopyModal(false)}
+        onSelectSession={handleSelectSourceSession}
+      />
     </div>
   );
 }

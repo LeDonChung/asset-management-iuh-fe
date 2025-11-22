@@ -48,14 +48,8 @@ const validationSchema: yup.ObjectSchema<InventorySessionFormData> = yup
       .number()
       .required("Năm là bắt buộc")
       .min(2020, "Năm phải từ 2020 trở lên")
-      .max(2030, "Năm không được quá 2030"),
-    period: yup
-      .number()
-      .required("Đợt là bắt buộc")
-      .min(1, "Đợt phải từ 1 trở lên")
-      .max(12, "Đợt không được quá 12"),
+      .max(2050, "Năm không được quá 2050"),
     name: yup.string().required("Tên kỳ kiểm kê là bắt buộc"),
-    isGlobal: yup.boolean().required(),
     startDate: yup.string().required("Ngày bắt đầu là bắt buộc"),
     endDate: yup
       .string()
@@ -70,15 +64,6 @@ const validationSchema: yup.ObjectSchema<InventorySessionFormData> = yup
         }
       ),
     status: yup.mixed<InventorySessionStatus>().required(),
-    unitIds: yup
-      .array()
-      .of(yup.string().required())
-      .when("isGlobal", {
-        is: false,
-        then: (schema) =>
-          schema.min(1, "Vui lòng chọn ít nhất một cơ sở/đơn vị"),
-        otherwise: (schema) => schema,
-      }),
     fileUrls: yup.array().of(yup.string().required()).optional(),
   });
 
@@ -121,11 +106,8 @@ export default function EditInventorySessionPage() {
     defaultValues: {
       year: new Date().getFullYear(),
       name: "",
-      period: 1,
-      isGlobal: true,
       startDate: "",
       endDate: "",
-      unitIds: [],
       status: InventorySessionStatus.PLANNED,
       fileUrls: [],
     },
@@ -134,7 +116,7 @@ export default function EditInventorySessionPage() {
 
   // Watch form values for dynamic updates
   const watchedValues = watch();
-  const { year, period, isGlobal, startDate, endDate } = watchedValues;
+  const { year, startDate, endDate } = watchedValues;
 
   // Mock data fetch - replace with actual API call
   useEffect(() => {
@@ -145,17 +127,13 @@ export default function EditInventorySessionPage() {
 
         setSession(result);
 
-        const unitIds = result.inventorySessionUnits?.map((u: any) => u.unitId) || [];
         const fileUrls = result.fileUrls?.map((f: any) => f.url) ?? [];
         // Populate form with existing data
         reset({
           year: result.year,
           name: result.name,
-          period: result.period,
-          isGlobal: result.isGlobal,
           startDate: result.startDate,
           endDate: result.endDate,
-          unitIds: unitIds,
           status: result.status,
           fileUrls: fileUrls,
         });
@@ -179,8 +157,8 @@ export default function EditInventorySessionPage() {
     }
   }, [params.id, router, reset]);
   useEffect(() => {
-    setValue("name", `Kiểm kê tài sản đợt ${period} năm ${year}`, { shouldValidate: true });
-  }, [year, period]);
+    setValue("name", `Kiểm kê tài sản năm ${year}`, { shouldValidate: true });
+  }, [year, setValue]);
   // Redirect if not authorized
   useEffect(() => {
     if (!canUpdate) {
@@ -282,12 +260,6 @@ export default function EditInventorySessionPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  // Select all units if global is selected (only clear units when switching to global)
-  useEffect(() => {
-    if (isGlobal) {
-      setValue("unitIds", [], { shouldValidate: true });
-    }
-  }, [isGlobal, setValue]);
 
   const onSubmit = async (data: InventorySessionFormData) => {
     try {
@@ -304,13 +276,10 @@ export default function EditInventorySessionPage() {
       // Create update inventory session object
       const updateSession: UpdateInventorySession = {
         year: data.year,
-        period: data.period,
         name: data.name,
-        isGlobal: data.isGlobal,
         startDate: data.startDate,
         endDate: data.endDate,
         fileUrls: evidenceFiles.map((file) => file.url),
-        unitIds: data.unitIds ?? [],
       };
 
       // Dispatch the action and wait for result
@@ -406,7 +375,7 @@ export default function EditInventorySessionPage() {
       <div className="bg-white rounded-xl border border-gray-300">
         <form onSubmit={handleSubmit(onSubmit)} className="p-6">
           <div className="space-y-6">
-            {/* Năm và Đợt */}
+            {/* Năm và Tên kỳ kiểm kê */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -435,170 +404,34 @@ export default function EditInventorySessionPage() {
                     {errors.year.message}
                   </p>
                 )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Đợt <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Controller
-                    name="period"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        type="number"
-                        min="1"
-                        max="12"
-                        placeholder="1"
-                        {...field}
-                        value={field.value || ""}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    )}
-                  />
-                  <Hash className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                </div>
-                {errors.period && (
-                  <p className="mt-1 text-xs text-red-600">
-                    {errors.period.message}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Tên kỳ kiểm kê */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tên kỳ kiểm kê <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="name"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    type="text"
-                    placeholder="VD: Kiểm kê tài sản cuối năm 2024"
-                    className="w-full"
-                    {...field}
-                  />
-                )}
-              />
-              {errors.name && (
-                <p className="mt-1 text-xs text-red-600">
-                  {errors.name.message}
+                <p className="mt-1 text-xs text-gray-500">
+                  Mỗi năm chỉ có một kỳ kiểm kê duy nhất cho toàn bộ hệ thống
                 </p>
-              )}
-            </div>
+              </div>
 
-            {/* Phạm vi kiểm kê */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phạm vi kiểm kê <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="isGlobal"
-                control={control}
-                render={({ field }) => (
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        id="global"
-                        value="true"
-                        checked={field.value === true}
-                        onChange={() => field.onChange(true)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                      />
-                      <label
-                        htmlFor="global"
-                        className="flex items-center space-x-3 text-sm text-gray-700 cursor-pointer flex-1"
-                      >
-                        <Globe className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <span className="font-medium">Toàn bộ cơ sở</span>
-                        </div>
-                      </label>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        id="unit-specific"
-                        value="false"
-                        checked={field.value === false}
-                        onChange={() => field.onChange(false)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                      />
-                      <label
-                        htmlFor="unit-specific"
-                        className="flex items-center space-x-3 text-sm text-gray-700 cursor-pointer flex-1"
-                      >
-                        <Building2 className="h-5 w-5 text-green-600" />
-                        <div>
-                          <span className="font-medium">Cơ sở cụ thể</span>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                )}
-              />
-            </div>
-
-            {/* Cơ sở/Đơn vị tham gia (chỉ hiện khi không phải global) */}
-            {!isGlobal && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cơ sở/Đơn vị tham gia <span className="text-red-500">*</span>
+                  Tên kỳ kiểm kê <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  {unitsLoading ? (
-                    <div className="flex items-center justify-center p-4 border border-gray-300 rounded-lg bg-gray-50">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
-                      <span className="text-sm text-gray-600">
-                        Đang tải danh sách cơ sở...
-                      </span>
-                    </div>
-                  ) : unitsError ? (
-                    <div className="p-4 border border-red-300 rounded-lg bg-red-50">
-                      <div className="flex items-center space-x-2">
-                        <AlertCircle className="h-4 w-4 text-red-600" />
-                        <span className="text-sm text-red-800">
-                          Lỗi khi tải danh sách cơ sở: {unitsError}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => dispatch(getUnitCampus())}
-                        className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-                      >
-                        Thử lại
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <Controller
-                        name="unitIds"
-                        control={control}
-                        render={({ field }) => (
-                          <MultiSelect
-                            options={unitOptions}
-                            value={field.value || []}
-                            onChange={field.onChange}
-                            placeholder="Chọn các cơ sở"
-                            className="w-full"
-                          />
-                        )}
-                      />
-                      <Users className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-0" />
-                    </>
+                <Controller
+                  name="name"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      type="text"
+                      placeholder="VD: Kiểm kê tài sản cuối năm 2024"
+                      className="w-full"
+                      {...field}
+                    />
                   )}
-                </div>
-                {errors.unitIds && (
+                />
+                {errors.name && (
                   <p className="mt-1 text-xs text-red-600">
-                    {errors.unitIds.message}
+                    {errors.name.message}
                   </p>
                 )}
               </div>
-            )}
+            </div>
 
             {/* Ngày bắt đầu và kết thúc */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

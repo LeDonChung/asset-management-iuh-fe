@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import axiosInstance from '@/lib/api'
 
 const schema = yup.object({
   email: yup.string().email('Email không hợp lệ').required('Email là bắt buộc'),
@@ -35,17 +36,16 @@ export default function ForgotPasswordPage() {
     const onSubmit = async (data: ForgotPasswordForm) => {
         setIsLoading(true)
         try {
-            // TODO: Implement API call to send reset password
-            console.log('Sending reset password for email:', data.email)
-
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 2000))
+            await axiosInstance.post('/api/v1/auth/forgot-password', {
+                email: data.email,
+            })
 
             setIsSubmitted(true)
             toast.success('Yêu cầu đặt lại mật khẩu đã được gửi!')
-        } catch (error) {
+        } catch (error: any) {
             console.error('Forgot password error:', error)
-            toast.error('Có lỗi xảy ra. Vui lòng thử lại.')
+            const errorMessage = error.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.'
+            toast.error(errorMessage)
         } finally {
             setIsLoading(false)
         }

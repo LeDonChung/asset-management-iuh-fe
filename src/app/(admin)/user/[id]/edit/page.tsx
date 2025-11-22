@@ -28,7 +28,7 @@ import { getAllUnits, getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { findAllRoles } from "@/lib/store/slices/roleSlice";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { RoleBase } from "@/lib/constants/role";
+import { AccessScopeType } from "@/types/asset";
 
 export default function EditUserPage() {
     const router = useRouter();
@@ -55,10 +55,12 @@ export default function EditUserPage() {
     const [unitCampusSelected, setUnitCampusSelected] = useState<Unit>();
     const [units, setUnits] = useState<Unit[]>([]);
     
-    const { hasRole, user: currentUser } = useAuth();
-    const isAdmin = hasRole([RoleBase.ADMIN]);
-    const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
-    const isUserDept = hasRole([RoleBase.USER_DEPT]);
+    const { user: currentUser } = useAuth();
+    
+    // Kiểm tra access scope types
+    const hasGlobalScope = currentUser?.accessScopeTypes?.includes(AccessScopeType.GLOBAL) || false;
+    const hasChildUnitsScope = currentUser?.accessScopeTypes?.includes(AccessScopeType.CHILD_UNITS) || false;
+    const hasUnitScope = currentUser?.accessScopeTypes?.includes(AccessScopeType.UNIT) || false;
     
     console.log("UserId from params:", userId);    
 
@@ -89,8 +91,8 @@ export default function EditUserPage() {
             try {
                 const userData = await dispatch(findUserById(userId)).unwrap();
                 
-                // Check quyền chỉnh sửa cho UserDept
-                if (isUserDept && currentUser?.unitId && userData?.unitId !== currentUser.unitId) {
+                // Check quyền chỉnh sửa cho UNIT scope
+                if (hasUnitScope && currentUser?.unitId && userData?.unitId !== currentUser.unitId) {
                     toast.error("Bạn không có quyền chỉnh sửa user này");
                     router.push("/user");
                     return;
@@ -107,7 +109,7 @@ export default function EditUserPage() {
         };
 
         fetchData();
-    }, [userId, dispatch, isUserDept, currentUser, router]);
+    }, [userId, dispatch, hasUnitScope, currentUser, router]);
 
     useEffect(() => {
         if (user) {
@@ -141,21 +143,21 @@ export default function EditUserPage() {
         }
     }, [user, campuses]);
 
-    // Xử lý logic theo role khi có dữ liệu campuses và current user
+    // Xử lý logic theo access scope khi có dữ liệu campuses và current user
     useEffect(() => {
         if (campuses.length === 0 || !currentUser?.unitId) return;
 
-        // Chỉ áp dụng logic cho AdminDept và UserDept khi chưa có user được load (tạo mới)
+        // Chỉ áp dụng logic khi chưa có user được load (tạo mới)
         // Nếu đã có user được load thì giữ nguyên campus/unit của user đó
         if (!user) {
-            if (isAdminDept) {
-                // AdminDept: unitId chính là campus ID
+            if (hasChildUnitsScope) {
+                // CHILD_UNITS scope: unitId chính là campus ID
                 const userCampus = campuses.find(campus => campus.id === currentUser.unitId);
                 if (userCampus) {
                     setUnitCampusSelected(userCampus);
                 }
-            } else if (isUserDept) {
-                // UserDept: Tìm campus tương ứng qua childUnits
+            } else if (hasUnitScope) {
+                // UNIT scope: Tìm campus tương ứng qua childUnits
                 const userCampus = campuses.find(campus => 
                     campus.childUnits?.some(unit => unit.id === currentUser.unitId)
                 );
@@ -164,7 +166,7 @@ export default function EditUserPage() {
                 }
             }
         }
-    }, [campuses, isAdmin, isAdminDept, isUserDept, currentUser, user]);
+    }, [campuses, hasGlobalScope, hasChildUnitsScope, hasUnitScope, currentUser, user]);
 
     console.log("user from store:", user);
     
@@ -209,8 +211,8 @@ export default function EditUserPage() {
             newErrors.unitId = "Đơn vị là bắt buộc";
         }
 
-        // Validate quyền chỉnh sửa cho UserDept
-        if (isUserDept && currentUser?.unitId && formData.unitId !== currentUser.unitId) {
+        // Validate quyền chỉnh sửa cho UNIT scope
+        if (hasUnitScope && currentUser?.unitId && formData.unitId !== currentUser.unitId) {
             newErrors.unitId = "Bạn không có quyền gán user cho đơn vị khác";
         }
 
@@ -378,7 +380,7 @@ export default function EditUserPage() {
                         </div>
 
                         {/* Ngày sinh và Cơ sở */}
-                        <div className={`grid grid-cols-1 ${isAdmin ? 'md:grid-cols-2' : ''} gap-6`}>
+                        <div className={`grid grid-cols-1 ${hasGlobalScope ? 'md:grid-cols-2' : ''} gap-6`}>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Ngày sinh
@@ -394,8 +396,8 @@ export default function EditUserPage() {
                                 </div>
                             </div>
 
-                            {/* Chỉ hiển thị chọn cơ sở cho Admin */}
-                            {isAdmin && (
+                            {/* Chỉ hiển thị chọn cơ sở cho GLOBAL scope */}
+                            {hasGlobalScope && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Cơ sở <span className="text-red-500">*</span>
@@ -438,10 +440,10 @@ export default function EditUserPage() {
                                     <select
                                         value={formData.unitId}
                                         onChange={(e) => handleInputChange("unitId", e.target.value)}
-                                        disabled={isUserDept || !unitCampusSelected || shouldDisableUnitSelection()} // Disable cho UserDept, khi chưa chọn campus hoặc khi chọn role ADMIN_DEPT
+                                        disabled={hasUnitScope || !unitCampusSelected || shouldDisableUnitSelection()} // Disable cho UNIT scope, khi chưa chọn campus hoặc khi chọn role ADMIN_DEPT
                                         className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                                             errors.unitId ? "border-red-500" : "border-gray-300"
-                                        } ${(isUserDept || shouldDisableUnitSelection()) ? "bg-gray-50 cursor-not-allowed" : ""}`}
+                                        } ${(hasUnitScope || shouldDisableUnitSelection()) ? "bg-gray-50 cursor-not-allowed" : ""}`}
                                     >
                                         <option value="">Chọn đơn vị</option>
                                         {/* Nếu có role ADMIN_DEPT thì chỉ hiển thị campus */}
@@ -464,7 +466,7 @@ export default function EditUserPage() {
                                 {errors.unitId && (
                                     <p className="text-red-500 text-sm mt-1">{errors.unitId}</p>
                                 )}
-                                {!isAdmin && !unitCampusSelected && (
+                                {!hasGlobalScope && !unitCampusSelected && (
                                     <p className="text-gray-500 text-sm mt-1">Vui lòng chọn cơ sở trước</p>
                                 )}
                                 {shouldDisableUnitSelection() && (

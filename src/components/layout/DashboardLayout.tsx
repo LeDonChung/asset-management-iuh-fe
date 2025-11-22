@@ -1,12 +1,24 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import ChangePasswordModalNew from "@/components/modal/ChangePasswordModalNew";
 import PersonalInfoModalNew from "@/components/modal/PersonalInfoModalNew";
 import toast from "react-hot-toast";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { 
+  changePassword, 
+  updateProfile, 
+  clearChangePasswordError, 
+  clearChangePasswordSuccess,
+  clearUpdateProfileError,
+  clearUpdateProfileSuccess,
+  ChangePasswordRequest,
+  UpdateProfileRequest 
+} from "@/lib/store/slices/authSlice";
 
 import {
   LayoutDashboard,
@@ -18,15 +30,157 @@ import {
   Building,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   BarChart3,
   ClipboardList,
   Trash2,
   User,
   AlertTriangle,
+  PanelLeftClose,
 } from "lucide-react";
 import { permission } from "process";
 import { PermissionConstants } from "@/hooks/usePermissions";
- 
+
+// Header Component - Combined Sidebar Header and Topbar
+const Header = React.memo(function Header({ 
+  type = "sidebar",
+  isMobile = false, 
+  onClose,
+  onShowPersonalInfo,
+  onShowChangePassword,
+  isDesktopSidebarOpen,
+  isCollapsed
+}: { 
+  type?: "sidebar" | "topbar";
+  isMobile?: boolean; 
+  onClose?: () => void;
+  onShowPersonalInfo?: () => void;
+  onShowChangePassword?: () => void;
+  isDesktopSidebarOpen?: boolean;
+  isCollapsed?: boolean;
+}) {
+  const { user, logout } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  if (type === "sidebar") {
+    return (
+      <div className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'justify-between pl-6 pr-6'} h-22 border-b border-gray-200 bg-white`}>
+        {!isCollapsed && (
+          <div className="flex items-center space-x-4">
+            <div className="w-16 h-16 rounded-lg flex items-center justify-center">
+              <img src={'./logo_iuh.png'} alt="IUH Logo" className="w-full h-full object-contain"/>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold text-gray-900">
+                Quản lý tài sản
+              </span>
+            </div>
+          </div>
+        )}
+        {isCollapsed && (
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center">
+            <img src={'./logo_iuh.png'} alt="IUH Logo" className="w-full h-full object-contain"/>
+          </div>
+        )}
+        <div className="flex items-center space-x-2">
+          {/* Close button for mobile */}
+          {isMobile && onClose && (
+            <button
+              className="w-8 h-8 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+              onClick={onClose}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Topbar
+  return (
+    <div className="relative z-10 flex-shrink-0 flex h-22 bg-white border-b border-gray-200">
+      <button
+        className="px-4 border-gray-200 text-gray-400 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 md:hidden hover:bg-gray-50 hover:text-gray-600 transition-all"
+        onClick={() => {
+          const event = new CustomEvent("openMobileSidebar");
+          window.dispatchEvent(event);
+        }}
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+      
+      <div className="flex-1 px-6 flex items-center justify-between">
+        
+        {/* University name in center */}
+        <div className="flex-1 flex justify-center">
+          <div className="text-center">
+            <h1 className="text-xl font-bold text-blue-800 leading-tight">
+              ĐẠI HỌC CÔNG NGHIỆP THÀNH PHỐ HỒ CHÍ MINH
+            </h1>
+            {user?.unitName && (
+              <p className="text-sm font-semibold text-red-600 mt-1">
+                {user.unitName.toUpperCase()}
+              </p>
+            )}
+          </div>
+        </div>
+        
+        <div className="relative hidden md:block" ref={menuRef}>
+          <button
+            className="flex items-center rounded-lg px-2 py-1.5 hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors"
+            onClick={() => setIsMenuOpen((v) => !v)}
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold mr-2">
+              {user?.fullName?.charAt(0)}
+            </div>
+            <div className="hidden sm:flex flex-col items-start mr-1">
+              <span className="text-sm font-medium text-gray-900 leading-4">{user?.fullName}</span>
+            </div>
+            <ChevronDown className="h-5 w-5 text-gray-400" />
+          </button>
+          {isMenuOpen && (
+            <div className="absolute right-0 mt-2 w-56 rounded-md border border-gray-200 bg-white shadow-lg focus:outline-none">
+              <div className="h-px bg-gray-100" />
+              <button
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                onClick={() => { setIsMenuOpen(false); onShowPersonalInfo?.(); }}
+              >
+                Thông tin cá nhân
+              </button>
+              <button
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                onClick={() => { setIsMenuOpen(false); onShowChangePassword?.(); }}
+              >
+                Đổi mật khẩu
+              </button>
+              <div className="h-px bg-gray-100" />
+              <button
+                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                onClick={() => { setIsMenuOpen(false); logout(); }}
+              >
+                Đăng xuất
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
 
 // Helper: Navigation by permissions
 const getNavigationByPermissions = (userPermissions: string[], userRoles: string[]) => {
@@ -46,8 +200,28 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
       permissions: [PermissionConstants.PERM_VIEW_ASSET],
       children: [
         {
-          name: "Lịch sử bàn giao",
+          name: "Bàn giao",
           href: "/asset/transaction",
+          permissions: [PermissionConstants.PERM_VIEW_TRANSACTION],
+        },
+        {
+          name: "Định danh",
+          href: "/asset/unidentified",
+          // permissions: [PermissionConstants.PERM_IDENTIFY_ASSET],
+        },
+        {
+          name: "Danh mục",
+          href: "/asset/category",
+          permissions: [PermissionConstants.PERM_VIEW_CATEGORY],
+        },
+        {
+          name: "Di chuyển",
+          href: "/asset/move",
+          permissions: [PermissionConstants.PERM_VIEW_MOVEMENT],
+        },
+        {
+          name: "Kho",
+          href: "/asset/warehouse",
           permissions: [PermissionConstants.PERM_VIEW_ASSET],
         },
         {
@@ -82,18 +256,6 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
       href: "/liquidation",
       icon: Trash2,
       permissions: [PermissionConstants.PERM_VIEW_LIQUIDATION],
-      children: [
-        {
-          name: "Danh sách đề xuất",
-          href: "/liquidation",
-          permissions: [PermissionConstants.PERM_VIEW_LIQUIDATION],
-        },
-        {
-          name: "Tạo đề xuất thanh lý",
-          href: "/liquidation/create",
-          permissions: [PermissionConstants.PERM_CREATE_LIQUIDATION],
-        },
-      ],
     }, // Quản lý cảnh báo
     {
       name: "Cảnh báo",
@@ -137,7 +299,66 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
   }));
 };
 
-// Sidebar User Section
+// Mobile Sidebar User Section with full menu
+export const MobileSidebarUserSection = React.memo(function MobileSidebarUserSection({
+  onShowPersonalInfo,
+  onShowChangePassword,
+  handleLogout,
+}: {
+  onShowPersonalInfo: () => void;
+  onShowChangePassword: () => void;
+  handleLogout: () => void;
+}) {
+  const { user } = useAuth();
+
+  if (!user) return null;
+
+  return (
+    <div className="border-t border-gray-200 bg-white">
+      {/* User info header */}
+      <div className="p-4 bg-gray-50">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
+            <span className="text-sm font-semibold text-white">
+              {user.fullName.charAt(0)}
+            </span>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
+            <p className="text-xs text-gray-500">{user.roles?.[0] || 'No Role'}</p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Menu options */}
+      <div className="py-2">
+        <button
+          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-3"
+          onClick={onShowPersonalInfo}
+        >
+          <User className="h-4 w-4 text-gray-400" />
+          <span>Thông tin cá nhân</span>
+        </button>
+        <button
+          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-3"
+          onClick={onShowChangePassword}
+        >
+          <LayoutDashboard className="h-4 w-4 text-gray-400" />
+          <span>Đổi mật khẩu</span>
+        </button>
+        <button
+          className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-3"
+          onClick={handleLogout}
+        >
+          <LogOut className="h-4 w-4 text-red-400" />
+          <span>Đăng xuất</span>
+        </button>
+      </div>
+    </div>
+  );
+});
+
+// Desktop Sidebar User Section (simplified)
 export const SidebarUserSection = React.memo(function SidebarUserSection({
   handleLogout,
 }: {
@@ -195,6 +416,7 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
   isMobile,
   setIsMobileSidebarOpen,
   userPermissions,
+  isCollapsed,
 }: {
   navigation: NavigationItem[];
   pathname: string;
@@ -202,8 +424,13 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
   isMobile?: boolean;
   setIsMobileSidebarOpen?: (v: boolean) => void;
   userPermissions: string[];
+  isCollapsed?: boolean;
 }) {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [openPopover, setOpenPopover] = useState<string | null>(null);
+  const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number; itemName: string } | null>(null);
+  const popoverRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+  const buttonRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
 
   // Helper function to determine if a child item is active
   const isChildItemActive = useCallback((childHref: string, currentPath: string) => {
@@ -248,6 +475,23 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
     }));
   }, []);
 
+  // Handle click outside popover
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openPopover) {
+        const ref = popoverRefs.current[openPopover];
+        if (ref && !ref.contains(event.target as Node)) {
+          setOpenPopover(null);
+        }
+      }
+    };
+
+    if (openPopover) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [openPopover]);
+
   // Auto-expand parent if child is active
   useEffect(() => {
     navigation.forEach(item => {
@@ -270,7 +514,7 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
   }, [pathname, navigation, expandedItems, isChildItemActive, userPermissions]);
 
   return (
-    <nav className="flex-1 px-4 py-6 space-y-1">
+    <nav className={`flex-1 py-6 space-y-1 border-r border-gray-200 ${isCollapsed ? 'px-2' : 'px-4'}`} style={{ position: 'relative' }}>
       {navigation.map((item) => {
         const isExpanded = expandedItems[item.name];
         const isActive = pathname === item.href || (pathname.startsWith(item.href + "/") && item.href !== "/");
@@ -281,6 +525,73 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
         const hasActiveChild = filteredChildren?.some(child => 
           isChildItemActive(child.href, pathname)
         );
+
+        if (isCollapsed) {
+          // Collapsed mode: only show icons
+          return (
+            <div key={item.name} className="relative flex justify-center">
+              {item.children && filteredChildren && filteredChildren.length > 0 ? (
+                <>
+                  <button
+                    ref={(el) => {
+                      if (el) {
+                        buttonRefs.current[item.name] = el;
+                      }
+                    }}
+                    className={`group w-10 h-10 flex items-center justify-center rounded-lg transition-colors relative ${
+                      isActive || hasActiveChild
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    } ${openPopover === item.name ? "bg-blue-50" : ""}`}
+                    onClick={(e) => {
+                      const button = e.currentTarget;
+                      const rect = button.getBoundingClientRect();
+                      if (openPopover === item.name) {
+                        setOpenPopover(null);
+                        setPopoverPosition(null);
+                      } else {
+                        setOpenPopover(item.name);
+                        setPopoverPosition({
+                          top: rect.top,
+                          left: rect.right + 8,
+                          itemName: item.name
+                        });
+                      }
+                    }}
+                    title={item.name}
+                  >
+                    <item.icon
+                      className={`h-5 w-5 ${
+                        isActive || hasActiveChild || openPopover === item.name
+                          ? "text-blue-600"
+                          : "text-gray-400 group-hover:text-gray-500"
+                      }`}
+                    />
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href={item.href}
+                  className={`group w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                  onClick={handleNavClick(isMobile, setIsMobileSidebarOpen)}
+                  title={item.name}
+                >
+                  <item.icon
+                    className={`h-5 w-5 ${
+                      isActive
+                        ? "text-blue-600"
+                        : "text-gray-400 group-hover:text-gray-500"
+                    }`}
+                  />
+                </Link>
+              )}
+            </div>
+          );
+        }
 
         return (
           <div key={item.name}>
@@ -356,99 +667,73 @@ export const SidebarNavigation = React.memo(function SidebarNavigation({
           </div>
         );
       })}
+      {/* Popover Portal */}
+      {typeof window !== 'undefined' && openPopover && popoverPosition && popoverPosition.itemName === openPopover && (() => {
+        const item = navigation.find(n => n.name === openPopover);
+        if (!item || !item.children) return null;
+        const filteredChildren = item.children.filter(child => 
+          !child.permissions || child.permissions.length === 0 || 
+          child.permissions.some(permission => userPermissions.includes(permission))
+        );
+        
+        return createPortal(
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 z-[45]" 
+              onClick={() => {
+                setOpenPopover(null);
+                setPopoverPosition(null);
+              }}
+            />
+            {/* Popover */}
+            <div
+              ref={(el) => {
+                if (el) {
+                  popoverRefs.current[openPopover] = el;
+                }
+              }}
+              className="fixed z-[60] w-56 rounded-md border border-gray-200 bg-white shadow-2xl"
+              style={{ 
+                top: `${popoverPosition.top}px`,
+                left: `${popoverPosition.left}px`,
+                animation: 'fadeIn 0.15s ease-out',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Popover items */}
+              <div className="py-1 rounded-b-md">
+                {filteredChildren.map((child) => {
+                  const isChildActive = isChildItemActive(child.href, pathname);
+                  return (
+                    <Link
+                      key={child.name}
+                      href={child.href}
+                      className={`block px-4 py-2.5 text-sm transition-colors ${
+                        isChildActive
+                          ? "bg-blue-50 text-blue-700 font-medium"
+                          : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenPopover(null);
+                        setPopoverPosition(null);
+                        handleNavClick(isMobile, setIsMobileSidebarOpen)();
+                      }}
+                    >
+                      {child.name}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </>,
+          document.body
+        );
+      })()}
     </nav>
   );
 });
-
-// Topbar
-function Topbar({ 
-  onShowPersonalInfo, 
-  onShowChangePassword 
-}: { 
-  onShowPersonalInfo: () => void;
-  onShowChangePassword: () => void;
-}) {
-  const { user, logout } = useAuth();
-  const router = useRouter();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = React.useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setIsMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-  
-  return (
-    <div className="relative z-10 flex-shrink-0 flex h-16 bg-white border-b border-gray-200">
-      <button
-        className="px-4 border-r border-gray-200 text-gray-400 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 md:hidden hover:bg-gray-50 hover:text-gray-600 transition-all"
-        onClick={() => {
-          const event = new CustomEvent("openMobileSidebar");
-          window.dispatchEvent(event);
-        }}
-      >
-        <Menu className="h-5 w-5" />
-      </button>
-      <div className="flex-1 px-6 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="text-sm text-gray-500">
-            <span>
-              {new Date().toLocaleDateString("vi-VN", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </span>
-          </div>
-        </div>
-        <div className="relative" ref={menuRef}>
-          <button
-            className="flex items-center rounded-lg px-2 py-1.5 hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors"
-            onClick={() => setIsMenuOpen((v) => !v)}
-          >
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold mr-2">
-              {user?.fullName?.charAt(0)}
-            </div>
-            <div className="hidden sm:flex flex-col items-start mr-1">
-              <span className="text-sm font-medium text-gray-900 leading-4">{user?.fullName}</span>
-            </div>
-            <ChevronDown className="h-5 w-5 text-gray-400" />
-          </button>
-          {isMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-md border border-gray-200 bg-white shadow-lg focus:outline-none">
-              <div className="h-px bg-gray-100" />
-              <button
-                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                onClick={() => { setIsMenuOpen(false); onShowPersonalInfo(); }}
-              >
-                Thông tin cá nhân
-              </button>
-              <button
-                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                onClick={() => { setIsMenuOpen(false); onShowChangePassword(); }}
-              >
-                Đổi mật khẩu
-              </button>
-              <div className="h-px bg-gray-100" />
-              <button
-                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                onClick={() => { setIsMenuOpen(false); logout(); }}
-              >
-                Đăng xuất
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -456,15 +741,41 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(() => {
+    // Check localStorage for saved sidebar state, default to true
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('desktop-sidebar-open');
+      return saved !== null ? JSON.parse(saved) : true;
+    }
+    return true;
+  });
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    // Check localStorage for collapsed state, default to false
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('desktop-sidebar-collapsed');
+      return saved !== null ? JSON.parse(saved) : false;
+    }
+    return false;
+  });
   const [isNavigating, setIsNavigating] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showPersonalInfoModal, setShowPersonalInfoModal] = useState(false);
-  const [isLoadingAction, setIsLoadingAction] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   // Use real auth context
-  const { user, isLoading, isAuthenticated, getUserPermissions } = useAuth();
+  const { user, isLoading, isAuthenticated, getUserPermissions, logout } = useAuth();
+  
+  // Redux dispatch and selectors
+  const dispatch = useAppDispatch();
+  const { 
+    changePasswordLoading,
+    changePasswordError,
+    changePasswordSuccess,
+    updateProfileLoading,
+    updateProfileError,
+    updateProfileSuccess
+  } = useAppSelector((state) => state.auth);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -492,42 +803,58 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Modal handlers
   const handleChangePassword = async (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
-    setIsLoadingAction(true);
+    const changePasswordData: ChangePasswordRequest = {
+      currentPassword: data.currentPassword,
+      newPassword: data.newPassword,
+      confirmPassword: data.confirmPassword
+    };
+
     try {
-      // TODO: Implement API call to change password
-      console.log('Changing password:', data);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await dispatch(changePassword(changePasswordData)).unwrap();
       toast.success('Mật khẩu đã được cập nhật thành công!');
       setShowChangePasswordModal(false);
-    } catch (error) {
-      toast.error('Có lỗi xảy ra khi cập nhật mật khẩu. Vui lòng thử lại.');
-      console.error('Change password error:', error);
-    } finally {
-      setIsLoadingAction(false);
+      dispatch(clearChangePasswordSuccess());
+    } catch (error: any) {
+      toast.error(error.message || 'Có lỗi xảy ra khi cập nhật mật khẩu. Vui lòng thử lại.');
     }
   };
 
   const handleUpdatePersonalInfo = async (data: { fullName: string; email: string; phone: string; dateOfBirth: string }) => {
-    setIsLoadingAction(true);
+    const updateProfileData: UpdateProfileRequest = {
+      fullName: data.fullName,
+      email: data.email,
+      phoneNumber: data.phone,
+      birthDate: data.dateOfBirth
+    };
+
     try {
-      // TODO: Implement API call to update personal info
-      console.log('Updating personal info:', data);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await dispatch(updateProfile(updateProfileData)).unwrap();
       toast.success('Thông tin cá nhân đã được cập nhật thành công!');
       setShowPersonalInfoModal(false);
-    } catch (error) {
-      toast.error('Có lỗi xảy ra khi cập nhật thông tin. Vui lòng thử lại.');
-      console.error('Update personal info error:', error);
-    } finally {
-      setIsLoadingAction(false);
+      dispatch(clearUpdateProfileSuccess());
+    } catch (error: any) {
+      toast.error(error.message || 'Có lỗi xảy ra khi cập nhật thông tin. Vui lòng thử lại.');
     }
   };
+
+  // Toggle desktop sidebar handler
+  const handleToggleDesktopSidebar = useCallback(() => {
+    if (!isDesktopSidebarOpen) {
+      // If closed, open it (expanded)
+      setIsDesktopSidebarOpen(true);
+      setIsCollapsed(false);
+      localStorage.setItem('desktop-sidebar-open', JSON.stringify(true));
+      localStorage.setItem('desktop-sidebar-collapsed', JSON.stringify(false));
+    } else if (isCollapsed) {
+      // If collapsed, expand it
+      setIsCollapsed(false);
+      localStorage.setItem('desktop-sidebar-collapsed', JSON.stringify(false));
+    } else {
+      // If expanded, collapse it
+      setIsCollapsed(true);
+      localStorage.setItem('desktop-sidebar-collapsed', JSON.stringify(true));
+    }
+  }, [isDesktopSidebarOpen, isCollapsed]);
 
   useEffect(() => {
     setIsNavigating(false);
@@ -540,8 +867,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     // Listen for openMobileSidebar event
     const openSidebar = () => setIsMobileSidebarOpen(true);
     window.addEventListener("openMobileSidebar", openSidebar);
-    return () => window.removeEventListener("openMobileSidebar", openSidebar);
-  }, [pathname]);
+    
+    // Listen for toggleDesktopSidebar event
+    window.addEventListener("toggleDesktopSidebar", handleToggleDesktopSidebar);
+    
+    return () => {
+      window.removeEventListener("openMobileSidebar", openSidebar);
+      window.removeEventListener("toggleDesktopSidebar", handleToggleDesktopSidebar);
+    };
+  }, [pathname, handleToggleDesktopSidebar]);
 
   if (isLoading) {
     return (
@@ -582,70 +916,91 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* Mobile sidebar */}
         <div
-          className={`fixed inset-y-0 left-0 flex flex-col w-64 bg-white border-r border-gray-200 shadow-lg z-40 transform transition-all duration-300 ease-in-out md:hidden ${
+          className={`fixed inset-y-0 left-0 flex flex-col w-80 bg-white border-r border-gray-200 shadow-lg z-40 transform transition-all duration-300 ease-in-out md:hidden ${
             isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
           {/* Mobile Sidebar header */}
-          <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 bg-white">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center">
-                <img src={'./logo_iuh.png'} alt="IUH Logo"/>
-              </div>
-              <div>
-                <span className="text-lg font-semibold text-gray-900">
-                  Quản lý tài sản
-                </span>
-                <p className="text-xs text-gray-500 font-medium">
-                  Đại học Công nghiệp TP.HCM
-                </p>
-              </div>
-            </div>
-            <button
-              className="w-8 h-8 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-              onClick={() => setIsMobileSidebarOpen(false)}
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+          <Header type="sidebar" isMobile onClose={() => setIsMobileSidebarOpen(false)} isDesktopSidebarOpen={isDesktopSidebarOpen} />
           {/* Mobile Navigation & user section */}
-          <Suspense fallback={<div className="p-4 text-gray-400">Đang tải menu...</div>}>
-            <SidebarNavigation
-              navigation={navigation}
-              pathname={pathname}
-              handleNavigation={handleNavigation}
-              isMobile
-              setIsMobileSidebarOpen={setIsMobileSidebarOpen}
-              userPermissions={userPermissions}
-            />
-          </Suspense>
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <Suspense fallback={<div className="p-4 text-gray-400">Đang tải menu...</div>}>
+              <SidebarNavigation
+                navigation={navigation}
+                pathname={pathname}
+                handleNavigation={handleNavigation}
+                isMobile
+                setIsMobileSidebarOpen={setIsMobileSidebarOpen}
+                userPermissions={userPermissions}
+              />
+            </Suspense>
+            
+            {/* User menu at bottom for mobile */}
+            <div className="mt-auto">
+              <MobileSidebarUserSection
+                onShowPersonalInfo={() => {
+                  setShowPersonalInfoModal(true);
+                  setIsMobileSidebarOpen(false);
+                }}
+                onShowChangePassword={() => {
+                  setShowChangePasswordModal(true);
+                  setIsMobileSidebarOpen(false);
+                }}
+                handleLogout={() => {
+                  logout();
+                  setIsMobileSidebarOpen(false);
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Desktop sidebar */}
-        <div className="hidden md:flex md:flex-shrink-0">
-          <div className="flex flex-col w-64">
-            <div className="flex flex-col flex-grow border-r border-gray-200 bg-white overflow-y-auto">
+        <div className={`hidden md:flex md:flex-shrink-0 sidebar-transition ${
+          isDesktopSidebarOpen ? (isCollapsed ? 'w-20' : 'w-80') : 'w-20'
+        }`}>
+          <div className={`flex flex-col overflow-hidden sidebar-transition ${
+            isDesktopSidebarOpen ? (isCollapsed ? 'w-20' : 'w-80') : 'w-20'
+          }`}>
+            <div className={`flex flex-col flex-grow  border-gray-200 bg-white overflow-y-auto sidebar-content-transition ${
+              'opacity-100'
+            }`} style={{ position: 'relative' }}>
               {/* Desktop Header */}
-              <div className="flex items-center flex-shrink-0 px-6 py-5 bg-white border-b border-gray-200">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-3">
-                  <img src={'./logo_iuh.png'} alt="IUH Logo"/>
-                </div>
-                <div>
-                  <span className="text-lg font-semibold text-gray-900">
-                    Quản lý tài sản
-                  </span>
-                  <p className="text-xs text-gray-500 font-medium">
-                    Đại học Công nghiệp TP.HCM
-                  </p>
-                </div>
-              </div>
+              <Header 
+                type="sidebar" 
+                isDesktopSidebarOpen={isDesktopSidebarOpen} 
+                isCollapsed={isCollapsed || !isDesktopSidebarOpen}
+              />
               {/* Navigation */}
               <SidebarNavigation
                 navigation={navigation}
                 pathname={pathname}
                 handleNavigation={handleNavigation}
                 userPermissions={userPermissions}
+                isCollapsed={isCollapsed || !isDesktopSidebarOpen}
               />
+              
+              {/* Toggle button at bottom */}
+              <div className="mt-auto border-t border-gray-200 bg-white">
+                <div className={`px-4 py-3 ${isCollapsed || !isDesktopSidebarOpen ? 'flex justify-center' : ''}`}>
+                  <button
+                    className={`w-full flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors ${
+                      isCollapsed || !isDesktopSidebarOpen ? 'w-10 h-10' : 'px-3 py-2'
+                    }`}
+                    onClick={() => {
+                      const event = new CustomEvent("toggleDesktopSidebar");
+                      window.dispatchEvent(event);
+                    }}
+                    title={isDesktopSidebarOpen && !isCollapsed ? "Thu gọn sidebar" : isCollapsed || !isDesktopSidebarOpen ? "Mở rộng sidebar" : "Mở sidebar"}
+                  >
+                    {isCollapsed || !isDesktopSidebarOpen ? (
+                      <ChevronsRight className="h-5 w-5" />
+                    ) : (
+                      <ChevronsLeft className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -653,9 +1008,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Main content */}
         <div className="flex flex-col w-0 flex-1 overflow-hidden">
           {/* Top bar */}
-          <Topbar 
+          <Header 
+            type="topbar"
             onShowPersonalInfo={() => setShowPersonalInfoModal(true)}
             onShowChangePassword={() => setShowChangePasswordModal(true)}
+            isDesktopSidebarOpen={isDesktopSidebarOpen}
+            isCollapsed={isCollapsed}
           />
           {/* Page content */}
           <main className="flex-1 relative overflow-y-auto focus:outline-none">
@@ -670,14 +1028,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Modals */}
         <ChangePasswordModalNew
           isOpen={showChangePasswordModal}
-          onClose={() => setShowChangePasswordModal(false)}
+          onClose={() => {
+            setShowChangePasswordModal(false);
+            dispatch(clearChangePasswordError());
+          }}
           onSubmit={handleChangePassword}
-          loading={isLoadingAction}
+          loading={changePasswordLoading}
         />
 
         <PersonalInfoModalNew
           isOpen={showPersonalInfoModal}
-          onClose={() => setShowPersonalInfoModal(false)}
+          onClose={() => {
+            setShowPersonalInfoModal(false);
+            dispatch(clearUpdateProfileError());
+          }}
           onSubmit={handleUpdatePersonalInfo}
           initialData={{
             fullName: user?.fullName || "",
@@ -685,7 +1049,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             phone: user?.phoneNumber || "",
             dateOfBirth: user?.birthDate || ""
           }}
-          loading={isLoadingAction}
+          loading={updateProfileLoading}
         />
       </div>
     );

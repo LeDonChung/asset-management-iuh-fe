@@ -5,15 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectOption } from "@/components/ui/select";
 import { Shield, Search } from "lucide-react";
-import { Role, Permission, ManagerPermission } from "@/types/asset";
+import { Role, Permission, ManagerPermission, AccessScope } from "@/types/asset";
 
 interface RoleFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   role?: Role | null;
   managerPermissions: ManagerPermission[];
-  onSave: (roleData: any) => void;
+  accessScopes?: AccessScope[];
+  onSave: (roleData: Role) => void;
   isViewMode?: boolean;
 }
 
@@ -21,6 +23,7 @@ interface FormData {
   name: string;
   code: string;
   description?: string;
+  accessScopeId?: string;
 }
 
 export default function RoleFormModal({
@@ -28,13 +31,15 @@ export default function RoleFormModal({
   onClose,
   role,
   managerPermissions,
+  accessScopes = [],
   onSave,
   isViewMode = false
 }: RoleFormModalProps) {
   const [formData, setFormData] = useState<FormData>({
     name: "",
     code: "",
-    description: ""
+    description: "",
+    accessScopeId: ""
   });
 
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
@@ -48,14 +53,16 @@ export default function RoleFormModal({
       setFormData({
         name: role.name,
         code: role.code,
-        description: role.code // assuming description is derived from code for now
+        description: role.code, // assuming description is derived from code for now
+        accessScopeId: role.accessScope?.id || ""
       });
       setSelectedPermissions(role.permissions || []);
     } else {
       setFormData({
         name: "",
         code: "",
-        description: ""
+        description: "",
+        accessScopeId: ""
       });
       setSelectedPermissions([]);
     }
@@ -116,8 +123,9 @@ export default function RoleFormModal({
 
     onSave({
       ...formData,
-      permissions: selectedPermissions
-    });
+      permissions: selectedPermissions,
+      accessScope: accessScopes.find(scope => scope.id === formData.accessScopeId)
+    } as Role);
   };
 
   const togglePermission = (permission: Permission) => {
@@ -240,11 +248,34 @@ export default function RoleFormModal({
                     <p className="text-red-500 text-sm mt-1">{errors.name}</p>
                   )}
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phạm vi truy cập
+                  </label>
+                  <Select
+                    value={formData.accessScopeId}
+                    onChange={(e) => handleInputChange("accessScopeId", e.target.value)}
+                    disabled={isViewMode}
+                    className={`rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500 ${errors.accessScopeId ? "border-red-500" : ""} ${isViewMode ? "bg-gray-50" : ""}`}
+                  >
+                    <SelectOption value="">Chọn phạm vi truy cập</SelectOption>
+                    {accessScopes.map((scope) => (
+                      <SelectOption key={scope.id} value={scope.id}>
+                        {scope.type === 'GLOBAL' && 'Toàn hệ thống'}
+                        {scope.type === 'CHILD_UNITS' && 'Đơn vị con'}
+                        {scope.type === 'UNIT' && 'Chỉ đơn vị'}
+                        {scope.type === 'SELF' && 'Chỉ bản thân'}
+                        {scope.description && ` - ${scope.description}`}
+                      </SelectOption>
+                    ))}
+                  </Select>
+                </div>
               </div>
             </div>
 
             {/* Permission Selection (simplified) - right */}
-            <div className="bg-white bg-white rounded-xl border border-gray-300 p-6 shadow-sm md:max-h-[520px] md:overflow-y-auto">
+            <div className="bg-white rounded-xl border border-gray-300 p-6 shadow-sm md:max-h-[520px] md:overflow-y-auto">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Chọn quyền hạn</h3>
 
               {/* Global select all */}

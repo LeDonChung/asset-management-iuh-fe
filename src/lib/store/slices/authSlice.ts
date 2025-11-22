@@ -11,12 +11,28 @@ export interface UserLoginResponse {
   fullName: string;
   roles: string[];
   permissions: string[];
+  accessScopeTypes: string[];
   unitId: string;
+  unitName?: string;
 }
 
 export interface UserLogin {
   user: UserLoginResponse;
   token: string;
+}
+
+// Request interfaces
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface UpdateProfileRequest {
+  fullName: string;
+  email?: string;
+  phoneNumber?: string;
+  birthDate?: string;
 }
 
 interface AuthState {
@@ -26,6 +42,14 @@ interface AuthState {
   error: string | null;
   isAuthenticated: boolean;
   loginSuccess: boolean;
+  // Change password states
+  changePasswordLoading: boolean;
+  changePasswordError: string | null;
+  changePasswordSuccess: boolean;
+  // Update profile states
+  updateProfileLoading: boolean;
+  updateProfileError: string | null;
+  updateProfileSuccess: boolean;
 }
 
 // Constants cho token storage
@@ -93,6 +117,14 @@ const getInitialState = (): AuthState => {
     error: null,
     isAuthenticated: !!(token && user),
     loginSuccess: false,
+    // Change password states
+    changePasswordLoading: false,
+    changePasswordError: null,
+    changePasswordSuccess: false,
+    // Update profile states
+    updateProfileLoading: false,
+    updateProfileError: null,
+    updateProfileSuccess: false,
   }
 }
 
@@ -114,6 +146,30 @@ export const login = createAsyncThunk(
   }
 )
 
+export const changePassword = createAsyncThunk(
+  'auth/changePassword',
+  async (changePasswordData: ChangePasswordRequest, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put('/api/v1/auth/change-password', changePasswordData);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi đổi mật khẩu' });
+    }
+  }
+)
+
+export const updateProfile = createAsyncThunk(
+  'auth/updateProfile',
+  async (updateProfileData: UpdateProfileRequest, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.patch('/api/v1/auth/update-profile', updateProfileData);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi cập nhật thông tin' });
+    }
+  }
+)
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -124,12 +180,32 @@ const authSlice = createSlice({
     clearLoginSuccess: (state) => {
       state.loginSuccess = false
     },
+    clearChangePasswordError: (state) => {
+      state.changePasswordError = null
+    },
+    clearChangePasswordSuccess: (state) => {
+      state.changePasswordSuccess = false
+    },
+    clearUpdateProfileError: (state) => {
+      state.updateProfileError = null
+    },
+    clearUpdateProfileSuccess: (state) => {
+      state.updateProfileSuccess = false
+    },
     logout: (state) => {
       state.userLogin = null
       state.token = null
       state.isAuthenticated = false
       state.loginSuccess = false
       state.error = null
+      // Reset change password states
+      state.changePasswordLoading = false
+      state.changePasswordError = null
+      state.changePasswordSuccess = false
+      // Reset update profile states
+      state.updateProfileLoading = false
+      state.updateProfileError = null
+      state.updateProfileSuccess = false
       // Xóa khỏi storage
       clearAuthStorage()
     },
@@ -144,6 +220,7 @@ const authSlice = createSlice({
     }
   },
   extraReducers: (builder) => {
+    // Login reducers
     builder.addCase(login.pending, (state) => {
       state.loading = true
       state.error = null
@@ -170,8 +247,58 @@ const authSlice = createSlice({
       // Xóa storage khi login thất bại
       clearAuthStorage()
     })
+    
+    // Change password reducers
+    builder.addCase(changePassword.pending, (state) => {
+      state.changePasswordLoading = true
+      state.changePasswordError = null
+      state.changePasswordSuccess = false
+    })
+    builder.addCase(changePassword.fulfilled, (state, action) => {
+      state.changePasswordLoading = false
+      state.changePasswordSuccess = true
+      state.changePasswordError = null
+    })
+    builder.addCase(changePassword.rejected, (state, action) => {
+      state.changePasswordLoading = false
+      state.changePasswordError = (action.payload as any)?.message || 'Có lỗi xảy ra khi đổi mật khẩu'
+      state.changePasswordSuccess = false
+    })
+    
+    // Update profile reducers
+    builder.addCase(updateProfile.pending, (state) => {
+      state.updateProfileLoading = true
+      state.updateProfileError = null
+      state.updateProfileSuccess = false
+    })
+    builder.addCase(updateProfile.fulfilled, (state, action) => {
+      state.updateProfileLoading = false
+      state.updateProfileSuccess = true
+      state.updateProfileError = null
+      // Cập nhật user data trong state nếu có
+      if (state.userLogin && action.payload) {
+        state.userLogin.user = { ...state.userLogin.user, ...action.payload }
+        // Cập nhật localStorage
+        saveUserToLocalStorage(state.userLogin.user)
+      }
+    })
+    builder.addCase(updateProfile.rejected, (state, action) => {
+      state.updateProfileLoading = false
+      state.updateProfileError = (action.payload as any)?.message || 'Có lỗi xảy ra khi cập nhật thông tin'
+      state.updateProfileSuccess = false
+    })
   }
 })
 
-export const { clearError, clearLoginSuccess, logout, setCredentials } = authSlice.actions
+export const { 
+  clearError, 
+  clearLoginSuccess, 
+  clearChangePasswordError, 
+  clearChangePasswordSuccess,
+  clearUpdateProfileError,
+  clearUpdateProfileSuccess,
+  logout, 
+  setCredentials 
+} = authSlice.actions
+
 export default authSlice.reducer

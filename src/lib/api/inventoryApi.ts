@@ -49,6 +49,26 @@ export interface TempInventoryResponse {
   liquidationProposedAssets: number;
 }
 
+// Export Excel Types
+export interface ExportInventoryExcelRequest {
+  roomId: string;
+  assignmentId?: string;
+  assetType?: 'FIXED_ASSET' | 'TOOLS_EQUIPMENT';
+  statusFilter?: string[];
+  fileName?: string;
+  includeImages?: boolean;
+}
+
+export interface ExportMultiRoomInventoryExcelRequest {
+  unitId: string;
+  assignmentId?: string;
+  roomIds?: string[];
+  assetType?: 'FIXED_ASSET' | 'TOOLS_EQUIPMENT';
+  statusFilter?: string[];
+  fileName?: string;
+  includeImages?: boolean;
+}
+
 // Submit Inventory Result Types
 export interface SubmitInventoryResultItem {
   assetId: string;
@@ -158,5 +178,53 @@ export const inventoryApi = {
   getRoomInventoryResults: async (roomId: string, assignmentId: string): Promise<TempInventoryResponse[]> => {
     const response = await axiosInstance.get(`/api/v1/inventories/room-inventory-results/${roomId}/${assignmentId}`);
     return response.data;
+  },
+
+  /**
+   * Xuất file Excel kết quả kiểm kê cho một phòng
+   */
+  exportRoomInventoryToExcel: async (data: ExportInventoryExcelRequest): Promise<void> => {
+    const response = await axiosInstance.post('/api/v1/inventories/export-excel/room', data, {
+      responseType: 'blob',
+    });
+    
+    // Tạo tên file
+    const fileName = data.fileName 
+      ? `${data.fileName}.xlsx` 
+      : `Ket_qua_kiem_ke_phong_${data.roomId.substring(0, 8)}_${new Date().getTime()}.xlsx`;
+    
+    // Tạo URL để download
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  /**
+   * Xuất file Excel kết quả kiểm kê cho nhiều phòng của đơn vị
+   */
+  exportMultiRoomInventoryToExcel: async (data: ExportMultiRoomInventoryExcelRequest): Promise<void> => {
+    const response = await axiosInstance.post('/api/v1/inventories/export-excel/multi-room', data, {
+      responseType: 'blob',
+    });
+    
+    // Tạo tên file
+    const fileName = data.fileName 
+      ? `${data.fileName}.xlsx` 
+      : `Ket_qua_kiem_ke_don_vi_${data.unitId.substring(0, 8)}_${new Date().getTime()}.xlsx`;
+    
+    // Tạo URL để download
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   },
 };
