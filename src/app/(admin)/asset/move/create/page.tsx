@@ -419,7 +419,7 @@ export default function MoveCreatePage() {
 
   const handleSubmitMove = async () => {
     if (!selectedRoomId) {
-      toast.error("Vui lòng chọn phòng nhận!");
+      toast.error("Vui lòng chọn phòng tiếp nhận!");
       return;
     }
 
@@ -723,18 +723,18 @@ export default function MoveCreatePage() {
 
               {/* Room Selection */}
               <CardSelect
-                label="Phòng nhận"
+                label="Phòng tiếp nhận"
                 icon={<></>}
                 value={selectedRoomId}
                 onChange={setSelectedRoomId}
                 options={[
-                  { value: "", label: "Chọn phòng nhận" },
+                  { value: "", label: "Chọn phòng tiếp nhận" },
                   ...(rooms?.map((room) => ({
                     value: room.id,
                     label: `${room.roomCode} - ${room.name}`,
                   })) || []),
                 ]}
-                placeholder="Chọn phòng nhận"
+                placeholder="Chọn phòng tiếp nhận"
                 disabled={isSubmitting || isCreatingMovement || !selectedUnitId}
                 loading={roomsLoading}
                 required

@@ -35,7 +35,10 @@ import {
   fetchAllAlert,
   filterAlert,
   AlertFilterRequest,
+  moveAssetFromAlert,
 } from "@/lib/store/slices/alertSlice";
+import { fetchAllRooms, fetchRoomsByUnitId } from "@/lib/store/slices/roomSlice";
+import { Room } from "@/types/asset";
 import toast from "react-hot-toast";
 import { useSocket } from "@/contexts/SocketContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -150,7 +153,7 @@ interface AlertDetailModalProps {
   alert: Alert;
   isOpen: boolean;
   onClose: () => void;
-  onResolve: (alertId: string, status: AlertStatus, note: string) => void;
+  onResolve: (alertId: string, status: AlertStatus, note: string, toRoomId?: string) => void;
 }
 
 const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
@@ -159,9 +162,33 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
   onClose,
   onResolve,
 }) => {
+  const dispatch = useAppDispatch();
+  const { rooms } = useAppSelector((state: RootState) => state.room);
+  const { user } = useAuth();
   const [selectedResolution, setSelectedResolution] =
     useState<AlertStatus | null>(null);
   const [note, setNote] = useState("");
+  const [selectedRoomId, setSelectedRoomId] = useState<string>("");
+
+  // Load rooms when modal opens
+  useEffect(() => {
+      console.log(user)
+
+    if (isOpen && user?.unitId) {
+      console.log(user)
+      // Use the current user's unit to fetch rooms
+      dispatch(fetchRoomsByUnitId(user.unitId));
+    }
+  }, [isOpen, dispatch, user?.unitId]);
+
+  // Reset form when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedResolution(null);
+      setNote("");
+      setSelectedRoomId("");
+    }
+  }, [isOpen]);
 
   const handleResolve = () => {
     if (!selectedResolution) {
@@ -169,7 +196,13 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
       return;
     }
 
-    onResolve(alert.id, selectedResolution, note);
+    // If confirmed and no room selected, require room selection
+    if (selectedResolution === AlertStatus.CONFIRMED && !selectedRoomId) {
+      window.alert("Vui lòng chọn phòng để di chuyển tài sản");
+      return;
+    }
+
+    onResolve(alert.id, selectedResolution, note, selectedRoomId);
     onClose();
   };
 
@@ -301,6 +334,31 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
                   </label>
                 ))}
               </div>
+
+              {/* Room Selection for Confirmed Resolution */}
+              {selectedResolution === AlertStatus.CONFIRMED && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <label className="block text-sm font-medium text-blue-800 mb-2">
+                    Chọn phòng để di chuyển tài sản:
+                  </label>
+                  <select
+                    value={selectedRoomId}
+                    onChange={(e) => setSelectedRoomId(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-900"
+                    required
+                  >
+                    <option value="">-- Chọn phòng --</option>
+                    {rooms.map((room) => (
+                      <option key={room.id} value={room.id}>
+                        {room.name} ({room.roomCode})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Tài sản sẽ được di chuyển tự động đến phòng đã chọn
+                  </p>
+                </div>
+              )}
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -538,12 +596,19 @@ export default function AlertPage() {
   const handleResolveAlert = async (
     alertId: string,
     status: AlertStatus,
-    note: string
+    note: string,
+    toRoomId?: string
   ) => {
     try {
-      await dispatch(createAlertResolution({ alertId, status, note })).unwrap();
-
-      toast.success("Cảnh báo đã được xử lý");
+      // If status is CONFIRMED and room is selected, call move API
+      if (status === AlertStatus.CONFIRMED && toRoomId) {
+        await dispatch(moveAssetFromAlert({ alertId, toRoomId, note })).unwrap();
+        toast.success("Cảnh báo đã được xử lý và tài sản đã được di chuyển");
+      } else {
+        // Otherwise, just resolve the alert normally
+        await dispatch(createAlertResolution({ alertId, status, note })).unwrap();
+        toast.success("Cảnh báo đã được xử lý");
+      }
 
       // Remove from pending alerts from socket if exists
       setPendingAlertsFromSocket((prev) =>
