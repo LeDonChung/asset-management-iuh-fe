@@ -430,6 +430,8 @@ export default function MovementManagementPage() {
                 </DropdownMenuItem>
               )}
 
+              
+
               {/* Delete */}
               {canPerformAction(record, "delete") && (
                 <>
