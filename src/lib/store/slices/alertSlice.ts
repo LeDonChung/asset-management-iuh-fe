@@ -91,6 +91,21 @@ export const createAlertResolution = createAsyncThunk(
     }
 );
 
+export const moveAssetFromAlert = createAsyncThunk(
+    "alerts/moveAssetFromAlert",
+    async (data: { alertId: string; toRoomId: string; note?: string }, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.post(`/api/v1/alerts/${data.alertId}/move`, {
+                toRoomId: data.toRoomId,
+                note: data.note
+            });
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+
 const alertSlice = createSlice({
     name: "alerts",
     initialState,
@@ -124,6 +139,18 @@ const alertSlice = createSlice({
             }
         });
         builder.addCase(createAlertResolution.rejected, (state) => {
+            state.loading = false;
+        });
+
+        // Move asset from alert
+        builder.addCase(moveAssetFromAlert.pending, (state) => {
+            state.loading = true;
+        });
+        builder.addCase(moveAssetFromAlert.fulfilled, (state, action) => {
+            state.loading = false;
+            // Movement was created successfully - we could update the alert state if needed
+        });
+        builder.addCase(moveAssetFromAlert.rejected, (state) => {
             state.loading = false;
         });
 
