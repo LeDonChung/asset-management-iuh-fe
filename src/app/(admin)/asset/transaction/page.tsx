@@ -272,7 +272,7 @@ export default function TransactionPage() {
               receiveDto: { note: data.note },
             })
           ).unwrap();
-          toast.success("Đã xác nhận tiếp nhận tài sản");
+          toast.success("Đã tiếp nhận tài sản");
           break;
       }
 
@@ -437,7 +437,7 @@ export default function TransactionPage() {
                   }}
                   className="flex items-center gap-2 cursor-pointer text-blue-600"
                 >
-                  <span>Xác nhận tiếp nhận</span>
+                  <span>Tiếp nhận</span>
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -666,7 +666,7 @@ export default function TransactionPage() {
             : modalType === "approve"
             ? "Phê duyệt giao dịch"
             : modalType === "receive"
-            ? "Xác nhận tiếp nhận tài sản"
+            ? "Tiếp nhận tài sản"
             : modalType === "reject"
             ? "Từ chối giao dịch"
             : ""
