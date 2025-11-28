@@ -173,9 +173,9 @@ export default function AssetDetailPage() {
                     Thông tin chính
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                    <div className="flex justify-between py-2 border-b border-gray-100">
-                      <span className="text-gray-600">Tên tài sản</span>
-                      <span className="font-medium">
+                    <div className="flex flex-col sm:flex-row sm:justify-between py-2 border-b border-gray-100">
+                      <span className="text-gray-600 mb-1 sm:mb-0">Tên tài sản</span>
+                      <span className="font-medium break-words text-right sm:max-w-[60%]">
                         {asset?.name || "N/A"}
                       </span>
                     </div>
@@ -256,6 +256,13 @@ export default function AssetDetailPage() {
                       <span className="text-gray-600">Danh mục</span>
                       <span className="font-medium">
                         {asset?.category?.name || "N/A"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Vị trí trong phòng</span>
+                      <span className="font-medium">
+                        {asset?.locationInRoom || "N/A"}
                       </span>
                     </div>
                   </div>
