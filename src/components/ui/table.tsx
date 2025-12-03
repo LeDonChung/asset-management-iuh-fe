@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { SortConfig } from "@/types/asset";
 
 // Calculate page size options dynamically
-const calculatePageSizeOptions = (totalItems: number) => {
+const calculatePageSizeOptions = (totalItems: number): number[] => {
   if (!totalItems || totalItems <= 0) {
     return [10, 20, 50, 100];
   }
 
-  const options = [];
+  const options: number[] = [];
   let currentSize = 10;
   const maxSize = Math.min(totalItems, 1000); // Giới hạn tối đa 1000
 
@@ -30,12 +30,23 @@ const calculatePageSizeOptions = (totalItems: number) => {
 
   // Đảm bảo có ít nhất 4 options và không vượt quá totalItems
   if (options.length < 4) {
-    const additionalOptions = [20, 50, 100].filter(opt => opt <= totalItems && !options.includes(opt));
+    const additionalOptions = [20, 50, 100].filter((opt: number) => opt <= totalItems && !options.includes(opt));
     options.push(...additionalOptions);
   }
 
   // Sắp xếp và loại bỏ trùng lặp
-  return [...new Set(options)].sort((a, b) => a - b);
+  const sortedOptions = [...new Set(options)].sort((a, b) => a - b);
+  
+  // Luôn thêm total items làm giá trị cuối nếu chưa có
+  if (!sortedOptions.includes(totalItems)) {
+    // Loại bỏ các giá trị lớn hơn totalItems (nếu có)
+    const filteredOptions = sortedOptions.filter(opt => opt <= totalItems);
+    // Thêm totalItems vào cuối
+    filteredOptions.push(totalItems);
+    return filteredOptions;
+  }
+
+  return sortedOptions;
 };
 
 // Sort interfaces
@@ -165,6 +176,7 @@ export function Table<T = any>({
   const resizeStartX = useRef<number>(0);
   const resizeStartWidth = useRef<number>(0);
   const tableRef = useRef<HTMLTableElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const currentSortConfigs = onSortChange ? sortConfigs : internalSortConfigs;
   const currentColumnWidths = onColumnWidthChange
@@ -232,6 +244,13 @@ export function Table<T = any>({
       };
     }
   }, [isResizing, handleMouseMove, handleMouseUp]);
+
+  // Auto scroll to left on mount and when data changes
+  React.useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = 0;
+    }
+  }, [data]);
 
   const getColumnWidth = (columnKey: string): number => {
     return currentColumnWidths[columnKey] || 150;
@@ -573,26 +592,35 @@ export function Table<T = any>({
       )}
       {/* Top Pagination */}
       {pagination && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-6 py-3 border-b border-gray-200">
-          <div className="flex items-center text-sm text-gray-700">
-            Hiển thị {(pagination.current - 1) * pagination.pageSize + 1} -{" "}
-            {Math.min(
-              pagination.current * pagination.pageSize,
-              pagination.total
-            )}{" "}
-            trong tổng số {pagination.total} tài sản
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 bg-white px-4 sm:px-6 py-3 border-b border-gray-200">
+          <div className="flex items-center text-xs sm:text-sm text-gray-700 whitespace-nowrap">
+            <span className="hidden sm:inline">
+              Hiển thị {(pagination.current - 1) * pagination.pageSize + 1} -{" "}
+              {Math.min(
+                pagination.current * pagination.pageSize,
+                pagination.total
+              )}{" "}
+              trong tổng số {pagination.total} tài sản
+            </span>
+            <span className="sm:hidden">
+              {(pagination.current - 1) * pagination.pageSize + 1}-{Math.min(
+                pagination.current * pagination.pageSize,
+                pagination.total
+              )} / {pagination.total}
+            </span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
             {pagination.showSizeChanger && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-700">Hiển thị:</span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <span className="text-xs sm:text-sm text-gray-700 hidden sm:inline">Hiển thị:</span>
+                <span className="text-xs sm:text-sm text-gray-700 sm:hidden">Hiện:</span>
                 <select
                   value={pagination.pageSize}
                   onChange={(e) =>
                     pagination.onChange(1, Number(e.target.value))
                   }
-                  className="border border-gray-300 rounded px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="border border-gray-300 rounded px-2 py-1 text-xs sm:text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   {(pagination.pageSizeOptions || calculatePageSizeOptions(pagination.total)).map(
                     (size) => (
@@ -698,7 +726,7 @@ export function Table<T = any>({
                       return (
                         <span
                           key={`top-dots-${index}`}
-                          className="px-3 py-2 text-sm text-gray-500"
+                          className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-gray-500"
                         >
                           ...
                         </span>
@@ -714,7 +742,7 @@ export function Table<T = any>({
                             pagination.pageSize
                           )
                         }
-                        className={`min-w-[36px] px-3 py-2 text-sm rounded ${
+                        className={`min-w-[32px] sm:min-w-[36px] px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded ${
                           currentPage === page
                             ? "bg-blue-600 text-white"
                             : "text-gray-700 hover:bg-gray-100"
@@ -739,7 +767,7 @@ export function Table<T = any>({
                   pagination.current >=
                   Math.ceil(pagination.total / pagination.pageSize)
                 }
-                className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Trang sau"
               >
                 <svg
@@ -769,7 +797,7 @@ export function Table<T = any>({
                   pagination.current >=
                   Math.ceil(pagination.total / pagination.pageSize)
                 }
-                className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Trang cuối"
               >
                 <svg
@@ -790,12 +818,12 @@ export function Table<T = any>({
           </div>
         </div>
       )}
-      <div className="overflow-x-auto">
-        <table ref={tableRef} className="w-full table-fixed">
+      <div ref={scrollContainerRef} className="overflow-x-auto sm:mx-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <table ref={tableRef} className="w-full table-auto  text-left" style={{ minWidth: '600px' }}>
           <thead className="border-b border-gray-200">
             <tr>
               {rowSelection && (
-                <th className="px-4 py-3 text-left w-16 relative">
+                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left w-12 sm:w-16 relative">
                   <input
                     type="checkbox"
                     checked={isAllSelected}
@@ -814,13 +842,14 @@ export function Table<T = any>({
                 return (
                   <th
                     key={column.key}
-                    className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative ${
+                    className={`px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative ${
                       column.sortable ? "cursor-pointer hover:bg-gray-100" : ""
                     } ${column.className || ""}`}
                     style={{
                       width: `${getColumnWidth(column.key)}px`,
-                      minWidth: `${column.minWidth || 80}px`,
+                      minWidth: `${column.minWidth || 120}px`,
                       maxWidth: `${column.maxWidth || 1000}px`,
+                      whiteSpace: 'nowrap',
                     }}
                     onClick={() => column.sortable && handleSort(column.key)}
                   >
@@ -860,7 +889,7 @@ export function Table<T = any>({
                   onClick={() => onRowClick?.(record, index)}
                 >
                   {rowSelection && (
-                    <td className="px-4 py-4 w-16">
+                    <td className="px-2 sm:px-4 py-2 sm:py-4 w-12 sm:w-16">
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -874,12 +903,14 @@ export function Table<T = any>({
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className={`px-4 py-4 overflow-hidden ${
+                      className={`px-2 sm:px-4 py-2 sm:py-4 overflow-hidden ${
                         column.className || ""
                       }`}
                       style={{
                         width: `${getColumnWidth(column.key)}px`,
+                        minWidth: `${column.minWidth || 120}px`,
                         maxWidth: `${getColumnWidth(column.key)}px`,
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       <div
@@ -915,26 +946,35 @@ export function Table<T = any>({
 
       {/* Bottom Pagination */}
       {pagination && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-6 py-3 border-t border-gray-200">
-          <div className="flex items-center text-sm text-gray-700">
-            Hiển thị {(pagination.current - 1) * pagination.pageSize + 1} -{" "}
-            {Math.min(
-              pagination.current * pagination.pageSize,
-              pagination.total
-            )}{" "}
-            trong tổng số {pagination.total} tài sản
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 bg-white px-4 sm:px-6 py-3 border-t border-gray-200">
+          <div className="flex items-center text-xs sm:text-sm text-gray-700 whitespace-nowrap">
+            <span className="hidden sm:inline">
+              Hiển thị {(pagination.current - 1) * pagination.pageSize + 1} -{" "}
+              {Math.min(
+                pagination.current * pagination.pageSize,
+                pagination.total
+              )}{" "}
+              trong tổng số {pagination.total} tài sản
+            </span>
+            <span className="sm:hidden">
+              {(pagination.current - 1) * pagination.pageSize + 1}-{Math.min(
+                pagination.current * pagination.pageSize,
+                pagination.total
+              )} / {pagination.total}
+            </span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
             {pagination.showSizeChanger && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-700">Hiển thị:</span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <span className="text-xs sm:text-sm text-gray-700 hidden sm:inline">Hiển thị:</span>
+                <span className="text-xs sm:text-sm text-gray-700 sm:hidden">Hiện:</span>
                 <select
                   value={pagination.pageSize}
                   onChange={(e) =>
                     pagination.onChange(1, Number(e.target.value))
                   }
-                  className="border border-gray-300 rounded px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="border border-gray-300 rounded px-2 py-1 text-xs sm:text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   {(pagination.pageSizeOptions || calculatePageSizeOptions(pagination.total)).map(
                     (size) => (
@@ -1040,7 +1080,7 @@ export function Table<T = any>({
                       return (
                         <span
                           key={`bottom-dots-${index}`}
-                          className="px-3 py-2 text-sm text-gray-500"
+                          className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-gray-500"
                         >
                           ...
                         </span>
@@ -1056,7 +1096,7 @@ export function Table<T = any>({
                             pagination.pageSize
                           )
                         }
-                        className={`min-w-[36px] px-3 py-2 text-sm rounded ${
+                        className={`min-w-[32px] sm:min-w-[36px] px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded ${
                           currentPage === page
                             ? "bg-blue-600 text-white"
                             : "text-gray-700 hover:bg-gray-100"
@@ -1081,7 +1121,7 @@ export function Table<T = any>({
                   pagination.current >=
                   Math.ceil(pagination.total / pagination.pageSize)
                 }
-                className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Trang sau"
               >
                 <svg
@@ -1111,7 +1151,7 @@ export function Table<T = any>({
                   pagination.current >=
                   Math.ceil(pagination.total / pagination.pageSize)
                 }
-                className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Trang cuối"
               >
                 <svg
