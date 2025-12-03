@@ -15,7 +15,6 @@ import { RootState } from "@/lib/store";
 import {
   deletedUser,
   filterUser,
-  getAllUser,
   updateUserStatus,
   UserFilterRequest,
 } from "@/lib/store/slices/userSlice";
@@ -48,7 +47,7 @@ const statusColors = {
 export default function UsersPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { lstUser, filteredUsers, currentFilter } = useAppSelector(
+  const { filteredUsers, currentFilter } = useAppSelector(
     (state: RootState) => state.user
   );
   const { campuses } = useAppSelector((state: RootState) => state.unit);
@@ -130,7 +129,7 @@ export default function UsersPage() {
         .unwrap()
         .then(() => {
           toast.success("Xóa người dùng thành công!");
-          dispatch(getAllUser());
+          dispatch(filterUser(currentFilter));
         })
         .catch(() => {
           toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
@@ -139,7 +138,8 @@ export default function UsersPage() {
   };
 
   const handleToggleLock = (userId: string) => {
-    const user = lstUser.find((u) => u.id === userId);
+    const user = filteredUsers.data.find((u) => u.id === userId);
+    
     if (!user) return;
     if (
       confirm(
@@ -160,7 +160,7 @@ export default function UsersPage() {
               user.status === UserStatus.LOCKED ? "Mở khóa" : "Khóa"
             } tài khoản người dùng thành công!`
           );
-          dispatch(getAllUser());
+          dispatch(filterUser(currentFilter));
         })
         .catch(() => {
           toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
