@@ -11,19 +11,25 @@ import {
   Edit,
   Trash2,
   RefreshCw,
+  ChevronRight,
+  Building,
+  MapPin,
 } from "lucide-react";
 import { RootState, AppDispatch } from "@/lib/store";
-import { fetchAssetById, clearAsset } from "@/lib/store/slices/assetSlice";
+import { fetchAssetById, clearAsset, fetchAssetHistory, clearAssetHistory } from "@/lib/store/slices/assetSlice";
 import { AssetStatus, AssetType } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 
 export default function AssetDetailPage() {
   const params = useParams();
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
 
-  const { asset, loading, error } = useSelector(
+  const { asset, loading, error, assetHistory, historyLoading } = useSelector(
     (state: RootState) => state.asset
   );
 
@@ -32,16 +38,19 @@ export default function AssetDetailPage() {
   useEffect(() => {
     if (assetId) {
       dispatch(fetchAssetById(assetId));
+      dispatch(fetchAssetHistory(assetId));
     }
 
     return () => {
       dispatch(clearAsset());
+      dispatch(clearAssetHistory());
     };
   }, [assetId, dispatch]);
 
   const handleRefresh = () => {
     if (assetId) {
       dispatch(fetchAssetById(assetId));
+      dispatch(fetchAssetHistory(assetId));
     }
   };
 
@@ -54,6 +63,262 @@ export default function AssetDetailPage() {
       // TODO: Implement delete functionality
       console.log("Delete asset:", assetId);
     }
+  };
+
+  // Status labels for different history types
+  const transactionStatusLabels: Record<string, string> = {
+    DRAFT: "Nháp",
+    PROPOSED: "Đã đề xuất",
+    APPROVED: "Đã phê duyệt",
+    RECEIVED: "Đã tiếp nhận",
+    REJECTED: "Từ chối",
+  };
+
+  const transactionStatusColors: Record<string, string> = {
+    DRAFT: "bg-gray-100 text-gray-800",
+    PROPOSED: "bg-yellow-100 text-yellow-800",
+    APPROVED: "bg-green-100 text-green-800",
+    RECEIVED: "bg-blue-100 text-blue-800",
+    REJECTED: "bg-red-100 text-red-800",
+  };
+
+  const movementStatusLabels: Record<string, string> = {
+    PENDING_APPROVAL: "Chờ phê duyệt",
+    APPROVED: "Đã phê duyệt",
+    REJECTED: "Từ chối",
+    IN_PROGRESS: "Đang thực hiện",
+    COMPLETED: "Hoàn thành",
+    CANCELLED: "Đã hủy",
+  };
+
+  const movementStatusColors: Record<string, string> = {
+    PENDING_APPROVAL: "bg-yellow-100 text-yellow-800",
+    APPROVED: "bg-green-100 text-green-800",
+    REJECTED: "bg-red-100 text-red-800",
+    IN_PROGRESS: "bg-blue-100 text-blue-800",
+    COMPLETED: "bg-green-100 text-green-800",
+    CANCELLED: "bg-gray-100 text-gray-800",
+  };
+
+  const liquidationStatusLabels: Record<string, string> = {
+    DRAFT: "Nháp",
+    PROPOSED: "Đề xuất thanh lý",
+    APPROVED: "Đã phê duyệt",
+    REJECTED: "Từ chối",
+    FINALIZED: "Hoàn thành",
+  };
+
+  const liquidationStatusColors: Record<string, string> = {
+    DRAFT: "bg-gray-100 text-gray-800",
+    PROPOSED: "bg-yellow-100 text-yellow-800",
+    APPROVED: "bg-green-100 text-green-800",
+    REJECTED: "bg-red-100 text-red-800",
+    FINALIZED: "bg-blue-100 text-blue-800",
+  };
+
+  // Component to render history timeline
+  const AssetHistoryTimeline = () => {
+    if (historyLoading) {
+      return (
+        <Card className="sticky top-6 border border-gray-300">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <RefreshCw className="w-5 h-5" />
+              Lịch sử di chuyển
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
+              <p className="mt-2 text-gray-600">Đang tải lịch sử...</p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (!assetHistory || assetHistory.all.length === 0) {
+      return (
+        <Card className="sticky top-6 border border-gray-300">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <RefreshCw className="w-5 h-5" />
+              Lịch sử di chuyển
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8 text-gray-500">
+              <RefreshCw className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p className="text-sm">Chưa có lịch sử di chuyển</p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <Card className="sticky top-6 border border-gray-300">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <RefreshCw className="w-5 h-5" />
+            Lịch sử di chuyển
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-0 max-h-[600px] overflow-y-auto pr-2">
+            {assetHistory.all.map((history, index) => (
+              <div key={`${history.type}-${history.id}`} className="relative pl-2">
+                <div className="flex gap-4">
+                  {/* Timeline line and Icon */}
+                  <div className="flex flex-col items-center">
+                    {/* Icon circle */}
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-sm relative z-10 ${
+                        history.type === "TRANSACTION"
+                          ? transactionStatusColors[(history as any).newStatus] || "bg-gray-100 text-gray-600"
+                          : history.type === "MOVEMENT"
+                          ? movementStatusColors[(history as any).newStatus] || "bg-gray-100 text-gray-600"
+                          : liquidationStatusColors[(history as any).actionStatus] || "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {history.type === "TRANSACTION" ? (
+                        <ArrowLeft className="w-4 h-4" />
+                      ) : history.type === "MOVEMENT" ? (
+                        <RefreshCw className="w-4 h-4" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </div>
+                    {/* Timeline line */}
+                    {index < assetHistory.all.length - 1 && (
+                      <div className="w-0.5 h-full bg-gray-200 mt-2 min-h-[60px]" />
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 pb-6 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <Badge className="text-xs">
+                        {history.type === "TRANSACTION"
+                          ? "Giao dịch"
+                          : history.type === "MOVEMENT"
+                          ? "Di chuyển"
+                          : "Thanh lý"}
+                      </Badge>
+                      {history.type === "TRANSACTION" && (
+                        <Badge
+                          className={`${
+                            transactionStatusColors[(history as any).newStatus] ||
+                            "bg-gray-100 text-gray-800"
+                          } text-xs`}
+                        >
+                          {transactionStatusLabels[(history as any).newStatus] ||
+                            (history as any).newStatus}
+                        </Badge>
+                      )}
+                      {history.type === "MOVEMENT" && (
+                        <Badge
+                          className={`${
+                            movementStatusColors[(history as any).newStatus] ||
+                            "bg-gray-100 text-gray-800"
+                          } text-xs`}
+                        >
+                          {movementStatusLabels[(history as any).newStatus] ||
+                            (history as any).newStatus}
+                        </Badge>
+                      )}
+                      {history.type === "LIQUIDATION" && (
+                        <Badge
+                          className={`${
+                            liquidationStatusColors[(history as any).actionStatus] ||
+                            "bg-gray-100 text-gray-800"
+                          } text-xs`}
+                        >
+                          {liquidationStatusLabels[(history as any).actionStatus] ||
+                            (history as any).actionStatus}
+                        </Badge>
+                      )}
+                      <span className="text-xs text-gray-500">
+                        {format(new Date(history.createdAt), "dd/MM/yyyy HH:mm", {
+                          locale: vi,
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-2">
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="font-medium text-sm text-gray-900">
+                        {history.user?.fullName || "N/A"}
+                      </span>
+                    </div>
+
+                    {/* Location info for transaction/movement */}
+                    {(history.type === "TRANSACTION" || history.type === "MOVEMENT") && (
+                      <div className="mt-2 text-sm text-gray-600 space-y-1">
+                        {/* From Unit - hiển thị cho cả transaction và movement nếu có */}
+                        {(history as any).fromUnit && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-500">Đơn vị gửi:</span>
+                            <span>{(history as any).fromUnit.name}</span>
+                          </div>
+                        )}
+                        
+                        {/* From Room */}
+                        {(history as any).fromRoom && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-500">Từ phòng:</span>
+                            <span>
+                              {(history as any).fromRoom.roomCode.indexOf("INVENTORY") !== -1
+                                ? "Kho"
+                                : (history as any).fromRoom.roomCode}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* To Unit - hiển thị cho cả transaction và movement nếu có */}
+                        {(history as any).toUnit && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-500">Đơn vị nhận:</span>
+                            <span>{(history as any).toUnit.name}</span>
+                          </div>
+                        )}
+                        
+                        {/* To Room */}
+                        {(history as any).toRoom && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-500">Đến phòng:</span>
+                            <span>
+                              {(history as any).toRoom.roomCode.indexOf("INVENTORY") !== -1
+                                ? "Kho"
+                                : (history as any).toRoom.roomCode}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+
+                    {history.evidenceUrl && (
+                      <div className="mt-2">
+                        <a
+                          href={history.evidenceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors px-3 py-1.5 rounded-md hover:bg-blue-50"
+                        >
+                          <AlertCircle className="w-4 h-4" />
+                          Xem minh chứng
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   if (loading) {
@@ -124,19 +389,30 @@ export default function AssetDetailPage() {
   return (
     <div className="container mx-auto p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.back()}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Quay lại
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Chi tiết tài sản</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="flex flex-col w-full sm:w-auto">
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <button
+              onClick={() => router.push("/asset/asset-book")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Tài sản
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <button
+              onClick={() => router.push("/asset/asset-book")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Sổ tài sản
+            </button>
+            {asset && (
+              <>
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                  {asset.name}
+                </span>
+              </>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -160,9 +436,9 @@ export default function AssetDetailPage() {
       </div>
 
       {/* Layout 2 cột */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 ">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Cột trái - Thông tin chính */}
-        <div className="xl:col-span-2 ">
+        <div className="xl:col-span-2 space-y-6">
           <Card>
             <CardHeader></CardHeader>
             <CardContent>
@@ -282,6 +558,45 @@ export default function AssetDetailPage() {
                   </div>
                 )}
 
+                {/* Vị trí hiện tại */}
+                {asset?.currentRoom && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 text-gray-900 flex items-center gap-2">
+                      Vị trí hiện tại
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                      <div className="flex justify-between py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Phòng</span>
+                        <span className="font-medium">{asset.currentRoom.name}</span>
+                      </div>
+
+                      <div className="flex justify-between py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Tòa</span>
+                        <span className="font-medium">{asset.currentRoom.building}</span>
+                      </div>
+
+                      <div className="flex justify-between py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Tầng</span>
+                        <span className="font-medium">{asset.currentRoom.floor}</span>
+                      </div>
+
+                      {asset.currentRoom.unit && (
+                        <div className="flex justify-between py-2 border-b border-gray-100">
+                          <span className="text-gray-600">Đơn vị</span>
+                          <span className="font-medium">{asset.currentRoom.unit.name}</span>
+                        </div>
+                      )}
+
+                      {asset.locationInRoom && (
+                        <div className="flex justify-between py-2 border-b border-gray-100 md:col-span-2">
+                          <span className="text-gray-600">Vị trí trong phòng</span>
+                          <span className="font-medium">{asset.locationInRoom}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Thông số kỹ thuật */}
                 {asset?.specs && (
                   <div>
@@ -300,53 +615,9 @@ export default function AssetDetailPage() {
           </Card>
         </div>
 
-        {/* Cột phải - Vị trí hiện tại */}
+        {/* Cột phải - Lịch sử di chuyển */}
         <div className="xl:col-span-1">
-          {asset?.currentRoom && (
-            <Card className="sticky top-6">
-              <CardHeader>
-                <CardTitle>Vị trí hiện tại</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <div className="text-sm text-gray-600">Phòng</div>
-                    <div className="font-medium">{asset.currentRoom.name}</div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="text-sm text-gray-600">Tòa</div>
-                    <div className="font-medium">
-                      {asset.currentRoom.building}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="text-sm text-gray-600">Tầng</div>
-                    <div className="font-medium">{asset.currentRoom.floor}</div>
-                  </div>
-
-                  {asset.currentRoom.unit && (
-                    <div className="space-y-1">
-                      <div className="text-sm text-gray-600">Đơn vị</div>
-                      <div className="font-medium">
-                        {asset.currentRoom.unit.name}
-                      </div>
-                    </div>
-                  )}
-
-                  {asset.locationInRoom && (
-                    <div className="space-y-1">
-                      <div className="text-sm text-gray-600">
-                        Vị trí trong phòng
-                      </div>
-                      <div className="font-medium">{asset.locationInRoom}</div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <AssetHistoryTimeline />
         </div>
       </div>
     </div>

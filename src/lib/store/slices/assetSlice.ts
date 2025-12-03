@@ -3,6 +3,88 @@ import { Asset, AssetFilter, AssetStatus, AssetType, PaginatedResponse, BaseFilt
 import { axiosInstance } from "@/lib/api";
 import toast from "react-hot-toast";
 
+// Asset history types
+export interface AssetHistoryItem {
+  id: string;
+  type: 'TRANSACTION' | 'MOVEMENT' | 'LIQUIDATION';
+  createdAt: Date;
+  user: {
+    id: string;
+    fullName: string;
+    username: string;
+  };
+  note?: string;
+  evidenceUrl?: string;
+}
+
+export interface TransactionHistoryItem extends AssetHistoryItem {
+  type: 'TRANSACTION';
+  transactionId: string;
+  oldStatus: string;
+  newStatus: string;
+  fromRoom?: {
+    id: string;
+    name: string;
+    roomCode: string;
+  };
+  toRoom?: {
+    id: string;
+    name: string;
+    roomCode: string;
+  };
+  fromUnit?: {
+    id: string;
+    name: string;
+    unitCode: number;
+  };
+  toUnit?: {
+    id: string;
+    name: string;
+    unitCode: number;
+  };
+}
+
+export interface MovementHistoryItem extends AssetHistoryItem {
+  type: 'MOVEMENT';
+  movementId: string;
+  oldStatus?: string;
+  newStatus: string;
+  fromRoom?: {
+    id: string;
+    name: string;
+    roomCode: string;
+  };
+  toRoom?: {
+    id: string;
+    name: string;
+    roomCode: string;
+  };
+  fromUnit?: {
+    id: string;
+    name: string;
+    unitCode: number;
+  };
+  toUnit?: {
+    id: string;
+    name: string;
+    unitCode: number;
+  };
+}
+
+export interface LiquidationHistoryItem extends AssetHistoryItem {
+  type: 'LIQUIDATION';
+  proposalId: string;
+  actionStatus: string;
+}
+
+export interface AssetHistory {
+  assetId: string;
+  transactions: TransactionHistoryItem[];
+  movements: MovementHistoryItem[];
+  liquidations: LiquidationHistoryItem[];
+  all: (TransactionHistoryItem | MovementHistoryItem | LiquidationHistoryItem)[];
+}
+
 // Bulk location update types
 interface LocationUpdateItem {
   assetId: string;
@@ -87,11 +169,13 @@ interface WarehouseAsset {
 
 interface AssetState {
   asset: Asset | null;
+  assetHistory: AssetHistory | null;
   unidentifiedAssets: PaginatedResponse<Asset>;
   warehouseAssets: PaginatedResponse<WarehouseAsset>;
   warehouseUnits: { id: string; name: string; unitCode: number }[];
   bulkUpdateResult: BulkLocationUpdateResult | null;
   loading: boolean;
+  historyLoading: boolean;
   unidentifiedLoading: boolean;
   warehouseLoading: boolean;
   unitsLoading: boolean;
@@ -101,6 +185,7 @@ interface AssetState {
 
 const initialState: AssetState = {
   asset: null,
+  assetHistory: null,
   unidentifiedAssets: {
     data: [],
     pagination: {
@@ -134,6 +219,7 @@ const initialState: AssetState = {
   warehouseUnits: [],
   bulkUpdateResult: null,
   loading: false,
+  historyLoading: false,
   unidentifiedLoading: false,
   warehouseLoading: false,
   unitsLoading: false,
@@ -145,6 +231,14 @@ export const fetchAssetById = createAsyncThunk(
   "asset/fetchAssetById",
   async (id: string) => {
     const response = await axiosInstance.get(`api/v1/assets/${id}`);
+    return response.data;
+  }
+);
+
+export const fetchAssetHistory = createAsyncThunk(
+  "asset/fetchAssetHistory",
+  async (id: string) => {
+    const response = await axiosInstance.get(`api/v1/assets/${id}/history`);
     return response.data;
   }
 );
@@ -263,6 +357,9 @@ const assetSlice = createSlice({
       state.asset = null;
       state.error = null;
     },
+    clearAssetHistory: (state) => {
+      state.assetHistory = null;
+    },
     clearError: (state) => {
       state.error = null;
     },
@@ -322,6 +419,20 @@ const assetSlice = createSlice({
       .addCase(fetchAssetById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || "Failed to fetch asset";
+      })
+      // Fetch asset history
+      .addCase(fetchAssetHistory.pending, (state) => {
+        state.historyLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchAssetHistory.fulfilled, (state, action) => {
+        state.historyLoading = false;
+        state.assetHistory = action.payload;
+        state.error = null;
+      })
+      .addCase(fetchAssetHistory.rejected, (state, action) => {
+        state.historyLoading = false;
+        state.error = action.error.message || "Failed to fetch asset history";
       })
       // Fetch unidentified assets
       .addCase(fetchUnidentifiedAssets.pending, (state) => {
@@ -427,7 +538,7 @@ const assetSlice = createSlice({
   },
 });
 
-export const { clearAsset, clearError, clearUnidentifiedAssets, clearWarehouseAssets, clearWarehouseUnits, clearBulkUpdateResult } = assetSlice.actions;
+export const { clearAsset, clearAssetHistory, clearError, clearUnidentifiedAssets, clearWarehouseAssets, clearWarehouseUnits, clearBulkUpdateResult } = assetSlice.actions;
 
 export type { UnidentifiedAssetFilter, LocationUpdateItem, BulkLocationUpdateRequest, BulkLocationUpdateResult, WarehouseAsset };
 

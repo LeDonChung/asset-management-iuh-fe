@@ -16,6 +16,7 @@ import {
   User,
   CheckSquare,
   ChevronDown,
+  ChevronRight,
   Check,
   RefreshCw,
   AlertTriangle
@@ -463,20 +464,37 @@ export default function EditAssetPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Link href={`/asset/${assetId}`}>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Chỉnh sửa tài sản
-            </h1>
-            <p className="text-gray-600">
-              {originalAsset.name} - {originalAsset.ktCode}
-            </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="flex flex-col w-full sm:w-auto">
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <button
+              onClick={() => router.push("/asset/asset-book")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Tài sản
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <button
+              onClick={() => router.push("/asset/asset-book")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Sổ tài sản
+            </button>
+            {originalAsset && (
+              <>
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                <button
+                  onClick={() => router.push(`/asset/${assetId}`)}
+                  className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+                >
+                  {originalAsset.name}
+                </button>
+              </>
+            )}
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Chỉnh sửa
+            </span>
           </div>
         </div>
       </div>

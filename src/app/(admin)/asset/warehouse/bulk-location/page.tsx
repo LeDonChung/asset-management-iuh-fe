@@ -17,6 +17,8 @@ import {
   Search,
   ChevronDown,
   Check,
+  ChevronRight,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,12 +31,12 @@ import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { getUnitRooms } from "@/lib/store/slices/inventorySlice";
-import { 
-  bulkUpdateAssetLocations, 
-  clearBulkUpdateResult, 
-  type LocationUpdateItem, 
+import {
+  bulkUpdateAssetLocations,
+  clearBulkUpdateResult,
+  type LocationUpdateItem,
   type BulkLocationUpdateRequest,
-  type WarehouseAsset 
+  type WarehouseAsset,
 } from "@/lib/store/slices/assetSlice";
 
 // Types
@@ -100,6 +102,7 @@ const Select: React.FC<SelectProps> = ({
     width: 0,
   });
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const selectedOption = options.find((opt) => opt.value === value);
 
   useEffect(() => {
@@ -114,15 +117,39 @@ const Select: React.FC<SelectProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
-    const handleScroll = () => {
-      if (isOpen) {
+    const handleScroll = (e: Event) => {
+      if (!isOpen) return;
+
+      // Kiểm tra xem scroll có xảy ra bên trong dropdown không
+      const target = e.target as HTMLElement;
+      if (dropdownRef.current && dropdownRef.current.contains(target)) {
+        // Scroll bên trong dropdown, không đóng
+        return;
+      }
+
+      // Scroll bên ngoài dropdown, đóng dropdown
+      setIsOpen(false);
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
 
     if (isOpen) {
-      window.addEventListener("scroll", handleScroll, true);
-      return () => window.removeEventListener("scroll", handleScroll, true);
+      // Chỉ lắng nghe scroll trên window, không phải capture phase
+      window.addEventListener("scroll", handleScroll, false);
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, false);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
     }
   }, [isOpen]);
 
@@ -135,11 +162,20 @@ const Select: React.FC<SelectProps> = ({
       />
       {/* Dropdown */}
       <div
-        className="fixed z-[9999] bg-white border border-gray-300 rounded-md shadow-2xl max-h-60 overflow-auto"
+        ref={dropdownRef}
+        className="fixed z-[9999] bg-white border border-gray-300 rounded-md shadow-2xl max-h-60 overflow-y-auto overflow-x-hidden"
         style={{
           top: dropdownPosition.top,
           left: dropdownPosition.left,
           width: dropdownPosition.width,
+        }}
+        onWheel={(e) => {
+          // Cho phép scroll bên trong dropdown
+          e.stopPropagation();
+        }}
+        onClick={(e) => {
+          // Ngăn click bên trong dropdown đóng dropdown
+          e.stopPropagation();
         }}
       >
         {options.map((option) => (
@@ -214,12 +250,12 @@ export default function BulkLocationUpdatePage() {
     (state: RootState) => state.unit
   );
   const { unitRooms } = useAppSelector((state: RootState) => state.inventory);
-  const { bulkUpdateLoading, bulkUpdateResult } = useAppSelector((state: RootState) => state.asset);
+  const { bulkUpdateLoading, bulkUpdateResult } = useAppSelector(
+    (state: RootState) => state.asset
+  );
 
   // Local state
-  const [selectedAssets, setSelectedAssets] = useState<
-    WarehouseAsset[]
-  >([]);
+  const [selectedAssets, setSelectedAssets] = useState<WarehouseAsset[]>([]);
   const [locationUpdates, setLocationUpdates] = useState<LocationUpdate[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [rooms, setRooms] = useState<{ [unitId: string]: Room[] }>({});
@@ -254,9 +290,7 @@ export default function BulkLocationUpdatePage() {
       // Load rooms for the first unit (usually all assets belong to same unit)
       const uniqueUnitIds = [
         ...new Set(
-          assets
-            .map((a: WarehouseAsset) => a.currentUnit?.id)
-            .filter(Boolean)
+          assets.map((a: WarehouseAsset) => a.currentUnit?.id).filter(Boolean)
         ),
       ] as string[];
       if (uniqueUnitIds.length > 0) {
@@ -309,6 +343,35 @@ export default function BulkLocationUpdatePage() {
     }
   };
 
+  // Remove asset from bulk location update
+  const handleRemoveAsset = (assetId: string) => {
+    const updatedAssets = selectedAssets.filter(
+      (asset) => asset.id !== assetId
+    );
+    setSelectedAssets(updatedAssets);
+
+    // Update location updates
+    setLocationUpdates((prev) =>
+      prev.filter((update) => update.assetId !== assetId)
+    );
+
+    // Update localStorage
+    localStorage.setItem(
+      "selectedWarehouseAssets",
+      JSON.stringify(updatedAssets)
+    );
+
+    toast.success("Đã xóa tài sản khỏi danh sách");
+
+    // If no assets left, redirect back
+    if (updatedAssets.length === 0) {
+      toast.success("Không còn tài sản nào. Đang quay lại trang kho...");
+      setTimeout(() => {
+        router.push("/asset/warehouse");
+      }, 1500);
+    }
+  };
+
   // Submit location updates
   const handleSubmit = async () => {
     // Validate required fields - only roomId is required now
@@ -320,7 +383,6 @@ export default function BulkLocationUpdatePage() {
     }
 
     try {
-      // Prepare data for API call
       const updateData: BulkLocationUpdateRequest = {
         items: locationUpdates.map((update) => ({
           assetId: update.assetId,
@@ -330,12 +392,14 @@ export default function BulkLocationUpdatePage() {
         generalNote: "Cập nhật vị trí hàng loạt từ warehouse",
       };
 
-      // Dispatch Redux action
-      const result = await dispatch(bulkUpdateAssetLocations(updateData)).unwrap();
+      const result = await dispatch(
+        bulkUpdateAssetLocations(updateData)
+      ).unwrap();
 
       if (result.errorCount > 0) {
-        toast.error(`Có ${result.errorCount} lỗi xảy ra. Vui lòng kiểm tra chi tiết.`);
-        // Show detailed errors
+        toast.error(
+          `Có ${result.errorCount} lỗi xảy ra. Vui lòng kiểm tra chi tiết.`
+        );
         result.errors.forEach((error: string) => {
           toast.error(error);
         });
@@ -346,10 +410,8 @@ export default function BulkLocationUpdatePage() {
           `Đã cập nhật vị trí cho ${result.successCount}/${result.totalCount} tài sản thành công`
         );
 
-        // Clear localStorage
         localStorage.removeItem("selectedWarehouseAssets");
 
-        // Navigate back after successful update
         if (result.errorCount === 0) {
           router.push("/asset/warehouse");
         }
@@ -360,7 +422,6 @@ export default function BulkLocationUpdatePage() {
     }
   };
 
-  // Filter assets based on search
   const filteredAssets = useMemo(() => {
     if (!searchTerm) return selectedAssets;
     return selectedAssets.filter(
@@ -371,67 +432,54 @@ export default function BulkLocationUpdatePage() {
     );
   }, [selectedAssets, searchTerm]);
 
-  // Check if all updates are valid - only need roomId now
   const isValid = locationUpdates.every((update) => update.roomId);
 
-  const completedCount = locationUpdates.filter(
-    (update) => update.roomId
-  ).length;
-
-  // Debug: Log rooms state
   useEffect(() => {
     console.log("Rooms state updated:", rooms);
   }, [rooms]);
 
-  // Cleanup effect
   useEffect(() => {
     return () => {
-      // Clear bulk update result when component unmounts
       dispatch(clearBulkUpdateResult());
     };
   }, [dispatch]);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-6 py-8 space-y-6">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                onClick={() => router.push("/asset/warehouse")}
-                className="flex items-center hover:bg-gray-100"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Quay lại
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Chọn phòng mới cho tài sản
-                </h1>
-                <p className="text-gray-600">
-                  Chọn phòng mới trong cùng đơn vị cho {selectedAssets.length}{" "}
-                  tài sản được chọn
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Button
-                onClick={handleSubmit}
-                disabled={!isValid || bulkUpdateLoading}
-                className="bg-green-600 hover:bg-green-700 text-white flex items-center"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {bulkUpdateLoading
-                  ? "Đang lưu..."
-                  : `Lưu thay đổi (${completedCount}/${selectedAssets.length})`}
-              </Button>
-            </div>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Breadcrumb with Action Button */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center text-sm sm:text-base text-gray-600">
+            <button
+              onClick={() => router.push("/asset/asset-book")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Tài sản
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <button
+              onClick={() => router.push("/asset/warehouse")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Kho
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Cập nhật vị trí phòng
+            </span>
           </div>
+          <Button
+            onClick={handleSubmit}
+            disabled={!isValid || bulkUpdateLoading}
+            className="bg-green-600 hover:bg-green-700 text-white flex items-center"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {bulkUpdateLoading ? "Đang lưu..." : `Lưu`}
+          </Button>
         </div>
+
         {/* Search */}
-        <Card className="shadow-sm border-gray-200">
+        <Card className="shadow-sm border border-gray-200">
           <div className="p-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
@@ -444,147 +492,173 @@ export default function BulkLocationUpdatePage() {
             </div>
           </div>
         </Card>
-        {/* Assets List */}
-        <div className="bg-white rounded-xl border-gray-200">
-          <Table
-            columns={[
-              {
-                key: "codes",
-                title: "Mã TSCD / Mã KT",
-                render: (_, asset) => (
+
+        {/* Table */}
+        <Table
+          className="mt-9"
+          title="Danh sách tài sản"
+          columns={[
+            {
+              key: "codes",
+              title: "Mã TSCD / Mã KT",
+              render: (_, asset) => (
+                <div className="text-sm font-medium text-gray-900">
+                  <div>{asset.fixedCode}</div>
+                  <div className="text-xs text-gray-500">{asset.ktCode}</div>
+                </div>
+              ),
+              sortable: true,
+            },
+            {
+              key: "name",
+              title: "Tên tài sản",
+              render: (_, asset) => (
+                <div>
                   <div className="text-sm font-medium text-gray-900">
-                    <div>{asset.fixedCode}</div>
-                    <div className="text-xs text-gray-500">{asset.ktCode}</div>
+                    {asset.name}
                   </div>
-                ),
-                sortable: true,
-              },
-              {
-                key: "name",
-                title: "Tên tài sản",
-                render: (_, asset) => (
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {asset.name}
+                  {asset.specs && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {asset.specs}
                     </div>
-                    {asset.specs && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        {asset.specs}
-                      </div>
-                    )}
+                  )}
+                </div>
+              ),
+              sortable: true,
+            },
+            {
+              key: "type",
+              title: "Loại",
+              render: (_, asset) => (
+                <Badge
+                  className={
+                    typeColors[asset.type] || "bg-gray-100 text-gray-800"
+                  }
+                >
+                  {typeLabels[asset.type] || "Không xác định"}
+                </Badge>
+              ),
+              sortable: true,
+            },
+            {
+              key: "currentLocation",
+              title: "Vị trí hiện tại",
+              render: (_, asset) => (
+                <div className="text-sm text-gray-900">
+                  <div className="flex items-center space-x-1 mb-1">Kho</div>
+                </div>
+              ),
+              sortable: true,
+            },
+            {
+              key: "newRoom",
+              title: "Phòng mới",
+              minWidth: 300,
+              render: (_, asset) => {
+                const update = locationUpdates.find(
+                  (u) => u.assetId === asset.id
+                );
+
+                // Lấy phòng từ unit đầu tiên (vì tất cả tài sản thường cùng unit)
+                const uniqueUnitIds = [
+                  ...new Set(
+                    selectedAssets.map((a) => a.currentUnit?.id).filter(Boolean)
+                  ),
+                ] as string[];
+                const firstUnitId = uniqueUnitIds[0];
+                const availableRooms = firstUnitId
+                  ? rooms[firstUnitId] || []
+                  : [];
+
+                // Tạo options với validation
+                const roomOptions = availableRooms
+                  .map((room) => {
+                    return {
+                      value: room.id,
+                      label: room.roomCode
+                        ? `${room.roomCode} - ${room.name}`
+                        : room.name,
+                    };
+                  })
+                  .filter((option) => option.value);
+
+                return (
+                  <div className="min-w-[280px]">
+                    <Select
+                      value={update?.roomId || ""}
+                      onChange={(value) =>
+                        updateAssetLocation(asset.id, "roomId", value)
+                      }
+                      options={[
+                        { value: "", label: "Chọn phòng mới" },
+                        ...roomOptions,
+                      ]}
+                      placeholder="Chọn phòng mới"
+                      disabled={!firstUnitId || roomOptions.length === 0}
+                    />
                   </div>
-                ),
-                sortable: true,
+                );
               },
-              {
-                key: "type",
-                title: "Loại",
-                render: (_, asset) => (
-                  <Badge
-                    className={
-                      typeColors[asset.type] || "bg-gray-100 text-gray-800"
-                    }
-                  >
-                    {typeLabels[asset.type] || "Không xác định"}
-                  </Badge>
-                ),
-                sortable: true,
-              },
-              {
-                key: "currentLocation",
-                title: "Vị trí hiện tại",
-                render: (_, asset) => (
-                  <div className="text-sm text-gray-900">
-                    <div className="flex items-center space-x-1 mb-1">Kho</div>
-                  </div>
-                ),
-                sortable: true,
-              },
-              {
-                key: "newRoom",
-                title: "Phòng mới",
-                render: (_, asset) => {
-                  const update = locationUpdates.find(
-                    (u) => u.assetId === asset.id
-                  );
-
-                  // Lấy phòng từ unit đầu tiên (vì tất cả tài sản thường cùng unit)
-                  const uniqueUnitIds = [
-                    ...new Set(
-                      selectedAssets
-                        .map((a) => a.currentUnit?.id)
-                        .filter(Boolean)
-                    ),
-                  ] as string[];
-                  const firstUnitId = uniqueUnitIds[0];
-                  const availableRooms = firstUnitId
-                    ? rooms[firstUnitId] || []
-                    : [];
-
-                  // Tạo options với validation
-                  const roomOptions = availableRooms
-                    .map((room) => {
-                      return {
-                        value: room.id,
-                        label: room.roomCode
-                          ? `${room.roomCode} - ${room.name}`
-                          : room.name,
-                      };
-                    })
-                    .filter((option) => option.value);
-
-                  return (
-                    <div className="min-w-[200px]">
-                      <Select
-                        value={update?.roomId || ""}
-                        onChange={(value) =>
-                          updateAssetLocation(asset.id, "roomId", value)
-                        }
-                        options={[
-                          { value: "", label: "Chọn phòng mới" },
-                          ...roomOptions,
-                        ]}
-                        placeholder="Chọn phòng mới"
-                        disabled={!firstUnitId || roomOptions.length === 0}
-                      />
-                    </div>
-                  );
-                },
-              },
-              {
-                key: "actions",
-                title: "Thao tác",
-                render: (_, asset) => (
+            },
+            {
+              key: "actions",
+              title: "Thao tác",
+              render: (_, asset) => (
+                <div className="flex items-center justify-center gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => router.push(`/asset/${asset.id}`)}
                     className="hover:bg-gray-100"
+                    title="Xem chi tiết"
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
-                ),
-                className: "text-center",
-              },
-            ]}
-            data={filteredAssets}
-            loading={false}
-            emptyText="Không tìm thấy tài sản nào"
-            emptyIcon={
-              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            }
-            rowKey="id"
-          />
-        </div>{" "}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveAsset(asset.id)}
+                    className="hover:bg-red-50 text-red-600 hover:text-red-700"
+                    title="Xóa khỏi danh sách"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ),
+              className: "text-center",
+            },
+          ]}
+          data={filteredAssets}
+          loading={false}
+          emptyText="Không tìm thấy tài sản nào"
+          emptyIcon={
+            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          }
+          rowKey="id"
+        />
+
         {/* Empty State */}
         {filteredAssets.length === 0 && (
-          <Card className="shadow-sm border-gray-200">
+          <Card className="shadow-sm border border-gray-200">
             <div className="p-12 text-center">
               <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Không tìm thấy tài sản
               </h3>
-              <p className="text-gray-600">Thử tìm kiếm với từ khóa khác</p>
+              <p className="text-gray-600 mb-4">
+                {searchTerm
+                  ? "Thử tìm kiếm với từ khóa khác"
+                  : "Không còn tài sản nào trong danh sách"}
+              </p>
+              {!searchTerm && (
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/asset/warehouse")}
+                  className="mt-4"
+                >
+                  Quay lại kho
+                </Button>
+              )}
             </div>
           </Card>
         )}

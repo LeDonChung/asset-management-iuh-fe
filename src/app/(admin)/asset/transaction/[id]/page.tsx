@@ -18,6 +18,7 @@ import {
   ArrowRight,
   MapPin,
   Package,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -107,7 +108,9 @@ const TransactionItemsTable: React.FC<{
           {record.toRoom ? (
             <div className="space-y-1">
               <div className="text-sm text-gray-500">
-                {record.toRoom.roomCode}
+                {record.toRoom.roomCode.indexOf("INVENTORY") !== -1
+                  ? "Kho"
+                  : record.toRoom.roomCode}
               </div>
             </div>
           ) : (
@@ -131,7 +134,9 @@ const TransactionItemsTable: React.FC<{
     },
   ];
 
-  return <Table data={items || []} columns={columns} />;
+  return <Table 
+  title="Danh sách tài sản"
+  data={items || []} columns={columns} />;
 };
 
 // Component để hiển thị lịch sử xử lý
@@ -142,81 +147,120 @@ const TransactionHistory: React.FC<{
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
+  if (!sortedHistories || sortedHistories.length === 0) {
+    return (
+      <Card className="sticky top-6 border border-gray-300">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <Clock className="w-5 h-5" />
+            Lịch sử xử lý
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-gray-500">
+            <Clock className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+            <p className="text-sm">Chưa có lịch sử xử lý</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="sticky top-6">
+    <Card className="sticky top-6 border border-gray-300">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-xl">
           <Clock className="w-5 h-5" />
           Lịch sử xử lý
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4 max-h-96 overflow-y-auto">
+        <div className="space-y-0 max-h-[600px] overflow-y-auto pr-2">
           {sortedHistories.map((history, index) => (
-            <div key={history.id} className="flex gap-4">
-              <div className="flex flex-col items-center">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    history.newStatus === TransactionStatus.APPROVED
-                      ? "bg-green-100 text-green-600"
-                      : history.newStatus === TransactionStatus.REJECTED
-                      ? "bg-red-100 text-red-600"
-                      : "bg-blue-100 text-blue-600"
-                  }`}
-                >
-                  {history.newStatus === TransactionStatus.APPROVED ? (
-                    <CheckCircle className="w-4 h-4" />
-                  ) : history.newStatus === TransactionStatus.REJECTED ? (
-                    <XCircle className="w-4 h-4" />
-                  ) : (
-                    <FileText className="w-4 h-4" />
+            <div key={history.id} className="relative pl-2">
+              <div className="flex gap-4">
+                {/* Timeline line and Icon */}
+                <div className="flex flex-col items-center">
+                  {/* Icon circle */}
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-sm relative z-10 ${
+                      history.newStatus === TransactionStatus.APPROVED
+                        ? "bg-green-100 text-green-600 border-green-200"
+                        : history.newStatus === TransactionStatus.REJECTED
+                        ? "bg-red-100 text-red-600 border-red-200"
+                        : history.newStatus === TransactionStatus.PROPOSED
+                        ? "bg-yellow-100 text-yellow-600 border-yellow-200"
+                        : history.newStatus === TransactionStatus.RECEIVED
+                        ? "bg-blue-100 text-blue-600 border-blue-200"
+                        : "bg-gray-100 text-gray-600 border-gray-200"
+                    }`}
+                  >
+                    {history.newStatus === TransactionStatus.APPROVED ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : history.newStatus === TransactionStatus.REJECTED ? (
+                      <XCircle className="w-4 h-4" />
+                    ) : (
+                      <FileText className="w-4 h-4" />
+                    )}
+                  </div>
+                  {/* Timeline line */}
+                  {index < sortedHistories.length - 1 && (
+                    <div className="w-0.5 h-full bg-gray-200 mt-2 min-h-[60px]" />
                   )}
                 </div>
-                {index < sortedHistories.length - 1 && (
-                  <div className="w-0.5 h-8 bg-gray-200 mt-2" />
-                )}
-              </div>
-              <div className="flex-1 pb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-                  <Badge
-                    className={
-                      statusColors[history.newStatus] ||
-                      "bg-gray-100 text-gray-800"
-                    }
-                  >
-                    {statusLabels[history.newStatus] || history.newStatus}
-                  </Badge>
-                  <span className="text-sm text-gray-500">
-                    {history.createdAt
-                      ? format(
-                          new Date(history.createdAt),
-                          "dd/MM/yyyy HH:mm",
-                          { locale: vi }
-                        )
-                      : "N/A"}
-                  </span>
-                </div>
-                <div className="font-medium text-sm">
-                  {history.changer?.fullName || "N/A"}
-                </div>
-                {history.note && (
-                  <div className="text-sm text-gray-600 mt-1">
-                    {history.note}
-                  </div>
-                )}
-                {history.evidenceUrl && (
-                  <div className="mt-2">
-                    <a
-                      href={history.evidenceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+
+                {/* Content */}
+                <div className="flex-1 pb-6 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <Badge
+                      className={`${
+                        statusColors[history.newStatus] ||
+                        "bg-gray-100 text-gray-800"
+                      } text-xs`}
                     >
-                      <FileText className="w-3 h-3" />
-                      Xem minh chứng
-                    </a>
+                      {statusLabels[history.newStatus] || history.newStatus}
+                    </Badge>
+                    <span className="text-xs text-gray-500">
+                      {history.createdAt
+                        ? format(
+                            new Date(history.createdAt),
+                            "dd/MM/yyyy HH:mm",
+                            { locale: vi }
+                          )
+                        : "N/A"}
+                    </span>
                   </div>
-                )}
+                  
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <span className="font-medium text-sm text-gray-900">
+                      {history.changer?.fullName || "N/A"}
+                    </span>
+                  </div>
+
+                  {history.note && (
+                    <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="text-xs text-gray-500 mb-1">Ghi chú:</div>
+                      <div className="text-sm text-gray-700 leading-relaxed">
+                        {history.note}
+                      </div>
+                    </div>
+                  )}
+
+                  {history.evidenceUrl && (
+                    <div className="mt-2">
+                      <a
+                        href={history.evidenceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors px-3 py-1.5 rounded-md hover:bg-blue-50"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Xem minh chứng
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -312,7 +356,7 @@ export default function TransactionDetailPage() {
 
   useEffect(() => {
     if (!canView) {
-      toast.error("Bạn không có quyền xem chi tiết giao dịch");
+      toast.error("Bạn không có quyền xem chi tiết bàn giao");
       router.push("/asset/transaction");
       return;
     }
@@ -348,7 +392,7 @@ export default function TransactionDetailPage() {
               approveDto: formData,
             })
           ).unwrap();
-          toast.success("Giao dịch đã được phê duyệt thành công");
+          toast.success("Bàn giao đã được phê duyệt thành công");
           break;
         case "reject":
           await dispatch(
@@ -357,7 +401,7 @@ export default function TransactionDetailPage() {
               rejectDto: formData,
             })
           ).unwrap();
-          toast.success("Giao dịch đã được từ chối");
+          toast.success("Bàn giao đã được từ chối");
           break;
       }
 
@@ -383,10 +427,10 @@ export default function TransactionDetailPage() {
         <AlertCircle className="w-12 h-12 text-red-500" />
         <div className="text-center">
           <h3 className="text-lg font-medium text-gray-900">
-            Không tìm thấy giao dịch
+            Không tìm thấy bàn giao
           </h3>
           <p className="text-gray-500">
-            {fetchTransactionError || "Giao dịch không tồn tại hoặc đã bị xóa."}
+            {fetchTransactionError || "Bàn giao không tồn tại hoặc đã bị xóa."}
           </p>
         </div>
         <Button
@@ -401,38 +445,34 @@ export default function TransactionDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push("/asset/transaction")}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-xl font-semibold">Chi tiết giao dịch</h1>
-                <p className="text-sm text-gray-600 truncate max-w-md">
-                  {typeLabels[currentTransactionDetail.type] ||
-                    currentTransactionDetail.type}
-                </p>
+      <div className="p-4 sm:p-6">
+        {/* Header with Breadcrumb */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+            <div>
+              <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+                <button
+                  onClick={() => router.push("/asset/asset-book")}
+                  className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+                >
+                  Tài sản
+                </button>
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                <button
+                  onClick={() => router.push("/asset/transaction")}
+                  className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+                >
+                  Bàn giao
+                </button>
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                  Chi tiết bàn giao
+                </span>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center space-x-2">
-              <Badge
-                className={
-                  statusColors[currentTransactionDetail.status] ||
-                  "bg-gray-100 text-gray-800"
-                }
-              >
-                {statusLabels[currentTransactionDetail.status] ||
-                  currentTransactionDetail.status}
-              </Badge>
+            <div className="flex items-center gap-2 flex-wrap">
               <TransactionActions
                 transaction={currentTransactionDetail}
                 onAction={handleAction}
@@ -441,26 +481,24 @@ export default function TransactionDetailPage() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Cột trái - Nội dung chính */}
-          <div className="xl:col-span-2 space-y-6">
-            {/* Thông tin cơ bản */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <Card className="border-0 shadow-none">
+        {/* Content */}
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {/* Cột trái - Nội dung chính */}
+            <div className="xl:col-span-2 space-y-6">
+              {/* Thông tin cơ bản */}
+              <Card className="border border-gray-300">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    Thông tin giao dịch
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    Thông tin bàn giao
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <div className="text-sm text-gray-600">
-                        Loại giao dịch
+                        Loại bàn giao
                       </div>
                       <div className="font-medium">
                         {typeLabels[currentTransactionDetail.type] ||
@@ -470,14 +508,10 @@ export default function TransactionDetailPage() {
 
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <User className="w-4 h-4" />
                         Người tạo
                       </div>
                       <div className="font-medium">
                         {currentTransactionDetail.requester?.fullName || "N/A"}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {currentTransactionDetail.requester?.username || "N/A"}
                       </div>
                     </div>
 
@@ -496,7 +530,7 @@ export default function TransactionDetailPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <div className="text-sm text-gray-600">Ngày tạo</div>
+                      <div className="text-sm text-gray-600">Ngày bàn giao</div>
                       <div className="font-medium">
                         {currentTransactionDetail.createdAt
                           ? format(
@@ -509,15 +543,17 @@ export default function TransactionDetailPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <div className="text-sm text-gray-600">Ngày cập nhật</div>
+                      <div className="text-sm text-gray-600">Trạng thái</div>
                       <div className="font-medium">
-                        {currentTransactionDetail.updatedAt
-                          ? format(
-                              new Date(currentTransactionDetail.updatedAt),
-                              "dd/MM/yyyy HH:mm",
-                              { locale: vi }
-                            )
-                          : "N/A"}
+                        <Badge
+                          className={
+                            statusColors[currentTransactionDetail.status] ||
+                            "bg-gray-100 text-gray-800"
+                          }
+                        >
+                          {statusLabels[currentTransactionDetail.status] ||
+                            currentTransactionDetail.status}
+                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -577,19 +613,18 @@ export default function TransactionDetailPage() {
                   )}
                 </CardContent>
               </Card>
+
+              <TransactionItemsTable
+                items={currentTransactionDetail.items || []}
+              />
             </div>
 
-            {/* Danh sách tài sản */}
-            <TransactionItemsTable
-              items={currentTransactionDetail.items || []}
-            />
-          </div>
-
-          {/* Cột phải - Lịch sử xử lý */}
-          <div className="xl:col-span-1">
-            <TransactionHistory
-              histories={currentTransactionDetail.histories || []}
-            />
+            {/* Cột phải - Lịch sử xử lý */}
+            <div className="xl:col-span-1">
+              <TransactionHistory
+                histories={currentTransactionDetail.histories || []}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -603,15 +638,15 @@ export default function TransactionDetailPage() {
           modalType === "propose"
             ? "Gửi đề xuất bàn giao"
             : modalType === "approve"
-            ? "Phê duyệt giao dịch"
-            : "Từ chối giao dịch"
+            ? "Phê duyệt bàn giao"
+            : "Từ chối bàn giao"
         }
         description={
           modalType === "propose"
             ? "Bạn có chắc chắn muốn gửi đề xuất bàn giao này?"
             : modalType === "approve"
-            ? "Bạn có chắc chắn muốn phê duyệt giao dịch này?"
-            : "Bạn có chắc chắn muốn từ chối giao dịch này?"
+            ? "Bạn có chắc chắn muốn phê duyệt bàn giao này?"
+            : "Bạn có chắc chắn muốn từ chối bàn giao này?"
         }
         action={modalType || "propose"}
         isLoading={isFetchingTransaction}

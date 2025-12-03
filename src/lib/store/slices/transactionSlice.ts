@@ -396,9 +396,7 @@ export const filterSimplifiedTransactions = createAsyncThunk(
   'transaction/filterSimplifiedTransactions',
   async (filterDto: TransactionFilterDto, { rejectWithValue }) => {
     try {
-      console.log('Filtering simplified transactions with data:', filterDto)
       const response = await axiosInstance.post('/api/v1/transactions/filter/simplified', filterDto)
-      console.log('Filter simplified transactions response:', response.data)
       return response.data as PaginatedResponse<SimplifiedTransactionResponseDto>
     } catch (error: any) {
       console.error('Filter simplified transactions error:', error)
