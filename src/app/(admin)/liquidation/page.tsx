@@ -15,8 +15,8 @@ import {
   ChevronsUpDown,
   Package2,
   MoreVertical,
+  ChevronRight,
 } from "lucide-react";
-import Link from "next/link";
 import {
   LiquidationProposal,
   LiquidationStatus,
@@ -296,7 +296,7 @@ export default function LiquidationPage() {
         <div className="flex justify-start">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -395,25 +395,31 @@ export default function LiquidationPage() {
   }, [searchTerm, statusFilter, unitFilter, yearFilter]);
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Quản lý thanh lý tài sản</h1>
-        </div>
-        {canCreate && (
-          <Link href="/liquidation/create">
-            <Button className="flex items-center gap-2">
+    <>
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+              <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                Thanh lý
+              </span>
+            </div>
+          </div>
+          {canCreate && (
+            <Button
+              onClick={() => router.push("/liquidation/create")}
+              className="flex items-center gap-2"
+            >
               <Plus className="h-4 w-4" />
               Tạo đề xuất thanh lý
             </Button>
-          </Link>
-        )}
-      </div>
+          )}
+        </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 ">
-        <div className="bg-white p-6 rounded-lg border border-gray-300">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="bg-white p-6 rounded-lg  border border-gray-300">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Tổng đề xuất</p>
@@ -423,43 +429,43 @@ export default function LiquidationPage() {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg border border-gray-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Chờ phê duyệt</p>
-              <p className="text-2xl font-bold text-yellow-600">
-                {stats.proposed}
-              </p>
+          <div className="bg-white p-6 rounded-lg  border border-gray-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Chờ phê duyệt</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {stats.proposed}
+                </p>
+              </div>
+              <Clock className="h-8 w-8 text-yellow-600" />
             </div>
-            <Clock className="h-8 w-8 text-yellow-600" />
           </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg border border-gray-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Đã phê duyệt</p>
-              <p className="text-2xl font-bold text-green-600">
-                {stats.approved}
-              </p>
+          <div className="bg-white p-6 rounded-lg border border-gray-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Đã phê duyệt</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {stats.approved}
+                </p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
-            <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg border border-gray-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Từ chối</p>
-              <p className="text-2xl font-bold text-red-600">
-                {stats.rejected}
-              </p>
+          <div className="bg-white p-6 rounded-lg border border-gray-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Từ chối</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {stats.rejected}
+                </p>
+              </div>
+              <XCircle className="h-8 w-8 text-red-600" />
             </div>
-            <XCircle className="h-8 w-8 text-red-600" />
           </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg border border-gray-300">
+          <div className="bg-white p-6 rounded-lg border border-gray-300">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Hoàn thành</p>
@@ -472,78 +478,78 @@ export default function LiquidationPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg border border-gray-300">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Tìm kiếm theo lý do thanh lý..."
-              className="pl-10 h-11"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+        {/* Filters */}
+        <div className="bg-white p-4 rounded-lg  border border-gray-200 ">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Tìm kiếm theo lý do thanh lý..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
 
-          {/* Status Filter */}
-          <select
-            className="h-11 min-w-[170px] px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as LiquidationStatus | "")
-            }
-          >
-            <option value="">Tất cả trạng thái</option>
-            {Object.entries(statusLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-
-          {/* Unit Filter - Chỉ hiển thị cho GLOBAL và CHILD_UNITS scope */}
-          {(hasGlobalScope || hasChildUnitsScope) && (
+            {/* Status Filter */}
             <select
-              className="h-11 min-w-[170px] px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={unitFilter}
-              onChange={(e) => setUnitFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as LiquidationStatus | "")
+              }
             >
-              <option value="">
-                {hasGlobalScope ? "Tất cả đơn vị" : "Tất cả đơn vị trong cơ sở"}
-              </option>
-              {getFilterUnits().map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.name}
-                  {unit.type === 'CAMPUS' ? ' (Cơ sở)' : ''}
+              <option value="">Tất cả trạng thái</option>
+              {Object.entries(statusLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
                 </option>
               ))}
             </select>
-          )}
 
-          {/* Year Filter */}
-          <select
-            className="h-11 min-w-[170px] px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={yearFilter}
-            onChange={(e) =>
-              setYearFilter(e.target.value ? Number(e.target.value) : "")
-            }
-          >
-            <option value="">Tất cả năm</option>
-            {Array.from(
-              { length: 5 },
-              (_, i) => new Date().getFullYear() - i
-            ).map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
+            {/* Unit Filter - Chỉ hiển thị cho GLOBAL và CHILD_UNITS scope */}
+            {(hasGlobalScope || hasChildUnitsScope) && (
+              <select
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={unitFilter}
+                onChange={(e) => setUnitFilter(e.target.value)}
+              >
+                <option value="">
+                  {hasGlobalScope ? "Tất cả đơn vị" : "Tất cả đơn vị trong cơ sở"}
+                </option>
+                {getFilterUnits().map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.name}
+                    {unit.type === "CAMPUS" ? " (Cơ sở)" : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Year Filter */}
+            <select
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={yearFilter}
+              onChange={(e) =>
+                setYearFilter(e.target.value ? Number(e.target.value) : "")
+              }
+            >
+              <option value="">Tất cả năm</option>
+              {Array.from(
+                { length: 5 },
+                (_, i) => new Date().getFullYear() - i
+              ).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
 
-      {/* Table */}
-      <Table
+        {/* Table */}
+        <Table
         columns={columns}
         data={filteredLiquidationProposals.data}
         emptyText="Không có đề xuất thanh lý"
@@ -575,6 +581,7 @@ export default function LiquidationPage() {
           serverSide: true,
         }}
       />
+      </div>
 
       {/* Status Update Modal */}
       <LiquidationStatusModal
@@ -594,6 +601,6 @@ export default function LiquidationPage() {
         requireEvidence={false}
         isLoading={false}
       />
-    </div>
+    </>
   );
 }

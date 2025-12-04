@@ -122,7 +122,7 @@ axiosInstance.interceptors.response.use(
         break
         
       case 500:
-        toast.error('Lỗi server nội bộ. Vui lòng thử lại sau.')
+        // toast.error('Lỗi server nội bộ. Vui lòng thử lại sau.')
         break
         
       default:

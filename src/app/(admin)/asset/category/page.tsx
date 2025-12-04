@@ -26,7 +26,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Trash2 } from 'lucide-react';
+import { MoreVertical, Trash2, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 // Category Form Modal
 interface CategoryFormModalProps {
@@ -139,7 +140,7 @@ function DeleteConfirmModal({ isOpen, onClose, category }: DeleteConfirmModalPro
       toast.success('Xóa thể loại thành công');
       onClose();
     } catch (error: any) {
-      toast.error(error || 'Có lỗi xảy ra khi xóa thể loại');
+      toast.error('Không thể xóa thể loại vì đang được sử dụng bởi tài sản hoặc liên kết đến một thể loại khác.');
     }
   };
 
@@ -150,7 +151,7 @@ function DeleteConfirmModal({ isOpen, onClose, category }: DeleteConfirmModalPro
           Bạn có chắc chắn muốn xóa thể loại <strong>"{category?.name}"</strong> không?
         </p>
         <p className="text-sm text-red-600">
-          Lưu ý: Không thể xóa thể loại có thể loại con hoặc đang được sử dụng bởi tài sản.
+          Lưu ý: Không thể xóa thể loại đang được sử dụng bởi tài sản hoặc liên kết đến một thể loại khác.
         </p>
 
         <div className="flex justify-end space-x-3 pt-4">
@@ -173,6 +174,7 @@ function DeleteConfirmModal({ isOpen, onClose, category }: DeleteConfirmModalPro
 
 export default function CategoryPage() {
   const dispatch = useDispatch<AppDispatch>();
+  const router = useRouter();
   const { categories, loading, error } = useSelector((state: RootState) => state.category);
 
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -181,18 +183,12 @@ export default function CategoryPage() {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     dispatch(fetchCategories());
   }, [dispatch]);
 
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-      dispatch(clearError());
-    }
-  }, [error, dispatch]);
 
   const handleDelete = (category: Category) => {
     setSelectedCategory(category);
@@ -240,7 +236,6 @@ export default function CategoryPage() {
                 }}
                 className="flex items-center gap-2 cursor-pointer text-red-600"
               >
-                <Trash2 className="h-4 w-4" />
                 <span>Xóa</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -252,14 +247,22 @@ export default function CategoryPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý thể loại</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Quản lý danh mục phân loại tài sản
-          </p>
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <button
+              onClick={() => router.push("/asset/asset-book")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Tài sản
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Thể loại
+            </span>
+          </div>
         </div>
         <Button onClick={handleAdd} className="flex items-center space-x-2">
           <span>Thêm thể loại</span>
@@ -287,8 +290,10 @@ export default function CategoryPage() {
         rowKey="id"
         emptyText="Không có thể loại nào"
         emptyIcon={
-          <div className="h-12 w-12 mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-            <span className="text-gray-400 text-xl">📁</span>
+          <div className="flex justify-center">
+            <div className="h-12 w-12 mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+              <span className="text-gray-400 text-xl">📁</span>
+            </div>
           </div>
         }
       />

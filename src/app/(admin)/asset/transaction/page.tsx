@@ -18,6 +18,7 @@ import {
   Eye,
   Edit,
   MoreVertical,
+  ChevronRight,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
@@ -221,24 +222,16 @@ export default function TransactionPage() {
     setIsModalOpen(true);
   };
 
-  const handleReject = async (transactionId: string) => {
-    try {
-      await dispatch(
-        rejectTransaction({
-          id: transactionId,
-          rejectDto: { rejectionReason: "Từ chối giao dịch" },
-        })
-      ).unwrap();
-      toast.success("Đã từ chối giao dịch");
-      dispatch(filterSimplifiedTransactions(currentFilter));
-    } catch (error: any) {
-      toast.error(error.message || "Có lỗi xảy ra khi từ chối");
-    }
+  const handleReject = (transactionId: string) => {
+    setSelectedTransactionId(transactionId);
+    setModalType("reject");
+    setIsModalOpen(true);
   };
 
   const handleModalConfirm = async (data: {
     note?: string;
     evidenceUrl?: string;
+    rejectionReason?: string;
   }) => {
     if (!selectedTransactionId) return;
 
@@ -264,6 +257,17 @@ export default function TransactionPage() {
             })
           ).unwrap();
           toast.success("Đã phê duyệt giao dịch");
+          break;
+        case "reject":
+          await dispatch(
+            rejectTransaction({
+              id: selectedTransactionId,
+              rejectDto: { 
+                rejectionReason: data.rejectionReason || data.note || "Từ chối giao dịch"
+              },
+            })
+          ).unwrap();
+          toast.success("Đã từ chối giao dịch");
           break;
         case "receive":
           await dispatch(
@@ -381,7 +385,7 @@ export default function TransactionPage() {
                   <span>Xem chi tiết</span>
                 </DropdownMenuItem>
               )}
-              {canUpdate && transaction.status === TransactionStatus.DRAFT && (
+              {canUpdate && (transaction.status === TransactionStatus.DRAFT || transaction.status === TransactionStatus.REJECTED) && (
                 <>
                   <DropdownMenuItem
                     onClick={(e) => {
@@ -392,15 +396,17 @@ export default function TransactionPage() {
                   >
                     <span>Chỉnh sửa</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleProposeTransaction(transaction.id);
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <span>Gửi đề xuất</span>
-                  </DropdownMenuItem>
+                  {(transaction.status === TransactionStatus.DRAFT || transaction.status === TransactionStatus.REJECTED) && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleProposeTransaction(transaction.id);
+                      }}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>{transaction.status === TransactionStatus.REJECTED ? "Gửi đề xuất" : "Gửi đề xuất"}</span>
+                    </DropdownMenuItem>
+                  )}
                 </>
               )}
 
@@ -487,9 +493,20 @@ export default function TransactionPage() {
     <>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold">Quản lý bàn giao</h1>
+            <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+              <button
+                onClick={() => router.push("/asset/asset-book")}
+                className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+              >
+                Tài sản
+              </button>
+              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+              <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                Bàn giao
+              </span>
+            </div>
           </div>
           {canCreate && (
             <Button
@@ -682,7 +699,13 @@ export default function TransactionPage() {
             ? "Từ chối giao dịch. Vui lòng nêu rõ lý do từ chối."
             : ""
         }
-        action={(modalType === "receive" ? "approve" : modalType) || "propose"}
+        action={
+          modalType === "receive" 
+            ? "approve" 
+            : modalType === "reject" 
+            ? "reject" 
+            : modalType || "propose"
+        }
         isLoading={false}
       />
     </>

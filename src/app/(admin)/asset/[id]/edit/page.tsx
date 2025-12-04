@@ -16,6 +16,7 @@ import {
   User,
   CheckSquare,
   ChevronDown,
+  ChevronRight,
   Check,
   RefreshCw,
   AlertTriangle
@@ -463,26 +464,32 @@ export default function EditAssetPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Link href={`/asset/${assetId}`}>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Chỉnh sửa tài sản
-            </h1>
-            <p className="text-gray-600">
-              {originalAsset.name} - {originalAsset.ktCode}
-            </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="flex flex-col w-full sm:w-auto">
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <button
+              onClick={() => router.push("/asset")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Tài sản
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <button
+              onClick={() => router.push("/asset/unidentified")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Định danh
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Cập nhật
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Warning for assets with current room */}
-      {hasCurrentRoom && (
+      {/* Warning for assets with current room and already has RFID */}
+      {hasCurrentRoom && originalAsset.rfidTag?.rfidId && (
         <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -490,9 +497,26 @@ export default function EditAssetPage() {
             </div>
             <div className="ml-3">
               <p className="text-sm text-amber-700">
-                <strong>Lưu ý:</strong> Tài sản này đã được phân bổ cho phòng <strong>{originalAsset.currentRoom?.name}</strong>.
+                <strong>Lưu ý:</strong> Tài sản này đã được phân bổ cho phòng <strong>{originalAsset.currentRoom?.name}</strong> và đã có RFID.
                 Một số thông tin quan trọng như loại tài sản, danh mục, mã KT và mã RFID không thể thay đổi.
                 Để cập nhật những thông tin này, vui lòng thu hồi tài sản trước.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Info for assets with current room but no RFID */}
+      {hasCurrentRoom && !originalAsset.rfidTag?.rfidId && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-5 w-5 text-blue-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">
+                <strong>Thông tin:</strong> Tài sản này đã được phân bổ cho phòng <strong>{originalAsset.currentRoom?.name}</strong> nhưng chưa có RFID.
+                Bạn có thể thêm RFID để định danh tài sản. Một số thông tin như loại tài sản và danh mục không thể thay đổi khi đã có phòng.
               </p>
             </div>
           </div>
@@ -548,14 +572,14 @@ export default function EditAssetPage() {
                     onChange={handleInputChange}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
-                    disabled={isSubmitting || hasCurrentRoom}
+                    disabled={isSubmitting || (hasCurrentRoom && originalAsset?.status !== 'UNIDENTIFIED')}
                   >
                     <option value={AssetType.FIXED_ASSET}>Tài sản cố định</option>
                     <option value={AssetType.TOOLS_EQUIPMENT}>Công cụ dụng cụ</option>
                   </select>
-                  {hasCurrentRoom && (
+                  {hasCurrentRoom && originalAsset?.status !== 'UNIDENTIFIED' && (
                     <p className="text-xs text-amber-600 mt-1">
-                      Không thể thay đổi loại tài sản khi đã có phòng sử dụng
+                      Không thể thay đổi loại tài sản khi đã được định danh
                     </p>
                   )}
                 </div>
@@ -570,7 +594,7 @@ export default function EditAssetPage() {
                     onChange={handleInputChange}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
-                    disabled={isSubmitting || hasCurrentRoom}
+                    disabled={isSubmitting || (hasCurrentRoom && originalAsset?.status !== 'UNIDENTIFIED')}
                   >
                     <option value="">Chọn danh mục</option>
                     {categories.map((category) => (
@@ -579,9 +603,9 @@ export default function EditAssetPage() {
                       </option>
                     ))}
                   </select>
-                  {hasCurrentRoom && (
+                  {hasCurrentRoom && originalAsset?.status !== 'UNIDENTIFIED' && (
                     <p className="text-xs text-amber-600 mt-1">
-                      Không thể thay đổi danh mục khi đã có phòng sử dụng
+                      Không thể thay đổi danh mục khi đã được định danh
                     </p>
                   )}
                 </div>
@@ -597,12 +621,16 @@ export default function EditAssetPage() {
                       value={formData.rfid || ""}
                       onChange={handleInputChange}
                       placeholder="Nhập mã RFID nếu có"
-                      disabled={isSubmitting || hasCurrentRoom}
+                      disabled={isSubmitting || (hasCurrentRoom && originalAsset?.rfidTag?.rfidId)}
                       className="w-full"
                     />
-                    {hasCurrentRoom ? (
+                    {hasCurrentRoom && originalAsset?.rfidTag?.rfidId ? (
                       <p className="text-xs text-amber-600 mt-1">
-                        Không thể thay đổi RFID khi đã có phòng sử dụng
+                        Không thể thay đổi RFID khi tài sản đã có RFID và được phân bổ
+                      </p>
+                    ) : hasCurrentRoom && !originalAsset?.rfidTag?.rfidId ? (
+                      <p className="text-xs text-blue-600 mt-1">
+                        💡 Thêm RFID để định danh tài sản. Tài sản sẽ tự động được thêm vào sổ.
                       </p>
                     ) : (
                       <p className="text-xs text-gray-500 mt-1">

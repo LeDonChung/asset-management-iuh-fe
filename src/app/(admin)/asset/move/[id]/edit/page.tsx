@@ -6,14 +6,13 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/lib/store";
 import { useAppDispatch } from "@/lib/store/hooks";
 import {
-  getTransactionById,
-  updateTransaction,
-  setSelectedAssetsForHandover,
-  setHandoverContext,
-  TransactionResponseDto,
-  TransactionItemResponseDto,
-} from "@/lib/store/slices/transactionSlice";
+  getMovementById,
+  updateMovement,
+  MovementResponseDto,
+  MovementItemResponseDto,
+} from "@/lib/store/slices/moveSlice";
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
+import { fetchRoomsByUnitId } from "@/lib/store/slices/roomSlice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +27,8 @@ import {
   RefreshCw,
   ChevronDown,
   Check,
+  CheckCircle,
+  XCircle,
   ArrowRight,
   ArrowUpDown,
   Trash2,
@@ -38,9 +39,10 @@ import Link from "next/link";
 import {
   Asset,
   Unit,
-  TransactionStatus,
+  Room,
   AccessScopeType,
 } from "@/types/asset";
+import { MoveStatus } from "@/lib/store/slices/moveSlice";
 import { useAuth } from "@/contexts/AuthContext";
 import toast from "react-hot-toast";
 import AssetBookSelectionModal from "@/components/asset/AssetBookSelectionModal";
@@ -199,61 +201,81 @@ const CardSelect: React.FC<CardSelectProps> = ({
   );
 };
 
-// Convert TransactionItemResponseDto to Asset format
-const convertTransactionItemToAsset = (item: TransactionItemResponseDto): Asset => {
-  // Lấy thông tin từ asset.currentRoom (có đầy đủ thông tin hơn fromRoom)
+// Convert MovementItemResponseDto to Asset format
+const convertMovementItemToAsset = (item: MovementItemResponseDto): Asset => {
   const fullAsset = item.asset as any;
   
   return {
     id: item.assetId,
-    ktCode: item.asset?.ktCode || "",
-    fixedCode: item.asset?.fixedCode || "",
-    name: item.asset?.name || "",
-    specs: fullAsset?.specs || item.asset?.type || "",
+    ktCode: fullAsset?.ktCode || "",
+    fixedCode: fullAsset?.fixedCode || "",
+    name: fullAsset?.name || "",
+    specs: fullAsset?.specs || "",
     entrydate: fullAsset?.entrydate || "",
-    currentRoomId: item.fromRoomId || item.asset?.currentRoom?.id,
+    currentRoomId: item.fromRoomId,
+    locationInRoom: fullAsset?.locationInRoom || "",
     unit: fullAsset?.unit || "",
     quantity: fullAsset?.quantity || 1,
+    origin: fullAsset?.origin || "",
     purchasePackage: fullAsset?.purchasePackage || 0,
-    type: item.asset?.type as any || "FIXED_ASSET" as any,
-    isLocked: false,
-    isHandOver: false,
-    categoryId: fullAsset?.categoryId || "",
-    status: item.asset?.status as any || "IN_USE" as any,
+    type: fullAsset?.type as any || "FIXED_ASSET" as any,
+    isLocked: fullAsset?.isLocked || false,
+    isHandOver: fullAsset?.isHandOver || false,
+    categoryId: fullAsset?.category?.id || "",
+    status: fullAsset?.status as any || "IN_USE" as any,
     createdBy: fullAsset?.createdBy || "",
     createdAt: fullAsset?.createdAt || "",
     updatedAt: fullAsset?.updatedAt || "",
-    currentRoom: fullAsset?.currentRoom ? {
-      id: fullAsset.currentRoom.id,
-      name: fullAsset.currentRoom.name || fullAsset.currentRoom.roomCode,
-      roomCode: fullAsset.currentRoom.roomCode,
-      floor: fullAsset.currentRoom.floor || "",
-      status: fullAsset.currentRoom.status || "ACTIVE" as any,
-      unitId: fullAsset.currentRoom.unitId || "",
-      createdBy: "",
-      createdAt: fullAsset.currentRoom.createdAt || "",
-      updatedAt: fullAsset.currentRoom.updatedAt || "",
-      unit: fullAsset.currentRoom.unit,
-    } : item.fromRoom ? {
+    deletedAt: fullAsset?.deletedAt || undefined,
+    currentRoom: item.fromRoom ? {
       id: item.fromRoom.id,
-      name: item.fromRoom.name || item.fromRoom.roomCode,
-      roomCode: item.fromRoom.roomCode,
+      name: item.fromRoom.name,
+      roomCode: item.fromRoom.code,
+      building: (item.fromRoom as any).building || "",
       floor: (item.fromRoom as any).floor || "",
+      roomNumber: (item.fromRoom as any).roomNumber || "",
+      adjacentRooms: (item.fromRoom as any).adjacentRooms || [],
       status: (item.fromRoom as any).status || "ACTIVE" as any,
-      unitId: (item.fromRoom as any).unitId || "",
-      createdBy: "",
+      unitId: item.fromRoom.unit?.id || "",
+      createdBy: (item.fromRoom as any).createdBy || "",
       createdAt: (item.fromRoom as any).createdAt || "",
       updatedAt: (item.fromRoom as any).updatedAt || "",
+      deletedAt: (item.fromRoom as any).deletedAt || undefined,
+      unit: item.fromRoom.unit ? {
+        id: item.fromRoom.unit.id,
+        name: item.fromRoom.unit.name,
+        unitCode: item.fromRoom.unit.unitCode,
+        phone: null,
+        email: null,
+        type: "USER_DEPT" as any,
+        representativeId: null,
+        parentUnitId: null,
+        status: "ACTIVE" as any,
+        createdAt: "",
+        updatedAt: "",
+        deletedAt: null,
+      } : undefined,
     } : undefined,
+    category: fullAsset?.category ? {
+      id: fullAsset.category.id,
+      name: fullAsset.category.name,
+      description: fullAsset.category.description || "",
+      createdBy: "",
+      createdAt: "",
+      updatedAt: "",
+      deletedAt: undefined,
+    } : undefined,
+    rfidTag: fullAsset?.rfidTag,
+    transactionItems: fullAsset?.transactionItems,
   };
 };
 
-export default function EditTransactionPage() {
+export default function EditMovementPage() {
   const router = useRouter();
   const params = useParams();
   const dispatch = useAppDispatch();
   const { user } = useAuth();
-  const transactionId = params.id as string;
+  const movementId = params.id as string;
 
   const accessScopeTypes = user?.accessScopeTypes || [];
   const hasGlobalAccess = accessScopeTypes.includes(AccessScopeType.GLOBAL);
@@ -262,18 +284,20 @@ export default function EditTransactionPage() {
   const hasSelfAccess = accessScopeTypes.includes(AccessScopeType.SELF);
 
   const {
-    currentTransactionDetail,
-    isFetchingTransaction,
-    isUpdatingTransaction,
-    fetchTransactionError,
-  } = useSelector((state: RootState) => state.transaction);
+    currentMovementDetail,
+    isFetchingMovement,
+    isUpdatingMovement,
+    fetchMovementError,
+  } = useSelector((state: RootState) => state.move);
   
   const { campuses } = useSelector((state: RootState) => state.unit);
 
   const [selectedCampusId, setSelectedCampusId] = useState("");
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState("");
-  const [transactionNote, setTransactionNote] = useState("");
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [movementNote, setMovementNote] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -286,61 +310,75 @@ export default function EditTransactionPage() {
   const savedUnitIdRef = useRef<string>("");
   const [selectedAssets, setSelectedAssets] = useState<Asset[]>([]);
 
-  // Load transaction data from API
+  // Load movement data from API
   useEffect(() => {
-    if (transactionId) {
-      dispatch(getTransactionById(transactionId));
+    if (movementId) {
+      dispatch(getMovementById(movementId));
     }
-  }, [transactionId, dispatch]);
+  }, [movementId, dispatch]);
 
-  // Initialize form data when transaction is loaded
+  // Initialize form data when movement is loaded
   useEffect(() => {
-    if (currentTransactionDetail) {
-      // Check if transaction can be edited
+    if (currentMovementDetail) {
+      // Check if movement can be edited
       if (
-        currentTransactionDetail.status !== TransactionStatus.DRAFT &&
-        currentTransactionDetail.status !== TransactionStatus.REJECTED
+        currentMovementDetail.status !== MoveStatus.DRAFT &&
+        currentMovementDetail.status !== MoveStatus.REJECTED
       ) {
-        toast.error("Chỉ có thể chỉnh sửa giao dịch ở trạng thái Nháp hoặc Từ chối");
-        router.push(`/asset/transaction/${transactionId}`);
+        toast.error("Chỉ có thể chỉnh sửa yêu cầu di chuyển ở trạng thái Nháp hoặc Từ chối");
+        router.push(`/asset/move/${movementId}`);
         return;
       }
 
-      // Convert transaction items to assets
-      const assets = currentTransactionDetail.items.map(convertTransactionItemToAsset);
+      // Convert movement items to assets
+      const assets = currentMovementDetail.items.map(convertMovementItemToAsset);
       setSelectedAssets(assets);
 
       // Set asset notes
       const notes: Record<string, string> = {};
-      currentTransactionDetail.items.forEach((item) => {
+      currentMovementDetail.items.forEach((item) => {
         if (item.note) {
           notes[item.assetId] = item.note;
         }
       });
       setAssetNotes(notes);
 
-      // Set transaction note
-      setTransactionNote(currentTransactionDetail.requestNote || "");
+      // Set movement note
+      setMovementNote(currentMovementDetail.requestNote || "");
 
       // Set date
-      if (currentTransactionDetail.createdAt) {
-        const date = new Date(currentTransactionDetail.createdAt);
+      if (currentMovementDetail.createdAt) {
+        const date = new Date(currentMovementDetail.createdAt);
         setSelectedDate(date.toISOString().split('T')[0]);
       }
 
-      // Set unit
-      if (currentTransactionDetail.toUnit) {
-        setSelectedUnitId(currentTransactionDetail.toUnit.id);
+      // Set unit from first asset's current room or from movement items
+      let unitId = "";
+      if (assets.length > 0 && assets[0].currentRoom?.unit?.id) {
+        unitId = assets[0].currentRoom.unit.id;
+      } else if (currentMovementDetail.items.length > 0) {
+        // Try to get unit from fromRoom or toRoom
+        const firstItem = currentMovementDetail.items[0];
+        if (firstItem.fromRoom?.unit?.id) {
+          unitId = firstItem.fromRoom.unit.id;
+        } else if (firstItem.toRoom?.unit?.id) {
+          unitId = firstItem.toRoom.unit.id;
+        }
+      }
+      
+      if (unitId) {
+        setSelectedUnitId(unitId);
       }
 
-      // Set handover context
-      if (currentTransactionDetail.fromUnit) {
-        dispatch(setHandoverContext({
-          sourceUnitId: currentTransactionDetail.fromUnit.id,
-        }));
+      // Set destination room from toRoom of first item
+      if (currentMovementDetail.items.length > 0) {
+        const firstItem = currentMovementDetail.items[0];
+        if (firstItem.toRoomId) {
+          setSelectedRoomId(firstItem.toRoomId);
+        }
       }
     }
-  }, [currentTransactionDetail, dispatch, router, transactionId]);
+  }, [currentMovementDetail, dispatch, router, movementId]);
 
   // Load campuses and units
   useEffect(() => {
@@ -349,7 +387,7 @@ export default function EditTransactionPage() {
         const campusesResult = await dispatch(getUnitCampus()).unwrap();
         if (campusesResult && user) {
           if (hasChildUnitsAccess) {
-            const campusId = currentTransactionDetail?.fromUnit?.id || user?.unitId;
+            const campusId = currentMovementDetail?.fromUnit?.id || user?.unitId;
             const userCampus = campusesResult.find(
               (campus: Unit) => campus.id === campusId
             );
@@ -364,7 +402,7 @@ export default function EditTransactionPage() {
             let userUnit: Unit | undefined;
             let userCampus: Unit | undefined;
 
-            const unitId = currentTransactionDetail?.fromUnit?.id || user.unitId;
+            const unitId = user.unitId;
 
             for (const campus of campusesResult) {
               const foundUnit = campus.childUnits?.find(
@@ -382,29 +420,17 @@ export default function EditTransactionPage() {
               setUnits(userCampus.childUnits ?? []);
             }
           } else if (hasGlobalAccess) {
-            if (currentTransactionDetail?.fromUnit) {
-              // Find campus containing the fromUnit
-              for (const campus of campusesResult) {
-                const foundUnit = campus.childUnits?.find(
-                  (unit: Unit) => unit.id === currentTransactionDetail.fromUnit!.id
-                );
-                if (foundUnit) {
-                  setSelectedCampusId(campus.id);
-                  setUnits(campus.childUnits ?? []);
-                  break;
-                }
-              }
-            }
+            // For global access, load all campuses
           }
         }
       } catch (e: any) {
         toast.error(e.message || "Có lỗi xảy ra khi tải dữ liệu.");
       }
     };
-    if (currentTransactionDetail) {
+    if (currentMovementDetail) {
       loadInitialData();
     }
-  }, [dispatch, hasGlobalAccess, hasChildUnitsAccess, hasUnitAccess, hasSelfAccess, user, currentTransactionDetail]);
+  }, [dispatch, hasGlobalAccess, hasChildUnitsAccess, hasUnitAccess, hasSelfAccess, user, currentMovementDetail]);
 
   useEffect(() => {
     if (selectedCampusId) {
@@ -414,8 +440,30 @@ export default function EditTransactionPage() {
     }
   }, [selectedCampusId, campuses]);
 
+  useEffect(() => {
+    const fetchRooms = async () => {
+      if (selectedUnitId) {
+        try {
+          console.log("Fetching rooms for unitId:", selectedUnitId);
+          const res = await dispatch(
+            fetchRoomsByUnitId(selectedUnitId)
+          ).unwrap();
+          console.log("Fetched rooms:", res);
+          setRooms(res);
+        } catch (error) {
+          console.error("Error fetching rooms:", error);
+          setRooms([]);
+        }
+      } else {
+        console.log("No selectedUnitId, clearing rooms");
+        setRooms([]);
+      }
+    };
+    fetchRooms();
+  }, [dispatch, selectedUnitId]);
+
   const handleCancelEdit = () => {
-    router.push(`/asset/transaction/${transactionId}`);
+    router.push(`/asset/move/${movementId}`);
   };
 
   const handleRemoveAsset = (assetId: string) => {
@@ -467,13 +515,13 @@ export default function EditTransactionPage() {
     const updatedAssets = [...selectedAssets, ...newAssets];
     setSelectedAssets(updatedAssets);
     
-    toast.success(`Đã thêm ${newAssets.length} tài sản vào danh sách bàn giao`);
+    toast.success(`Đã thêm ${newAssets.length} tài sản vào danh sách di chuyển`);
     
     setIsAddAssetModalOpen(false);
   };
 
   const modalInitialFilters = useMemo(() => {
-    const sourceUnitId = currentTransactionDetail?.fromUnit?.id || 
+    const sourceUnitId = currentMovementDetail?.fromUnit?.id || 
       (selectedAssets.length > 0 
         ? selectedAssets[0].currentRoom?.unit?.id 
         : undefined);
@@ -483,11 +531,11 @@ export default function EditTransactionPage() {
       year: new Date().getFullYear().toString(),
       assetType: "FIXED_ASSET",
     };
-  }, [currentTransactionDetail?.fromUnit?.id, selectedAssets]);
+  }, [currentMovementDetail?.fromUnit?.id, selectedAssets]);
 
   const handleSubmitEdit = async () => {
-    if (!selectedUnitId) {
-      toast.error("Vui lòng chọn đơn vị tiếp nhận!");
+    if (selectedAssets.length === 0) {
+      toast.error("Vui lòng chọn ít nhất một tài sản!");
       return;
     }
 
@@ -496,54 +544,49 @@ export default function EditTransactionPage() {
       return;
     }
 
-    if (selectedAssets.length === 0) {
-      toast.error("Vui lòng chọn ít nhất một tài sản!");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      const unitName = units.find((u) => u.id === selectedUnitId)?.name || "";
+      if (!selectedRoomId) {
+        throw new Error("Vui lòng chọn phòng đích");
+      }
 
-      const transactionItems = selectedAssets.map((asset) => ({
+      const movementItems = selectedAssets.map((asset) => ({
         assetId: asset.id,
         fromRoomId: asset.currentRoom?.id,
-        note: assetNotes[asset.id] || `Bàn giao đến ${unitName}`,
+        toRoomId: selectedRoomId, // Set to the selected destination room
+        note: assetNotes[asset.id] || `Di chuyển tài sản`,
       }));
 
-      let fromUnitId: string | undefined = currentTransactionDetail?.fromUnit?.id;
-      
-      if (!fromUnitId && selectedAssets.length > 0) {
-        const firstAsset = selectedAssets[0];
-        fromUnitId = firstAsset.currentRoom?.unit?.id;
+      // Validate that all assets have fromRoomId
+      for (const item of movementItems) {
+        if (!item.fromRoomId) {
+          throw new Error("Một số tài sản không có thông tin phòng hiện tại");
+        }
+        if (item.fromRoomId === item.toRoomId) {
+          throw new Error("Phòng nguồn và phòng đích không thể giống nhau");
+        }
       }
 
-      if (!fromUnitId) {
-        throw new Error("Không thể xác định đơn vị nguồn");
-      }
-
-      const updateTransactionDto = {
-        fromUnitId: fromUnitId,
-        toUnitId: selectedUnitId,
-        requestNote: transactionNote || `Bàn giao ${selectedAssets.length} tài sản đến ${unitName}`,
-        items: transactionItems,
+      const updateMovementDto = {
+        requestNote: movementNote || `Di chuyển ${selectedAssets.length} tài sản`,
+        items: movementItems,
       };
 
-      const result = await dispatch(updateTransaction({
-        id: transactionId,
-        updateDto: updateTransactionDto,
+      const result = await dispatch(updateMovement({
+        id: movementId,
+        updateDto: updateMovementDto,
       })).unwrap();
 
       if (result && result.id) {
-        toast.success("Cập nhật yêu cầu bàn giao thành công!");
-        router.push(`/asset/transaction/${transactionId}`);
+        toast.success("Cập nhật yêu cầu di chuyển thành công!");
+        router.push(`/asset/move/${movementId}`);
       } else {
         throw new Error("Không nhận được phản hồi hợp lệ từ máy chủ");
       }
     } catch (error: any) {
-      console.error("Error updating transaction:", error);
-      toast.error(error.message || "Có lỗi xảy ra khi cập nhật yêu cầu bàn giao.");
+      console.error("Error updating movement:", error);
+      toast.error(error.message || "Có lỗi xảy ra khi cập nhật yêu cầu di chuyển.");
     } finally {
       setIsSubmitting(false);
     }
@@ -598,7 +641,7 @@ export default function EditTransactionPage() {
     },
     {
       key: "currentLocation",
-      title: "Vị trí hiện tại",
+      title: "Vị trí",
       render: (_, record) => (
         <div className="text-sm text-gray-900">
           {record.currentRoom ? (
@@ -608,12 +651,6 @@ export default function EditTransactionPage() {
                   {record.currentRoom.roomCode || record.currentRoom.name}
                 </span>
               </div>
-              {record.currentRoom.unit && (
-                <div className="flex items-center text-red-500 text-xs">
-                  <Building2 className="h-3 w-3 mr-1" />
-                  <span>{record.currentRoom.unit.name}</span>
-                </div>
-              )}
             </div>
           ) : (
             <span className="text-gray-400 italic">Chưa phân bổ</span>
@@ -632,7 +669,7 @@ export default function EditTransactionPage() {
           placeholder="Nhập ghi chú..."
           value={assetNotes[record.id] || ""}
           onChange={(e) => handleNoteChange(record.id, e.target.value)}
-          disabled={isSubmitting || isUpdatingTransaction}
+          disabled={isSubmitting || isUpdatingMovement}
         />
       ),
     },
@@ -645,7 +682,7 @@ export default function EditTransactionPage() {
           size="sm"
           className="text-red-600 hover:bg-red-50"
           onClick={() => handleRemoveAsset(record.id)}
-          disabled={isSubmitting || isUpdatingTransaction}
+          disabled={isSubmitting || isUpdatingMovement}
         >
             <Trash2 className="h-4 w-4 mr-1" />
         </Button>
@@ -654,7 +691,7 @@ export default function EditTransactionPage() {
     },
   ];
 
-  if (isFetchingTransaction) {
+  if (isFetchingMovement) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
@@ -670,20 +707,20 @@ export default function EditTransactionPage() {
     );
   }
 
-  if (fetchTransactionError || !currentTransactionDetail) {
+  if (fetchMovementError || !currentMovementDetail) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
           <div className="mb-4">
             <Package2 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Không tìm thấy giao dịch
+              Không tìm thấy yêu cầu di chuyển
             </h2>
             <p className="text-gray-600 mb-6">
-              {fetchTransactionError || "Giao dịch không tồn tại hoặc đã bị xóa."}
+              {fetchMovementError || "Yêu cầu di chuyển không tồn tại hoặc đã bị xóa."}
             </p>
           </div>
-          <Button onClick={() => router.push("/asset/transaction")} variant="outline" className="w-full">
+          <Button onClick={() => router.push("/asset/move")} variant="outline" className="w-full">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Quay lại danh sách
           </Button>
@@ -692,7 +729,7 @@ export default function EditTransactionPage() {
     );
   }
 
-  if (selectedAssets.length === 0 && !isFetchingTransaction) {
+  if (selectedAssets.length === 0 && !isFetchingMovement) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
@@ -703,7 +740,7 @@ export default function EditTransactionPage() {
             </h2>
             <p className="text-gray-600 mb-6">Vui lòng đợi trong giây lát</p>
           </div>
-          <Link href="/asset/transaction">
+          <Link href="/asset/move">
             <Button variant="outline" className="w-full">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Quay lại danh sách
@@ -725,18 +762,18 @@ export default function EditTransactionPage() {
                   onClick={() => router.push("/asset/asset-book")}
                   className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
                 >
-                  Sổ tài sản
+                  Tài sản
                 </button>
                 <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
                 <button
-                  onClick={() => router.push("/asset/transaction")}
+                  onClick={() => router.push("/asset/move")}
                   className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
                 >
-                  Bàn giao
+                  Di chuyển
                 </button>
                 <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
                 <span className="text-gray-900 font-semibold text-lg sm:text-xl">
-                  Chỉnh sửa bàn giao
+                  Chỉnh sửa di chuyển
                 </span>
               </div>
             </div>
@@ -746,23 +783,23 @@ export default function EditTransactionPage() {
                   setIsAddAssetModalOpen(true);
                 }}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-green-700 text-white"
-                disabled={isSubmitting || isUpdatingTransaction}
+                disabled={isSubmitting || isUpdatingMovement}
               >
                 Thêm tài sản
               </Button>
               <Button
                 onClick={handleCancelEdit}
                 variant="outline"
-                disabled={isSubmitting || isUpdatingTransaction}
+                disabled={isSubmitting || isUpdatingMovement}
               >
                 Hủy bỏ
               </Button>
               <Button
                 onClick={handleSubmitEdit}
-                disabled={isSubmitting || isUpdatingTransaction || !selectedUnitId}
+                disabled={isSubmitting || isUpdatingMovement}
                 className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {isSubmitting || isUpdatingTransaction ? (
+                {isSubmitting || isUpdatingMovement ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                     Đang xử lý...
@@ -780,7 +817,7 @@ export default function EditTransactionPage() {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-300 mb-6 ">
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {hasGlobalAccess && (
                 <CardSelect
                   label="Cơ sở"
@@ -795,42 +832,59 @@ export default function EditTransactionPage() {
                     })),
                   ]}
                   placeholder="Chọn cơ sở"
-                  disabled={isSubmitting || isUpdatingTransaction}
+                  disabled={isSubmitting || isUpdatingMovement}
                   required
                   className="text-base"
                 />
               )}
 
-              {(hasChildUnitsAccess || hasGlobalAccess || hasUnitAccess || hasSelfAccess) && (
+              {(hasChildUnitsAccess || hasGlobalAccess) && (
                 <CardSelect
-                  label="Đơn vị tiếp nhận"
+                  label="Đơn vị"
                   icon={<></>}
                   value={selectedUnitId}
                   onChange={setSelectedUnitId}
                   options={[
-                    { value: "", label: "Chọn đơn vị tiếp nhận" },
+                    { value: "", label: "Chọn đơn vị" },
                     ...(units?.map((unit) => ({
                       value: unit.id,
                       label: unit.name,
                     })) || []),
                   ]}
-                  placeholder="Chọn đơn vị tiếp nhận"
-                  disabled={isSubmitting || isUpdatingTransaction || (hasGlobalAccess && !selectedCampusId)}
+                  placeholder="Chọn đơn vị"
+                  disabled={isSubmitting || isUpdatingMovement || (hasGlobalAccess && !selectedCampusId)}
                   required
                   className="text-base"
                 />
               )}
+
+              <CardSelect
+                label="Phòng đích"
+                icon={<></>}
+                value={selectedRoomId}
+                onChange={setSelectedRoomId}
+                options={[
+                  { value: "", label: "Chọn phòng đích" },
+                  ...(rooms?.map((room) => ({
+                    value: room.id,
+                    label: `${room.roomCode} - ${room.name}`,
+                  })) || []),
+                ]}
+                placeholder="Chọn phòng đích"
+                required
+                className="text-base"
+              />
             </div>
 
             <div className="mt-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ghi chú cho yêu cầu bàn giao
+                Ghi chú cho yêu cầu di chuyển
               </label>
               <Textarea
-                placeholder="Nhập ghi chú cho yêu cầu bàn giao (tùy chọn)..."
-                value={transactionNote}
-                onChange={(e) => setTransactionNote(e.target.value)}
-                disabled={isSubmitting || isUpdatingTransaction}
+                placeholder="Nhập ghi chú cho yêu cầu di chuyển (tùy chọn)..."
+                value={movementNote}
+                onChange={(e) => setMovementNote(e.target.value)}
+                disabled={isSubmitting || isUpdatingMovement}
                 className="w-full min-h-[100px]"
                 rows={4}
               />
@@ -839,22 +893,56 @@ export default function EditTransactionPage() {
             <div className="grid grid-cols-1 gap-6 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ngày bàn giao
+                  Ngày di chuyển
                   <span className="text-red-500 ml-1">*</span>
                 </label>
                 <Input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  disabled={isSubmitting || isUpdatingTransaction}
+                  disabled={isSubmitting || isUpdatingMovement}
                   className="w-full"
                 />
               </div>
             </div>
           </div>
         </div>
+
+        {/* Hiển thị thông tin phê duyệt/từ chối nếu có */}
+        {currentMovementDetail && (currentMovementDetail.approvalNote || currentMovementDetail.rejectionReason) && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-300 mb-6">
+            <div className="p-6">
+              <div className="space-y-4">
+                {currentMovementDetail.approvalNote && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      Ghi chú phê duyệt
+                    </div>
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-md text-sm">
+                      {currentMovementDetail.approvalNote}
+                    </div>
+                  </div>
+                )}
+
+                {currentMovementDetail.rejectionReason && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <XCircle className="w-4 h-4 text-red-600" />
+                      Lý do từ chối
+                    </div>
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm">
+                      {currentMovementDetail.rejectionReason}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <Table<Asset>
-          title="Tài sản đã chọn để bàn giao"
+          title="Tài sản đã chọn để di chuyển"
           columns={columns}
           data={selectedAssets}
           loading={false}
@@ -870,7 +958,7 @@ export default function EditTransactionPage() {
           setIsAddAssetModalOpen(false);
         }}
         onConfirm={handleAddAssetsFromModal}
-        title="Chọn tài sản từ sổ tài sản để bàn giao"
+        title="Chọn tài sản từ sổ tài sản để di chuyển"
         excludeAssetIds={selectedAssets.map(asset => asset.id)}
         initialFilters={modalInitialFilters}
       />
@@ -878,4 +966,3 @@ export default function EditTransactionPage() {
     </div>
   );
 }
-

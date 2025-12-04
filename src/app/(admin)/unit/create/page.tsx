@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Building, Phone, Mail, User } from "lucide-react";
+import { ArrowLeft, Save, Building, Phone, Mail, User, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { UnitType, UnitStatus, User as UserType } from "@/types/asset";
 import { Button } from "@/components/ui/button";
@@ -162,18 +162,19 @@ export default function CreateUnitPage() {
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <Link href="/unit">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-gray-600 hover:text-gray-900"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Thêm đơn vị mới</h1>
-          <p className="text-gray-600">Nhập thông tin đơn vị mới</p>
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <button
+              onClick={() => router.push("/unit")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Đơn vị
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Thêm mới
+            </span>
+          </div>
         </div>
       </div>
 

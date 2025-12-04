@@ -35,6 +35,9 @@ import {
   Play,
   MoreVertical,
   Filter,
+  ChevronRight,
+  ArrowRightLeft,
+  Users,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -77,10 +80,6 @@ const getMovementStatusBadge = (status: MoveStatus) => {
       label: "Bị từ chối",
       className: "bg-red-100 text-red-800 border border-red-200",
     },
-    [MoveStatus.COMPLETED]: {
-      label: "Hoàn thành",
-      className: "bg-green-100 text-green-800 border border-green-200",
-    },
     [MoveStatus.CANCELLED]: {
       label: "Đã hủy",
       className: "bg-gray-100 text-gray-800 border border-gray-300",
@@ -108,18 +107,13 @@ const statusFilterOptions = [
   { value: MoveStatus.PENDING_APPROVAL, label: "Chờ phê duyệt" },
   { value: MoveStatus.APPROVED, label: "Đã phê duyệt" },
   { value: MoveStatus.REJECTED, label: "Bị từ chối" },
-  { value: MoveStatus.COMPLETED, label: "Hoàn thành" },
   { value: MoveStatus.CANCELLED, label: "Đã hủy" },
 ];
 
 export default function MovementManagementPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { hasRole, user } = useAuth();
-
-  const isAdmin = hasRole([RoleBase.ADMIN]);
-  const isAdminDept = hasRole([RoleBase.ADMIN_DEPT]);
-  const isUserDept = hasRole([RoleBase.USER_DEPT]);
+  const { user } = useAuth();
 
   const {
     filteredMovements,
@@ -131,12 +125,9 @@ export default function MovementManagementPage() {
     loading,
   } = useSelector((state: RootState) => state.move);
 
-  // Local state
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
 
-  // Dialog states for delete
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
     movement: SimplifiedMovementResponseDto | null;
@@ -145,12 +136,10 @@ export default function MovementManagementPage() {
     movement: null,
   });
 
-  // Modal states for propose/approve/reject
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"propose" | "approve" | "reject" | null>(null);
   const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null);
 
-  // Load movements on component mount and filter changes
   useEffect(() => {
     const filterRequest: MovementFilterDto = {
       pagination: {
@@ -241,7 +230,10 @@ export default function MovementManagementPage() {
           await dispatch(
             proposeMovement({
               id: selectedMovementId,
-              proposeDto: { note: data.note },
+              proposeDto: { 
+                note: data.note,
+                evidenceUrl: data.evidenceUrl 
+              },
             })
           ).unwrap();
           toast.success("Đã đề xuất yêu cầu di chuyển thành công!");
@@ -292,21 +284,32 @@ export default function MovementManagementPage() {
 
     switch (action) {
       case "edit":
-        return movement.status === MoveStatus.DRAFT && isRequester;
+        return (movement.status === MoveStatus.DRAFT || movement.status === MoveStatus.REJECTED) && isRequester;
       case "propose":
-        return movement.status === MoveStatus.DRAFT && isRequester && canPropose;
+        return (movement.status === MoveStatus.DRAFT || movement.status === MoveStatus.REJECTED) && isRequester && canPropose;
       case "approve":
         return movement.status === MoveStatus.PENDING_APPROVAL && canApprove;
       case "reject":
-        return (movement.status === MoveStatus.PENDING_APPROVAL || movement.status === MoveStatus.APPROVED) && canApprove;
+        return movement.status === MoveStatus.PENDING_APPROVAL && canApprove;
       case "delete":
-        return (movement.status === MoveStatus.DRAFT || movement.status === MoveStatus.REJECTED || movement.status === MoveStatus.CANCELLED) && (isRequester || canApprove);
+        return movement.status === MoveStatus.DRAFT && (isRequester || canApprove);
       default:
         return false;
     }
   };
 
-  // Define table columns
+  const stats = React.useMemo(() => {
+    const data = filteredMovements.data;
+    return {
+      total: data.length,
+      draft: data.filter((m: any) => m.status === MoveStatus.DRAFT).length,
+      pendingApproval: data.filter((m: any) => m.status === MoveStatus.PENDING_APPROVAL).length,
+      approved: data.filter((m: any) => m.status === MoveStatus.APPROVED).length,
+      rejected: data.filter((m: any) => m.status === MoveStatus.REJECTED).length,
+      cancelled: data.filter((m: any) => m.status === MoveStatus.CANCELLED).length,
+    };
+  }, [filteredMovements.data]);
+
   const columns: TableColumn<SimplifiedMovementResponseDto>[] = [
     {
       key: "requester",
@@ -361,7 +364,7 @@ export default function MovementManagementPage() {
     },
     {
       key: "createdAt",
-      title: "Ngày tạo",
+      title: "Ngày yêu cầu",
       render: (_, record) => (
         <div className="text-sm text-gray-900">
           {new Date(record.createdAt).toLocaleDateString("vi-VN")}
@@ -406,7 +409,7 @@ export default function MovementManagementPage() {
                   onClick={() => openActionDialog("propose", record)}
                   className="flex items-center gap-2 cursor-pointer text-blue-600"
                 >
-                  <span>Đề xuất</span>
+                  <span>{record.status === MoveStatus.REJECTED ? "Đề xuất" : "Đề xuất"}</span>
                 </DropdownMenuItem>
               )}
 
@@ -430,8 +433,6 @@ export default function MovementManagementPage() {
                 </DropdownMenuItem>
               )}
 
-              
-
               {/* Delete */}
               {canPerformAction(record, "delete") && (
                 <>
@@ -452,53 +453,108 @@ export default function MovementManagementPage() {
     },
   ];
 
-  return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý Di chuyển</h1>
-          <p className="text-gray-600">
-            Quản lý các yêu cầu di chuyển tài sản giữa các phòng
-          </p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <Button
-            onClick={handleRefresh}
-            variant="outline"
-            disabled={isFilteringMovements}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isFilteringMovements ? "animate-spin" : ""}`} />
-            Làm mới
-          </Button>
-          <Link href="/asset/asset-book">
-            <Button className="flex items-center bg-green-600 hover:bg-green-700 text-white">
-              <Plus className="h-4 w-4 mr-2" />
-              Tạo yêu cầu mới
-            </Button>
-          </Link>
-        </div>
-      </div>
+  const canCreate = hasAnyPermission([PermissionConstants.PERM_PROPOSE_MOVEMENT]);
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-300 mb-6">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Bộ lọc</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              {showFilters ? "Ẩn bộ lọc" : "Hiện bộ lọc"}
-            </Button>
+  return (
+    <>
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+              <button
+                onClick={() => router.push("/asset/asset-book")}
+                className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+              >
+                Tài sản
+              </button>
+              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+              <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                Di chuyển
+              </span>
+            </div>
+          </div>
+          {canCreate && (
+            <Link href="/asset/asset-book">
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Tạo yêu cầu mới
+              </Button>
+            </Link>
+          )}
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="bg-white p-6 rounded-lg border border-gray-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Tổng số</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </div>
+              <ArrowRightLeft className="h-8 w-8 text-blue-600" />
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white p-6 rounded-lg border border-gray-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Nháp</p>
+                <p className="text-2xl font-bold text-gray-600">
+                  {stats.draft}
+                </p>
+              </div>
+              <Clock className="h-8 w-8 text-gray-600" />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border border-gray-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Chờ phê duyệt</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {stats.pendingApproval}
+                </p>
+              </div>
+              <Clock className="h-8 w-8 text-yellow-600" />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border border-gray-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">
+                  Đã phê duyệt
+                </p>
+                <p className="text-2xl font-bold text-green-600">
+                  {stats.approved}
+                </p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border border-gray-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">
+                  Hoàn thành
+                </p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {stats.completed}
+                </p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
                 placeholder="Tìm kiếm theo mã yêu cầu, ghi chú..."
                 className="pl-10"
@@ -509,7 +565,7 @@ export default function MovementManagementPage() {
 
             {/* Status Filter */}
             <select
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={selectedStatus}
               onChange={(e) => handleStatusFilter(e.target.value)}
             >
@@ -521,28 +577,26 @@ export default function MovementManagementPage() {
             </select>
           </div>
         </div>
-      </div>
 
-      {/* Movements Table */}
-      <Table<SimplifiedMovementResponseDto>
-        columns={columns}
-        data={filteredMovements.data}
-        loading={isFilteringMovements}
-        emptyText="Không tìm thấy yêu cầu di chuyển nào"
-        emptyIcon={
-          <div className="h-12 w-12 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
-            <span className="text-gray-400 font-bold text-xl">📦</span>
-          </div>
-        }
-        pagination={{
-          current: filteredMovements?.pagination.page || 1,
-          pageSize: filteredMovements?.pagination.limit || 10,
-          total: filteredMovements?.pagination.total || 0,
-          onChange: handlePaginationChange,
-          showSizeChanger: true,
-          serverSide: true,
-        }}
-      />
+        {/* Movements Table */}
+        <Table<SimplifiedMovementResponseDto>
+          columns={columns}
+          data={filteredMovements.data}
+          loading={isFilteringMovements}
+          emptyText="Không tìm thấy yêu cầu di chuyển nào"
+          emptyIcon={
+            <ArrowRightLeft className="mx-auto h-12 w-12 text-gray-400" />
+          }
+          pagination={{
+            current: filteredMovements?.pagination.page || 1,
+            pageSize: filteredMovements?.pagination.limit || 10,
+            total: filteredMovements?.pagination.total || 0,
+            onChange: handlePaginationChange,
+            showSizeChanger: true,
+            serverSide: true,
+          }}
+        />
+      </div>
 
       {/* Delete Dialog */}
       <Dialog open={deleteDialog.isOpen} onOpenChange={closeDeleteDialog}>
@@ -586,7 +640,7 @@ export default function MovementManagementPage() {
         }
         description={
           modalType === "propose"
-            ? "Gửi yêu cầu di chuyển để chờ phê duyệt."
+            ? "Gửi yêu cầu di chuyển để chờ phê duyệt. Bạn có thể đính kèm file minh chứng."
             : modalType === "approve"
             ? "Phê duyệt yêu cầu di chuyển này. Bạn có thể đính kèm file minh chứng."
             : "Từ chối yêu cầu di chuyển này."
@@ -594,6 +648,6 @@ export default function MovementManagementPage() {
         action={modalType || "propose"}
         isLoading={isProposingMovement || isApprovingMovement || isRejectingMovement}
       />
-    </div>
+    </>
   );
 }

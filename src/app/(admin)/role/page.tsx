@@ -13,6 +13,7 @@ import {
   Shield,
   MoreHorizontal,
   MoreVertical,
+  ChevronRight,
 } from "lucide-react";
 import { Role, Permission, ManagerPermission } from "@/types/asset";
 import RoleFormModal from "@/components/role/RoleFormModal";
@@ -248,10 +249,11 @@ export default function RolePage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý vai trò</h1>
-          <p className="text-gray-600">
-            Quản lý các vai trò và quyền hạn trong hệ thống
-          </p>
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Vai trò
+            </span>
+          </div>
         </div>
         {canCreate && (
           <Button

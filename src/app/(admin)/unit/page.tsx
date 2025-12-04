@@ -11,6 +11,7 @@ import {
   Mail,
   Eye,
   MoreVertical,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { Unit, UnitType, UnitStatus } from "@/types/asset";
@@ -251,8 +252,11 @@ export default function UnitsPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý đơn vị</h1>
-          <p className="text-gray-600">Quản lý các đơn vị trong hệ thống</p>
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Đơn vị
+            </span>
+          </div>
         </div>
         {canCreate && (
           <Link href="/unit/create">
