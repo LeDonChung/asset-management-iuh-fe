@@ -61,7 +61,7 @@ export default function CreateUserPage() {
     const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    const [unitCampusSelected, setUnitCampusSelected] = useState<Unit>(null as Unit);
+    const [unitCampusSelected, setUnitCampusSelected] = useState<Unit>({} as Unit);
     const [units, setUnits] = useState<Unit[]>(
         unitCampusSelected?.childUnits ?? []
     );
@@ -413,7 +413,7 @@ export default function CreateUserPage() {
                                     </div>
                                 </div>
                             )}
-                            {unitCampusSelected && (
+                            {unitCampusSelected && unitCampusSelected.id && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Đơn vị<span className="text-red-500">*</span>
