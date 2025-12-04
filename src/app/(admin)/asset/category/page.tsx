@@ -150,7 +150,7 @@ function DeleteConfirmModal({ isOpen, onClose, category }: DeleteConfirmModalPro
           Bạn có chắc chắn muốn xóa thể loại <strong>"{category?.name}"</strong> không?
         </p>
         <p className="text-sm text-red-600">
-          Lưu ý: Không thể xóa thể loại có thể loại con hoặc đang được sử dụng bởi tài sản.
+          Lưu ý: Không thể xóa thể loại đang được sử dụng bởi tài sản hoặc liên kết đến một thể loại khác.
         </p>
 
         <div className="flex justify-end space-x-3 pt-4">
@@ -287,8 +287,10 @@ export default function CategoryPage() {
         rowKey="id"
         emptyText="Không có thể loại nào"
         emptyIcon={
-          <div className="h-12 w-12 mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-            <span className="text-gray-400 text-xl">📁</span>
+          <div className="flex justify-center">
+            <div className="h-12 w-12 mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+              <span className="text-gray-400 text-xl">📁</span>
+            </div>
           </div>
         }
       />
