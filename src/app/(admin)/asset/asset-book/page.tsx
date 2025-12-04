@@ -332,6 +332,17 @@ export default function AssetBookPage() {
   const hasUnitAccess = accessScopeTypes.includes(AccessScopeType.UNIT);
   const hasSelfAccess = accessScopeTypes.includes(AccessScopeType.SELF);
 
+  // Permissions check
+  const canProposeTransaction = hasAnyPermission([
+    PermissionConstants.PERM_PROPOSE_TRANSACTION,
+  ]);
+  const canProposeMovement = hasAnyPermission([
+    PermissionConstants.PERM_PROPOSE_MOVEMENT,
+  ]);
+  const canProposeLiquidationPerm = hasAnyPermission([
+    PermissionConstants.PERM_PROPOSED_LIQUIDATION,
+  ]);
+
   const loadFiltersFromStorage = () => {
     try {
       const stored = localStorage.getItem("assetBookFilters");
@@ -984,33 +995,35 @@ export default function AssetBookPage() {
                   <span>Chỉnh sửa</span>
                 </DropdownMenuItem>
 
-                {(canSelectForHandover(
+                {((canSelectForHandover(
                   asset.bookItemStatus as AssetBookItemStatus
                 ) &&
+                  canProposeTransaction &&
                   !isMoveMode) ||
                 (canSelectForMove(
                   asset.bookItemStatus as AssetBookItemStatus
                 ) &&
+                  canProposeMovement &&
                   !isSelectionMode) ||
                 (canProposeLiquidation(
                   asset.bookItemStatus as AssetBookItemStatus,
                   asset.status as AssetStatus
                 ) &&
+                  canProposeLiquidationPerm &&
                   !isSelectionMode &&
                   !isMoveMode) ||
-                (hasAnyPermission([
-                  PermissionConstants.PERM_PROPOSED_LIQUIDATION,
-                ]) &&
+                (canProposeLiquidationPerm &&
                   canProposeLiquidation(
                     asset.bookItemStatus as AssetBookItemStatus,
                     asset.status as AssetStatus
-                  )) ? (
+                  ))) ? (
                   <DropdownMenuSeparator />
                 ) : null}
 
                 {canSelectForHandover(
                   asset.bookItemStatus as AssetBookItemStatus
                 ) &&
+                  canProposeTransaction &&
                   !isMoveMode && (
                     <DropdownMenuItem
                       onClick={(e) => {
@@ -1033,6 +1046,7 @@ export default function AssetBookPage() {
                 {canSelectForMove(
                   asset.bookItemStatus as AssetBookItemStatus
                 ) &&
+                  canProposeMovement &&
                   !isSelectionMode && (
                     <DropdownMenuItem
                       onClick={(e) => {
@@ -1059,6 +1073,7 @@ export default function AssetBookPage() {
                   asset.bookItemStatus as AssetBookItemStatus,
                   asset.status as AssetStatus
                 ) &&
+                  canProposeLiquidationPerm &&
                   !isSelectionMode &&
                   !isMoveMode && (
                     <DropdownMenuItem
@@ -1086,9 +1101,7 @@ export default function AssetBookPage() {
                     </DropdownMenuItem>
                   )}
 
-                {hasAnyPermission([
-                  PermissionConstants.PERM_PROPOSED_LIQUIDATION,
-                ]) &&
+                {canProposeLiquidationPerm &&
                   canProposeLiquidation(
                     asset.bookItemStatus as AssetBookItemStatus,
                     asset.status as AssetStatus
@@ -1154,34 +1167,40 @@ export default function AssetBookPage() {
         </div>
         <div className="flex items-center flex-wrap gap-2 sm:gap-4 w-full sm:w-auto">
           {/* Nút bàn giao */}
-          <Button
-            onClick={handleToggleSelectionMode}
-            variant="outline"
-            disabled={isMoveMode}
-            className="border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors text-xs sm:text-sm px-3 sm:px-4 py-2"
-          >
-            {isSelectionMode ? "Hủy chọn" : "Bàn giao"}
-          </Button>
+          {canProposeTransaction && (
+            <Button
+              onClick={handleToggleSelectionMode}
+              variant="outline"
+              disabled={isMoveMode}
+              className="border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors text-xs sm:text-sm px-3 sm:px-4 py-2"
+            >
+              {isSelectionMode ? "Hủy chọn" : "Bàn giao"}
+            </Button>
+          )}
 
           {/* Nút di chuyển */}
-          <Button
-            onClick={handleToggleMoveMode}
-            variant="outline"
-            disabled={isSelectionMode}
-            className="border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors text-xs sm:text-sm px-3 sm:px-4 py-2"
-          >
-            {isMoveMode ? "Hủy di chuyển" : "Di chuyển"}
-          </Button>
+          {canProposeMovement && (
+            <Button
+              onClick={handleToggleMoveMode}
+              variant="outline"
+              disabled={isSelectionMode}
+              className="border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors text-xs sm:text-sm px-3 sm:px-4 py-2"
+            >
+              {isMoveMode ? "Hủy di chuyển" : "Di chuyển"}
+            </Button>
+          )}
 
           {/* Nút thanh lý */}
-          <Button
-            onClick={handleToggleLiquidationMode}
-            variant="outline"
-            disabled={isSelectionMode || isMoveMode}
-            className="border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors text-xs sm:text-sm px-3 sm:px-4 py-2"
-          >
-            {isLiquidationMode ? "Hủy thanh lý" : "Thanh lý"}
-          </Button>
+          {canProposeLiquidationPerm && (
+            <Button
+              onClick={handleToggleLiquidationMode}
+              variant="outline"
+              disabled={isSelectionMode || isMoveMode}
+              className="border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors text-xs sm:text-sm px-3 sm:px-4 py-2"
+            >
+              {isLiquidationMode ? "Hủy thanh lý" : "Thanh lý"}
+            </Button>
+          )}
 
           <Button
             onClick={handleExport}
