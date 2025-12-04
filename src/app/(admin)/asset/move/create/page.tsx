@@ -264,6 +264,9 @@ export default function MoveCreatePage() {
             }
           }
 
+          console.log('Đơn vị sử dụng: ', selectedUnitId);
+          
+
           // Restore assets to Redux if not already loaded
           if (selectedAssetsForMove.length === 0 && moveDraft.assets) {
             dispatch(setSelectedAssetsForMove(moveDraft.assets));
@@ -278,11 +281,6 @@ export default function MoveCreatePage() {
           if (!movementNote && moveDraft.assets?.length > 0) {
             const roomName = moveDraft.filterContext?.roomName || "phòng được chọn";
             setMovementNote(`Di chuyển ${moveDraft.assets.length} tài sản đến ${roomName}`);
-          }
-
-          // Thông báo đã khôi phục dữ liệu
-          if (moveDraft.assets?.length > 0) {
-            toast.success(`Đã khôi phục ${moveDraft.assets.length} tài sản từ phiên trước`);
           }
         }
       } catch (error) {
@@ -645,7 +643,7 @@ export default function MoveCreatePage() {
               <Button
                 onClick={handleSubmitMove}
                 disabled={isSubmitting || isCreatingMovement || !selectedRoomId}
-                className="flex items-center bg-green-600 hover:bg-green-700 text-white"
+                className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {isSubmitting || isCreatingMovement ? (
                   <>
