@@ -222,24 +222,16 @@ export default function TransactionPage() {
     setIsModalOpen(true);
   };
 
-  const handleReject = async (transactionId: string) => {
-    try {
-      await dispatch(
-        rejectTransaction({
-          id: transactionId,
-          rejectDto: { rejectionReason: "Từ chối giao dịch" },
-        })
-      ).unwrap();
-      toast.success("Đã từ chối giao dịch");
-      dispatch(filterSimplifiedTransactions(currentFilter));
-    } catch (error: any) {
-      toast.error(error.message || "Có lỗi xảy ra khi từ chối");
-    }
+  const handleReject = (transactionId: string) => {
+    setSelectedTransactionId(transactionId);
+    setModalType("reject");
+    setIsModalOpen(true);
   };
 
   const handleModalConfirm = async (data: {
     note?: string;
     evidenceUrl?: string;
+    rejectionReason?: string;
   }) => {
     if (!selectedTransactionId) return;
 
@@ -265,6 +257,17 @@ export default function TransactionPage() {
             })
           ).unwrap();
           toast.success("Đã phê duyệt giao dịch");
+          break;
+        case "reject":
+          await dispatch(
+            rejectTransaction({
+              id: selectedTransactionId,
+              rejectDto: { 
+                rejectionReason: data.rejectionReason || data.note || "Từ chối giao dịch"
+              },
+            })
+          ).unwrap();
+          toast.success("Đã từ chối giao dịch");
           break;
         case "receive":
           await dispatch(
@@ -382,7 +385,7 @@ export default function TransactionPage() {
                   <span>Xem chi tiết</span>
                 </DropdownMenuItem>
               )}
-              {canUpdate && transaction.status === TransactionStatus.DRAFT && (
+              {canUpdate && (transaction.status === TransactionStatus.DRAFT || transaction.status === TransactionStatus.REJECTED) && (
                 <>
                   <DropdownMenuItem
                     onClick={(e) => {
@@ -393,15 +396,17 @@ export default function TransactionPage() {
                   >
                     <span>Chỉnh sửa</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleProposeTransaction(transaction.id);
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <span>Gửi đề xuất</span>
-                  </DropdownMenuItem>
+                  {(transaction.status === TransactionStatus.DRAFT || transaction.status === TransactionStatus.REJECTED) && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleProposeTransaction(transaction.id);
+                      }}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>{transaction.status === TransactionStatus.REJECTED ? "Gửi đề xuất" : "Gửi đề xuất"}</span>
+                    </DropdownMenuItem>
+                  )}
                 </>
               )}
 
@@ -694,7 +699,13 @@ export default function TransactionPage() {
             ? "Từ chối giao dịch. Vui lòng nêu rõ lý do từ chối."
             : ""
         }
-        action={(modalType === "receive" ? "approve" : modalType) || "propose"}
+        action={
+          modalType === "receive" 
+            ? "approve" 
+            : modalType === "reject" 
+            ? "reject" 
+            : modalType || "propose"
+        }
         isLoading={false}
       />
     </>

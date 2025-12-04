@@ -277,6 +277,7 @@ const TransactionActions: React.FC<{
   isLoading: boolean;
 }> = ({ transaction, onAction, isLoading }) => {
   const { hasAnyPermission } = useAuth();
+  const router = useRouter();
 
   const canApprove = hasAnyPermission([
     PermissionConstants.PERM_APPROVE_TRANSACTION,
@@ -284,22 +285,61 @@ const TransactionActions: React.FC<{
   const canPropose = hasAnyPermission([
     PermissionConstants.PERM_PROPOSE_TRANSACTION,
   ]);
+  const canUpdate = hasAnyPermission([
+    PermissionConstants.PERM_UPDATE_TRANSACTION,
+  ]);
 
   const renderActions = () => {
     switch (transaction.status) {
       case TransactionStatus.DRAFT:
-        if (canPropose) {
-          return (
-            <Button
-              onClick={() => onAction("propose", {})}
-              disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Gửi đề xuất
-            </Button>
-          );
-        }
-        return null;
+        return (
+          <div className="flex gap-2">
+            {canUpdate && (
+              <Button
+                onClick={() => router.push(`/asset/transaction/${transaction.id}/edit`)}
+                disabled={isLoading}
+                variant="outline"
+                className="border-blue-300 text-blue-600 hover:bg-blue-50"
+              >
+                Chỉnh sửa
+              </Button>
+            )}
+            {canPropose && (
+              <Button
+                onClick={() => onAction("propose", {})}
+                disabled={isLoading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Gửi đề xuất
+              </Button>
+            )}
+          </div>
+        );
+
+      case TransactionStatus.REJECTED:
+        return (
+          <div className="flex gap-2">
+            {canUpdate && (
+              <Button
+                onClick={() => router.push(`/asset/transaction/${transaction.id}/edit`)}
+                disabled={isLoading}
+                variant="outline"
+                className="border-blue-300 text-blue-600 hover:bg-blue-50"
+              >
+                Chỉnh sửa
+              </Button>
+            )}
+            {canPropose && (
+              <Button
+                onClick={() => onAction("propose", {})}
+                disabled={isLoading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Gửi đề xuất
+              </Button>
+            )}
+          </div>
+        );
 
       case TransactionStatus.PROPOSED:
         if (canApprove) {

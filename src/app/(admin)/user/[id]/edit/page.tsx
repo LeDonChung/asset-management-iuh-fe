@@ -15,7 +15,8 @@ import {
     Shield,
     Users,
     Settings,
-    CheckSquare
+    CheckSquare,
+    ChevronRight
 } from "lucide-react";
 import { User, UserStatus, Role, Unit, UnitType, UnitStatus } from "@/types/asset";
 import Link from "next/link";
@@ -283,14 +284,19 @@ export default function EditUserPage() {
         <div className="space-y-6 p-6">
             {/* Header */}
             <div className="flex items-center space-x-4">
-                <Link href="/user">
-                    <Button variant="ghost" size="icon" className="rounded-lg">
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                </Link>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Chỉnh sửa người dùng</h1>
-                    <p className="text-gray-600">Cập nhật thông tin và phân quyền cho {user.fullName}</p>
+                    <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+                        <button
+                            onClick={() => router.push("/user")}
+                            className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+                        >
+                            Người dùng
+                        </button>
+                        <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                        <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                            Chỉnh sửa
+                        </span>
+                    </div>
                 </div>
             </div>
 

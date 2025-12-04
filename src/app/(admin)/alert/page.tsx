@@ -12,7 +12,6 @@ import {
   MapPin,
   Package,
   Save,
-  Workflow,
   MoreVertical,
 } from "lucide-react";
 import { Alert, AlertStatus, AlertType } from "@/types/asset";
@@ -170,18 +169,12 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
   const [note, setNote] = useState("");
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
 
-  // Load rooms when modal opens
   useEffect(() => {
-      console.log(user)
-
     if (isOpen && user?.unitId) {
-      console.log(user)
-      // Use the current user's unit to fetch rooms
       dispatch(fetchRoomsByUnitId(user.unitId));
     }
   }, [isOpen, dispatch, user?.unitId]);
 
-  // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
       setSelectedResolution(null);
@@ -196,7 +189,6 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
       return;
     }
 
-    // If confirmed and no room selected, require room selection
     if (selectedResolution === AlertStatus.CONFIRMED && !selectedRoomId) {
       window.alert("Vui lòng chọn phòng để di chuyển tài sản");
       return;
@@ -233,7 +225,6 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
     >
       <ModalBody>
         <div className="space-y-6">
-          {/* Alert Image if available */}
           {alert.image && (
             <div className="border border-gray-200 rounded-lg p-4">
               <label className="text-sm font-medium text-gray-700 mb-2 block">
@@ -250,7 +241,6 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
             </div>
           )}
 
-          {/* Alert Details */}
           <div className="border border-gray-200 rounded-lg p-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -306,7 +296,6 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Resolution Form */}
           {alert.status === AlertStatus.PENDING && (
             <div className="border border-gray-200 rounded-lg p-4">
               <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
@@ -335,7 +324,6 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
                 ))}
               </div>
 
-              {/* Room Selection for Confirmed Resolution */}
               {selectedResolution === AlertStatus.CONFIRMED && (
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <label className="block text-sm font-medium text-blue-800 mb-2">
@@ -375,7 +363,6 @@ const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
             </div>
           )}
 
-          {/* Existing Resolution */}
           {alert.status !== AlertStatus.PENDING && (
             <div className="border border-green-200 bg-green-50 rounded-lg p-4">
               <h3 className="text-lg font-medium text-green-900 mb-4">
@@ -460,7 +447,6 @@ export default function AlertPage() {
       router.push("/unauthorized");
     }
   }, [canView, router]);
-  // Get pending alerts for urgent notifications (combine from store and socket)
   const pendingAlerts = [...pendingAlertsFromSocket];
 
   useEffect(() => {
@@ -493,24 +479,18 @@ export default function AlertPage() {
     dispatch(filterAlert(currentFilter));
   };
 
-  // Socket listener for receiving new alerts
   useEffect(() => {
     if (!socket || !isConnected) return;
 
     const handleReceiveAlert = (alertDatas: any) => {
-      console.log("Received new alerts via socket:", alertDatas);
-      // For simplicity, handle one alert at a time
       alertDatas.forEach((alertData: any) => {
-        // Add to pending alerts from socket
         setPendingAlertsFromSocket((prev) => {
-          // Check if alert already exists to avoid duplicates
           const exists = prev.some((alert) => alert.id === alertData.id);
           if (exists) return prev;
 
           return [...prev, alertData];
         });
 
-        // Show toast notification
         toast.success(
           `🚨 Cảnh báo mới: ${alertData.asset?.name} - ${
             alertData.room?.name || "N/A"
@@ -521,7 +501,6 @@ export default function AlertPage() {
           }
         );
 
-        // Show urgent modal for new alert if it's really urgent (within last minute)
         const now = new Date();
         const alertTime = new Date(alertData.createdAt);
         const diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
@@ -533,25 +512,20 @@ export default function AlertPage() {
       });
     };
 
-    // Register socket listener
     on("receive_alert", handleReceiveAlert);
 
-    // Cleanup on unmount
     return () => {
       off("receive_alert", handleReceiveAlert);
     };
   }, [socket, isConnected, on, off, dispatch]);
 
-  // Show urgent alert modal for new pending alerts
   useEffect(() => {
     if (pendingAlerts.length > 0 && !showUrgentModal) {
-      // Simulate new alert detection
       const latestAlert = pendingAlerts.sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       )[0];
 
-      // Show modal for alerts within last 5 minutes
       const now = new Date();
       const alertTime = new Date(latestAlert.createdAt);
       const diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
@@ -564,22 +538,16 @@ export default function AlertPage() {
   }, [pendingAlerts.length]);
 
   const handleAcknowledge = (alertId: string) => {
-    // Just close the modal, don't change status
-    // But keep the alert in pending list for processing later
     setShowUrgentModal(false);
     setSelectedAlert(null);
   };
 
   const handleViewDetail = (alertId: string) => {
-    // First try to find in filtered alerts (table data)
     let alert = filteredAlerts.data.find((a) => a.id === alertId);
-
-    // If not found, try to find in pending alerts from socket
     if (!alert) {
       alert = pendingAlertsFromSocket.find((a) => a.id === alertId);
     }
 
-    // If still not found, try to find in all alerts
     if (!alert) {
       alert = lstAllAlert.find((a) => a.id === alertId);
     }
@@ -600,27 +568,22 @@ export default function AlertPage() {
     toRoomId?: string
   ) => {
     try {
-      // If status is CONFIRMED and room is selected, call move API
       if (status === AlertStatus.CONFIRMED && toRoomId) {
         await dispatch(moveAssetFromAlert({ alertId, toRoomId, note })).unwrap();
         toast.success("Cảnh báo đã được xử lý và tài sản đã được di chuyển");
       } else {
-        // Otherwise, just resolve the alert normally
         await dispatch(createAlertResolution({ alertId, status, note })).unwrap();
         toast.success("Cảnh báo đã được xử lý");
       }
 
-      // Remove from pending alerts from socket if exists
       setPendingAlertsFromSocket((prev) =>
         prev.filter((alert) => alert.id !== alertId)
       );
 
-      // Gửi lệnh dừng buzzer đến thiết bị
       if (selectedAlert?.deviceId && socket) {
         socket.emit("send_stop_buzzer", selectedAlert.deviceId);
       }
 
-      // Refresh the alerts list to get updated data
       dispatch(filterAlert(currentFilter));
     } catch (error: any) {
       toast.error(
@@ -633,7 +596,6 @@ export default function AlertPage() {
     setSelectedAlert(null);
   };
 
-  // Define table columns
   const columns: TableColumn<Alert>[] = [
     {
       key: "createdAt",
@@ -757,16 +719,15 @@ export default function AlertPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Cảnh báo di chuyển
-          </h1>
-          <p className="text-gray-600">
-            Giám sát và xử lý các cảnh báo di chuyển tài sản không hợp lệ
-          </p>
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Cảnh báo di chuyển
+            </span>
+          </div>
         </div>
       </div>
 

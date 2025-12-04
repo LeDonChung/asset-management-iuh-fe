@@ -39,10 +39,12 @@ export interface UpdateMovementStatusDto {
   note?: string
   rejectionReason?: string
   approvalNote?: string
+  evidenceUrl?: string
 }
 
 export interface ProposeMovementDto {
   note?: string
+  evidenceUrl?: string
 }
 
 export interface ApproveMovementDto {
@@ -98,12 +100,12 @@ export interface MovementItemResponseDto {
   fromRoom?: {
     id: string
     name: string
-    roomCode: string
+    code: string
   }
   toRoom?: {
     id: string
     name: string
-    roomCode: string
+    code: string
   }
   mover?: {
     id: string
