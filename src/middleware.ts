@@ -6,7 +6,7 @@ import type { NextRequest } from 'next/server'
 
 const protectedRoutes = ['/admin', '/asset', '/unit']
 const authRoutes = ['/login', '/register']
-const publicRoutes = ['/api', '/_next', '/favicon.ico', '/public', '/']
+const publicRoutes = ['/api', '/_next', '/favicon.ico', '/public', '/', '/logo_iuh.png', '/logo_iuh_full.png', '/bg.jpg']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -47,7 +47,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public (public files)
+     * - Static assets (png, jpg, svg, etc.)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|public|.*\\.png|.*\\.jpg|.*\\.svg|.*\\.ico).*)',
   ],
 }

@@ -81,7 +81,7 @@ const Header = React.memo(function Header({
         {!isCollapsed && (
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 rounded-lg flex items-center justify-center">
-              <img src={'./logo_iuh.png'} alt="IUH Logo" className="w-full h-full object-contain"/>
+              <img src={'/logo_iuh.png'} alt="IUH Logo" className="w-full h-full object-contain"/>
             </div>
             <div className="flex flex-col">
               <span className="text-xl font-bold text-gray-900">
@@ -92,7 +92,7 @@ const Header = React.memo(function Header({
         )}
         {isCollapsed && (
           <div className="w-10 h-10 rounded-lg flex items-center justify-center">
-            <img src={'./logo_iuh.png'} alt="IUH Logo" className="w-full h-full object-contain"/>
+            <img src={'/logo_iuh.png'} alt="IUH Logo" className="w-full h-full object-contain"/>
           </div>
         )}
         <div className="flex items-center space-x-2">
@@ -207,7 +207,7 @@ const getNavigationByPermissions = (userPermissions: string[], userRoles: string
         {
           name: "Định danh",
           href: "/asset/unidentified",
-          // permissions: [PermissionConstants.PERM_IDENTIFY_ASSET],
+          permissions: [PermissionConstants.PERM_IDENTIFY_ASSET],
         },
         {
           name: "Danh mục",
