@@ -251,7 +251,7 @@ export default function RoleFormModal({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phạm vi truy cập
+                    Phạm vi truy cập <span className="text-red-500">*</span>
                   </label>
                   <Select
                     value={formData.accessScopeId}
@@ -270,6 +270,9 @@ export default function RoleFormModal({
                       </SelectOption>
                     ))}
                   </Select>
+                  {errors.permissions && (
+                    <p className="text-red-500 text-sm mt-1">{errors.permissions}</p>
+                  )}
                 </div>
               </div>
             </div>

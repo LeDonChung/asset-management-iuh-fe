@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Users, MoreVertical } from "lucide-react";
+import { Search, Plus, Users, MoreVertical, ChevronRight } from "lucide-react";
 import { User, UserStatus, Unit, AccessScopeType } from "@/types/asset";
 import Link from "next/link";
 import UserDetailModal from "@/components/user/UserDetailModal";
@@ -15,7 +15,6 @@ import { RootState } from "@/lib/store";
 import {
   deletedUser,
   filterUser,
-  getAllUser,
   updateUserStatus,
   UserFilterRequest,
 } from "@/lib/store/slices/userSlice";
@@ -48,7 +47,7 @@ const statusColors = {
 export default function UsersPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { lstUser, filteredUsers, currentFilter } = useAppSelector(
+  const { filteredUsers, currentFilter } = useAppSelector(
     (state: RootState) => state.user
   );
   const { campuses } = useAppSelector((state: RootState) => state.unit);
@@ -130,7 +129,7 @@ export default function UsersPage() {
         .unwrap()
         .then(() => {
           toast.success("Xóa người dùng thành công!");
-          dispatch(getAllUser());
+          dispatch(filterUser(currentFilter));
         })
         .catch(() => {
           toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
@@ -139,7 +138,8 @@ export default function UsersPage() {
   };
 
   const handleToggleLock = (userId: string) => {
-    const user = lstUser.find((u) => u.id === userId);
+    const user = filteredUsers.data.find((u) => u.id === userId);
+    
     if (!user) return;
     if (
       confirm(
@@ -160,7 +160,7 @@ export default function UsersPage() {
               user.status === UserStatus.LOCKED ? "Mở khóa" : "Khóa"
             } tài khoản người dùng thành công!`
           );
-          dispatch(getAllUser());
+          dispatch(filterUser(currentFilter));
         })
         .catch(() => {
           toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
@@ -318,12 +318,12 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Quản lý người dùng
-          </h1>
-          <p className="text-gray-600">
-            Quản lý thông tin người dùng và phân quyền
-          </p>
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Người dùng
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {canCreate && (

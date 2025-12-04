@@ -18,6 +18,7 @@ import {
   ArrowRight,
   MapPin,
   Package,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -81,33 +82,60 @@ const MovementItemsTable: React.FC<{
       ),
     },
     {
-      key: "fromRoom",
-      title: "Từ phòng",
+      key: "roomMovement",
+      title: "Di chuyển",
       render: (value, record) => (
         <div className="text-left">
-          {record.fromRoom ? (
-            <div className="space-y-1">
-              <div className="font-medium">{record.fromRoom.name}</div>
-              <div className="text-sm text-gray-500">
-                {record.fromRoom.roomCode}
+          {record.fromRoom && record.toRoom ? (
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col min-w-[120px]">
+                <div className="text-xs text-gray-500 mb-1">Từ phòng</div>
+                <div className="font-medium text-sm text-gray-900">
+                  {record.fromRoom.name || "N/A"}
+                </div>
+              </div>
+              <ArrowRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <div className="flex flex-col min-w-[120px]">
+                <div className="text-xs text-gray-500 mb-1">Đến phòng</div>
+                <div className="font-medium text-sm text-blue-600">
+                  {record.toRoom.code && record.toRoom.code.indexOf("INVENTORY") !== -1
+                    ? "Kho"
+                    : record.toRoom.name || "N/A"}
+                </div>
               </div>
             </div>
-          ) : (
-            <span className="text-gray-400 text-sm">Chưa phân bổ</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "toRoom",
-      title: "Đến phòng",
-      render: (value, record) => (
-        <div className="text-left">
-          {record.toRoom ? (
-            <div className="space-y-1">
-              <div className="font-medium">{record.toRoom.name}</div>
-              <div className="text-sm text-gray-500">
-                {record.toRoom.roomCode}
+          ) : record.fromRoom ? (
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col min-w-[120px]">
+                <div className="text-xs text-gray-500 mb-1">Từ phòng</div>
+                <div className="font-medium text-sm text-gray-900">
+                  {record.fromRoom.name || "N/A"}
+                </div>
+                {record.fromRoom.code && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    ({record.fromRoom.code})
+                  </div>
+                )}
+              </div>
+              <ArrowRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <span className="text-gray-400 text-sm">Chưa phân bổ</span>
+            </div>
+          ) : record.toRoom ? (
+            <div className="flex items-center gap-3">
+              <span className="text-gray-400 text-sm">Chưa phân bổ</span>
+              <ArrowRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <div className="flex flex-col min-w-[120px]">
+                <div className="text-xs text-gray-500 mb-1">Đến phòng</div>
+                <div className="font-medium text-sm text-blue-600">
+                  {record.toRoom.code && record.toRoom.code.indexOf("INVENTORY") !== -1
+                    ? "Kho"
+                    : record.toRoom.name || "N/A"}
+                </div>
+                {record.toRoom.code && record.toRoom.code.indexOf("INVENTORY") === -1 && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    ({record.toRoom.code})
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -131,7 +159,9 @@ const MovementItemsTable: React.FC<{
     }
   ];
 
-  return <Table data={items || []} columns={columns} />;
+  return <Table 
+  title="Danh sách tài sản"
+  data={items || []} columns={columns} />;
 };
 
 // Component để hiển thị lịch sử xử lý
@@ -142,85 +172,122 @@ const MovementHistory: React.FC<{
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
+  if (!sortedHistories || sortedHistories.length === 0) {
+    return (
+      <Card className="sticky top-6 border border-gray-300">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <Clock className="w-5 h-5" />
+            Lịch sử xử lý
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-gray-500">
+            <Clock className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+            <p className="text-sm">Chưa có lịch sử xử lý</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="sticky top-6">
+    <Card className="sticky top-6 border border-gray-300">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-xl">
           <Clock className="w-5 h-5" />
           Lịch sử xử lý
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4 max-h-96 overflow-y-auto">
+        <div className="space-y-0 max-h-[600px] overflow-y-auto pr-2">
           {sortedHistories.map((history, index) => (
-            <div key={history.id} className="flex gap-4">
-              <div className="flex flex-col items-center">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    history.newStatus === MoveStatus.APPROVED
-                      ? "bg-green-100 text-green-600"
-                      : history.newStatus === MoveStatus.REJECTED
-                      ? "bg-red-100 text-red-600"
-                      : history.newStatus === MoveStatus.COMPLETED
-                      ? "bg-blue-100 text-blue-600"
-                      : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {history.newStatus === MoveStatus.APPROVED ? (
-                    <CheckCircle className="w-4 h-4" />
-                  ) : history.newStatus === MoveStatus.REJECTED ? (
-                    <XCircle className="w-4 h-4" />
-                  ) : history.newStatus === MoveStatus.COMPLETED ? (
-                    <CheckCircle className="w-4 h-4" />
-                  ) : (
-                    <FileText className="w-4 h-4" />
+            <div key={history.id} className="relative pl-2">
+              <div className="flex gap-4">
+                {/* Timeline line and Icon */}
+                <div className="flex flex-col items-center">
+                  {/* Icon circle */}
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-sm relative z-10 ${
+                      history.newStatus === MoveStatus.APPROVED
+                        ? "bg-green-100 text-green-600 border-green-200"
+                        : history.newStatus === MoveStatus.REJECTED
+                        ? "bg-red-100 text-red-600 border-red-200"
+                        : history.newStatus === MoveStatus.COMPLETED
+                        ? "bg-blue-100 text-blue-600 border-blue-200"
+                        : history.newStatus === MoveStatus.PENDING_APPROVAL
+                        ? "bg-yellow-100 text-yellow-600 border-yellow-200"
+                        : "bg-gray-100 text-gray-600 border-gray-200"
+                    }`}
+                  >
+                    {history.newStatus === MoveStatus.APPROVED ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : history.newStatus === MoveStatus.REJECTED ? (
+                      <XCircle className="w-4 h-4" />
+                    ) : history.newStatus === MoveStatus.COMPLETED ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : (
+                      <FileText className="w-4 h-4" />
+                    )}
+                  </div>
+                  {/* Timeline line */}
+                  {index < sortedHistories.length - 1 && (
+                    <div className="w-0.5 h-full bg-gray-200 mt-2 min-h-[60px]" />
                   )}
                 </div>
-                {index < sortedHistories.length - 1 && (
-                  <div className="w-0.5 h-8 bg-gray-200 mt-2" />
-                )}
-              </div>
-              <div className="flex-1 pb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-                  <Badge
-                    className={
-                      statusColors[history.newStatus] ||
-                      "bg-gray-100 text-gray-800"
-                    }
-                  >
-                    {statusLabels[history.newStatus] || history.newStatus}
-                  </Badge>
-                  <span className="text-sm text-gray-500">
-                    {history.createdAt
-                      ? format(
-                          new Date(history.createdAt),
-                          "dd/MM/yyyy HH:mm",
-                          { locale: vi }
-                        )
-                      : "N/A"}
-                  </span>
-                </div>
-                <div className="font-medium text-sm">
-                  {history.changer?.fullName || "N/A"}
-                </div>
-                {history.note && (
-                  <div className="text-sm text-gray-600 mt-1">
-                    {history.note}
-                  </div>
-                )}
-                {history.evidenceUrl && (
-                  <div className="mt-2">
-                    <a
-                      href={history.evidenceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+
+                {/* Content */}
+                <div className="flex-1 pb-6 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <Badge
+                      className={`${
+                        statusColors[history.newStatus] ||
+                        "bg-gray-100 text-gray-800"
+                      } text-xs`}
                     >
-                      <FileText className="w-3 h-3" />
-                      Xem minh chứng
-                    </a>
+                      {statusLabels[history.newStatus] || history.newStatus}
+                    </Badge>
+                    <span className="text-xs text-gray-500">
+                      {history.createdAt
+                        ? format(
+                            new Date(history.createdAt),
+                            "dd/MM/yyyy HH:mm",
+                            { locale: vi }
+                          )
+                        : "N/A"}
+                    </span>
                   </div>
-                )}
+                  
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <span className="font-medium text-sm text-gray-900">
+                      {history.changer?.fullName || "N/A"}
+                    </span>
+                  </div>
+
+                  {history.note && (
+                    <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="text-xs text-gray-500 mb-1">Ghi chú:</div>
+                      <div className="text-sm text-gray-700 leading-relaxed">
+                        {history.note}
+                      </div>
+                    </div>
+                  )}
+
+                  {history.evidenceUrl && (
+                    <div className="mt-2">
+                      <a
+                        href={history.evidenceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors px-3 py-1.5 rounded-md hover:bg-blue-50"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Xem minh chứng
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -233,10 +300,11 @@ const MovementHistory: React.FC<{
 // Component để hiển thị các action buttons
 const MovementActions: React.FC<{
   movement: MovementResponseDto;
-  onAction: (type: "propose" | "approve" | "reject" | "complete", data: any) => void;
+  onAction: (type: "propose" | "approve" | "reject", data: any) => void;
   isLoading: boolean;
 }> = ({ movement, onAction, isLoading }) => {
   const { hasAnyPermission } = useAuth();
+  const router = useRouter();
 
   const canApprove = hasAnyPermission([
     PermissionConstants.PERM_APPROVE_MOVEMENT,
@@ -251,18 +319,54 @@ const MovementActions: React.FC<{
   const renderActions = () => {
     switch (movement.status) {
       case MoveStatus.DRAFT:
-        if (canPropose) {
-          return (
-            <Button
-              onClick={() => onAction("propose", {})}
-              disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Gửi đề xuất
-            </Button>
-          );
-        }
-        return null;
+        return (
+          <div className="flex gap-2">
+            {canUpdate && (
+              <Button
+                onClick={() => router.push(`/asset/move/${movement.id}/edit`)}
+                disabled={isLoading}
+                variant="outline"
+                className="border-blue-300 text-blue-600 hover:bg-blue-50"
+              >
+                Chỉnh sửa
+              </Button>
+            )}
+            {canPropose && (
+              <Button
+                onClick={() => onAction("propose", {})}
+                disabled={isLoading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Gửi đề xuất
+              </Button>
+            )}
+          </div>
+        );
+
+      case MoveStatus.REJECTED:
+        return (
+          <div className="flex gap-2">
+            {canUpdate && (
+              <Button
+                onClick={() => router.push(`/asset/move/${movement.id}/edit`)}
+                disabled={isLoading}
+                variant="outline"
+                className="border-blue-300 text-blue-600 hover:bg-blue-50"
+              >
+                Chỉnh sửa
+              </Button>
+            )}
+            {canPropose && (
+              <Button
+                onClick={() => onAction("propose", {})}
+                disabled={isLoading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Gửi đề xuất
+              </Button>
+            )}
+          </div>
+        );
 
       case MoveStatus.PENDING_APPROVAL:
         if (canApprove) {
@@ -284,20 +388,6 @@ const MovementActions: React.FC<{
                 Từ chối
               </Button>
             </div>
-          );
-        }
-        return null;
-
-      case MoveStatus.APPROVED:
-        if (canUpdate) {
-          return (
-            <Button
-              onClick={() => onAction("complete", {})}
-              disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Hoàn thành
-            </Button>
           );
         }
         return null;
@@ -324,7 +414,7 @@ export default function MovementDetailPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<
-    "propose" | "approve" | "reject" | "complete" | null
+    "propose" | "approve" | "reject" | null
   >(null);
 
   const movementId = params.id as string;
@@ -343,7 +433,7 @@ export default function MovementDetailPage() {
     }
   }, [movementId, dispatch, canView, router]);
 
-  const handleAction = (type: "propose" | "approve" | "reject" | "complete", data: any) => {
+  const handleAction = (type: "propose" | "approve" | "reject", data: any) => {
     setModalType(type);
     setIsModalOpen(true);
   };
@@ -357,7 +447,10 @@ export default function MovementDetailPage() {
           await dispatch(
             proposeMovement({
               id: currentMovementDetail.id,
-              proposeDto: formData,
+              proposeDto: {
+                note: formData.note,
+                evidenceUrl: formData.evidenceUrl,
+              },
             })
           ).unwrap();
           toast.success("Đề xuất đã được gửi thành công");
@@ -379,18 +472,6 @@ export default function MovementDetailPage() {
             })
           ).unwrap();
           toast.success("Yêu cầu di chuyển đã được từ chối");
-          break;
-        case "complete":
-          await dispatch(
-            updateMovementStatus({
-              id: currentMovementDetail.id,
-              updateDto: {
-                status: MoveStatus.COMPLETED,
-                note: formData.note || formData.approvalNote,
-              },
-            })
-          ).unwrap();
-          toast.success("Yêu cầu di chuyển đã được hoàn thành");
           break;
       }
 
@@ -434,37 +515,34 @@ export default function MovementDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push("/asset/move")}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-xl font-semibold">Chi tiết di chuyển tài sản</h1>
-                <p className="text-sm text-gray-600 truncate max-w-md">
-                  Yêu cầu di chuyển #{currentMovementDetail.id.slice(0, 8)}
-                </p>
+      <div className="p-4 sm:p-6">
+        {/* Header with Breadcrumb */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+            <div>
+              <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+                <button
+                  onClick={() => router.push("/asset/asset-book")}
+                  className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+                >
+                  Tài sản
+                </button>
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                <button
+                  onClick={() => router.push("/asset/move")}
+                  className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+                >
+                  Di chuyển
+                </button>
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                  Chi tiết di chuyển
+                </span>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center space-x-2">
-              <Badge
-                className={
-                  statusColors[currentMovementDetail.status] ||
-                  "bg-gray-100 text-gray-800"
-                }
-              >
-                {statusLabels[currentMovementDetail.status] ||
-                  currentMovementDetail.status}
-              </Badge>
+            <div className="flex items-center gap-2 flex-wrap">
               <MovementActions
                 movement={currentMovementDetail}
                 onAction={handleAction}
@@ -473,50 +551,29 @@ export default function MovementDetailPage() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Content */}
+        <div className="space-y-6">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Cột trái - Nội dung chính */}
           <div className="xl:col-span-2 space-y-6">
             {/* Thông tin cơ bản */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <Card className="border-0 shadow-none">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    Thông tin yêu cầu di chuyển
-                  </CardTitle>
-                </CardHeader>
+            <Card className="border border-gray-300">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  Thông tin yêu cầu di chuyển
+                </CardTitle>
+              </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <User className="w-4 h-4" />
                         Người tạo
                       </div>
                       <div className="font-medium">
                         {currentMovementDetail.requester?.fullName || "N/A"}
                       </div>
-                      <div className="text-sm text-gray-500">
-                        {currentMovementDetail.requester?.email || "N/A"}
-                      </div>
                     </div>
-
-                    {currentMovementDetail.approver && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <CheckCircle className="w-4 h-4" />
-                          Người phê duyệt
-                        </div>
-                        <div className="font-medium">
-                          {currentMovementDetail.approver.fullName}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {currentMovementDetail.approver.email}
-                        </div>
-                      </div>
-                    )}
 
                     <div className="space-y-2">
                       <div className="text-sm text-gray-600">Ngày tạo</div>
@@ -550,19 +607,6 @@ export default function MovementDetailPage() {
                         <div className="font-medium">
                           {format(
                             new Date(currentMovementDetail.approvedAt),
-                            "dd/MM/yyyy HH:mm",
-                            { locale: vi }
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {currentMovementDetail.completedAt && (
-                      <div className="space-y-2">
-                        <div className="text-sm text-gray-600">Ngày hoàn thành</div>
-                        <div className="font-medium">
-                          {format(
-                            new Date(currentMovementDetail.completedAt),
                             "dd/MM/yyyy HH:mm",
                             { locale: vi }
                           )}
@@ -620,22 +664,10 @@ export default function MovementDetailPage() {
                   )}
                 </CardContent>
               </Card>
-            </div>
 
-            {/* Danh sách tài sản */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="w-5 h-5" />
-                  Danh sách tài sản ({currentMovementDetail.items?.length || 0})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <MovementItemsTable
-                  items={currentMovementDetail.items || []}
-                />
-              </CardContent>
-            </Card>
+              <MovementItemsTable
+                items={currentMovementDetail.items || []}
+              />
           </div>
 
           {/* Cột phải - Lịch sử xử lý */}
@@ -645,6 +677,7 @@ export default function MovementDetailPage() {
             />
           </div>
         </div>
+      </div>
       </div>
 
       {/* Modal xử lý */}
@@ -657,20 +690,16 @@ export default function MovementDetailPage() {
             ? "Gửi đề xuất di chuyển"
             : modalType === "approve"
             ? "Phê duyệt yêu cầu di chuyển"
-            : modalType === "reject"
-            ? "Từ chối yêu cầu di chuyển"
-            : "Hoàn thành yêu cầu di chuyển"
+            : "Từ chối yêu cầu di chuyển"
         }
         description={
           modalType === "propose"
-            ? "Bạn có chắc chắn muốn gửi đề xuất di chuyển này?"
+            ? "Bạn có chắc chắn muốn gửi đề xuất di chuyển này? Bạn có thể đính kèm file minh chứng."
             : modalType === "approve"
-            ? "Bạn có chắc chắn muốn phê duyệt yêu cầu di chuyển này?"
-            : modalType === "reject"
-            ? "Bạn có chắc chắn muốn từ chối yêu cầu di chuyển này?"
-            : "Bạn có chắc chắn muốn hoàn thành yêu cầu di chuyển này?"
+            ? "Bạn có chắc chắn muốn phê duyệt yêu cầu di chuyển này? Tài sản sẽ được di chuyển ngay sau khi phê duyệt. Bạn có thể đính kèm file minh chứng."
+            : "Bạn có chắc chắn muốn từ chối yêu cầu di chuyển này?"
         }
-        action={modalType === "complete" ? "approve" : (modalType || "propose")}
+        action={modalType || "propose"}
         isLoading={isFetchingMovement}
       />
     </div>

@@ -18,6 +18,7 @@ import {
   Upload,
   File,
   X,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -357,19 +358,18 @@ export default function EditInventorySessionPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/inventory">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Chỉnh sửa kỳ kiểm kê
-          </h1>
-          <p className="text-gray-600">Chỉnh sửa thông tin kỳ kiểm kê: {session?.name}</p>
+      <div className="mb-6">
+        {/* Breadcrumb */}
+        <div className="flex items-center text-sm sm:text-base text-gray-600 mb-2">
+          <Link href="/inventory" className="hover:text-gray-900 text-gray-900 font-semibold text-lg sm:text-xl">
+            Kiểm kê
+          </Link>
+          <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+          <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+            Chỉnh sửa
+          </span>
         </div>
-        </div>
+      </div>
 
       {/* Form */}
       <div className="bg-white rounded-xl border border-gray-300">

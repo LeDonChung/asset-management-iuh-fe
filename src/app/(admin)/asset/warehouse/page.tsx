@@ -18,6 +18,7 @@ import {
   X,
   AlertCircle,
   ArrowRight,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +40,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Types for warehouse assets
 interface WarehouseAssetFilterDto {
   search?: string;
   type?: string;
@@ -114,7 +114,6 @@ export default function WarehousePage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
-  // Redux state
   const {
     warehouseAssets,
     warehouseUnits,
@@ -123,7 +122,6 @@ export default function WarehousePage() {
     error,
   } = useAppSelector((state: RootState) => state.asset);
 
-  // Local state for filters
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -132,19 +130,10 @@ export default function WarehousePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Selection mode states
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [showOnlyMoveable, setShowOnlyMoveable] = useState(false);
 
-  // Mock categories - replace with real data from API
-  const categories = [
-    { id: "1", name: "Máy tính", code: "MAYTINH" },
-    { id: "2", name: "Thiết bị văn phòng", code: "TBVP" },
-    { id: "3", name: "Máy in", code: "MAYIN" },
-  ];
-
-  // Permissions
   const canView = hasAnyPermission([PermissionConstants.PERM_VIEW_ASSET]);
   const canUpdate = hasAnyPermission([PermissionConstants.PERM_UPDATE_ASSET]);
 
@@ -154,11 +143,9 @@ export default function WarehousePage() {
       return;
     }
 
-    // Load available units for filter dropdown
     dispatch(fetchWarehouseUnits());
   }, [canView, router, dispatch]);
 
-  // Load warehouse assets
   const loadWarehouseAssets = async (filters: WarehouseAssetFilterDto) => {
     try {
       await dispatch(fetchWarehouseAssets(filters)).unwrap();
@@ -168,7 +155,6 @@ export default function WarehousePage() {
     }
   };
 
-  // Filter effects
   useEffect(() => {
     const filters: WarehouseAssetFilterDto = {
       search: searchTerm || undefined,
@@ -190,7 +176,6 @@ export default function WarehousePage() {
     itemsPerPage,
   ]);
 
-  // Filter data on client side for moveable assets
   const filteredData = useMemo(() => {
     if (!showOnlyMoveable) {
       return warehouseAssets.data;
@@ -198,17 +183,6 @@ export default function WarehousePage() {
     return warehouseAssets.data.filter((asset) => asset.allowMove);
   }, [warehouseAssets.data, showOnlyMoveable]);
 
-  // Reset filters
-  const resetFilters = () => {
-    setSearchTerm("");
-    setTypeFilter("");
-    setStatusFilter("");
-    setCategoryFilter("");
-    setUnitFilter("");
-    setCurrentPage(1);
-  };
-
-  // Selection handlers
   const handleToggleSelectionMode = () => {
     setIsSelectionMode(!isSelectionMode);
     if (isSelectionMode) {
@@ -231,31 +205,25 @@ export default function WarehousePage() {
       return;
     }
 
-    // Get selected asset objects from filtered data
     const selectedAssetObjects = filteredData.filter((asset) =>
       selectedAssets.includes(asset.id)
     );
 
-    // Store selected assets in localStorage for the location update page
     localStorage.setItem(
       "selectedWarehouseAssets",
       JSON.stringify(selectedAssetObjects)
     );
 
-    // Navigate to bulk location update page
     router.push("/asset/warehouse/bulk-location");
 
-    // Show success message
     toast.success(
       `Đã chọn ${selectedAssetObjects.length} tài sản để cập nhật vị trí`
     );
 
-    // Exit selection mode
     setIsSelectionMode(false);
     setSelectedAssets([]);
   };
 
-  // Calculate stats
   const stats = useMemo(() => {
     const data = filteredData;
     return {
@@ -361,20 +329,8 @@ export default function WarehousePage() {
                 <span>Xem chi tiết</span>
               </DropdownMenuItem>
 
-              {canUpdate && (
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    router.push(`/asset/${asset.id}/location`);
-                  }}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <span>Cập nhật vị trí</span>
-                </DropdownMenuItem>
-              )}
-
               {/* Quick selection for bulk update */}
-              {canUpdate && asset.allowMove && (
+              {canUpdate && (
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
@@ -418,12 +374,20 @@ export default function WarehousePage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Quản lý kho tài sản</h1>
-          <p className="text-gray-600 mt-2">
-            Danh sách tài sản đã tiếp nhận chờ cập nhật vị trí
-          </p>
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <button
+              onClick={() => router.push("/asset/asset-book")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Tài sản
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Kho
+            </span>
+          </div>
         </div>
         <div className="flex items-center space-x-4">
           {/* Bulk location update button */}
@@ -583,7 +547,6 @@ export default function WarehousePage() {
       )}
       {/* Table */}
       <Table
-        title="Danh sách tài sản trong kho"
         columns={columns}
         data={filteredData}
         loading={warehouseLoading}

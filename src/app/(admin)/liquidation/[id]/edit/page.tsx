@@ -1,164 +1,338 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Package, FileText, Eye, Calendar, MapPin, User, Camera, Info, Save, X, RefreshCw } from "lucide-react";
 import {
-  LiquidationProposedInventoryResult,
+  Package,
+  Save,
+  RefreshCw,
+  ChevronDown,
+  Check,
+  Trash2,
+  ChevronRight,
+  Plus,
+  Eye,
+  ArrowLeft,
+  Info,
+  MapPin,
+} from "lucide-react";
+import {
   AssetType,
-  InventoryResultStatus,
-  LiquidationProposedFilterRequest,
-  LiquidationProposalResponseDto,
   LiquidationStatus,
+  AssetBookItemStatus,
+  Asset,
   UpdateLiquidationProposalDto,
   UpdateLiquidationItemDto,
 } from "@/types/asset";
-import Link from "next/link";
-import { useRouter, useParams } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { RootState } from "@/lib/store";
 import {
-  filterLiquidationProposedInventoryResults,
   getLiquidationProposalById,
   updateLiquidationProposal,
 } from "@/lib/store/slices/liquidationSlice";
-import toast from "react-hot-toast";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
-import { useAuth } from "@/contexts/AuthContext";
 import { PermissionConstants } from "@/hooks/usePermissions";
+import toast from "react-hot-toast";
+import AssetBookSelectionModal from "@/components/asset/AssetBookSelectionModal";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 
-const statusLabels = {
-  [InventoryResultStatus.MATCHED]: "Khớp",
-  [InventoryResultStatus.MISSING]: "Thiếu",
-  [InventoryResultStatus.EXCESS]: "Thừa",
-  [InventoryResultStatus.BROKEN]: "Hư hỏng",
-  [InventoryResultStatus.NEEDS_REPAIR]: "Cần sửa chữa",
-  [InventoryResultStatus.LIQUIDATION_PROPOSED]: "Đề xuất thanh lý",
+const statusConfig: Partial<Record<AssetBookItemStatus, { label: string; className: string }>> = {
+  [AssetBookItemStatus.IN_USE]: {
+    label: "Đang sử dụng",
+    className: "bg-green-100 text-green-800 border border-green-200",
+  },
+  [AssetBookItemStatus.TRANSFERRED]: {
+    label: "Đã bàn giao",
+    className: "bg-blue-100 text-blue-800 border border-blue-200",
+  },
+  [AssetBookItemStatus.LIQUIDATED]: {
+    label: "Đã thanh lý",
+    className: "bg-gray-100 text-gray-800 border border-gray-300",
+  },
+  [AssetBookItemStatus.MISSING]: {
+    label: "Thất lạc",
+    className: "bg-red-100 text-red-800 border border-red-200",
+  },
+  [AssetBookItemStatus.DAMAGED]: {
+    label: "Hư hỏng",
+    className: "bg-yellow-100 text-yellow-800 border border-yellow-200",
+  },
+  [AssetBookItemStatus.PROPOSED_LIQUIDATION]: {
+    label: "Đề xuất thanh lý",
+    className: "bg-orange-100 text-orange-800 border border-orange-200",
+  },
 };
 
-const statusColors = {
-  [InventoryResultStatus.MATCHED]: "bg-green-100 text-green-800",
-  [InventoryResultStatus.MISSING]: "bg-red-100 text-red-800",
-  [InventoryResultStatus.EXCESS]: "bg-yellow-100 text-yellow-800",
-  [InventoryResultStatus.BROKEN]: "bg-red-100 text-red-800",
-  [InventoryResultStatus.NEEDS_REPAIR]: "bg-orange-100 text-orange-800",
-  [InventoryResultStatus.LIQUIDATION_PROPOSED]: "bg-purple-100 text-purple-800",
+const getAssetStatusBadge = (status: AssetBookItemStatus) => {
+  const config = statusConfig[status];
+  if (!config) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-300">
+        {status || 'N/A'}
+      </span>
+    );
+  }
+  
+  return (
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.className}`}
+    >
+      {config.label}
+    </span>
+  );
 };
 
-const assetTypeLabels = {
-  [AssetType.FIXED_ASSET]: "Tài sản cố định",
-  [AssetType.TOOLS_EQUIPMENT]: "Công cụ dụng cụ",
-};
+// CardSelect Component
+interface CardSelectProps {
+  label: string;
+  icon: React.ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+  disabled?: boolean;
+  loading?: boolean;
+  className?: string;
+  required?: boolean;
+}
 
-const liquidationStatusLabels = {
-  [LiquidationStatus.DRAFT]: "Nháp",
-  [LiquidationStatus.PROPOSED]: "Đã gửi",
-  [LiquidationStatus.APPROVED]: "Đã duyệt",
-  [LiquidationStatus.REJECTED]: "Từ chối",
-  [LiquidationStatus.FINALIZED]: "Hoàn thành",
-};
+const CardSelect: React.FC<CardSelectProps> = ({
+  label,
+  icon,
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled = false,
+  loading = false,
+  className = "",
+  required = false,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const selectedOption = options.find((opt) => opt.value === value);
 
-const liquidationStatusColors = {
-  [LiquidationStatus.DRAFT]: "bg-gray-100 text-gray-800",
-  [LiquidationStatus.PROPOSED]: "bg-blue-100 text-blue-800",
-  [LiquidationStatus.APPROVED]: "bg-green-100 text-green-800",
-  [LiquidationStatus.REJECTED]: "bg-red-100 text-red-800",
-  [LiquidationStatus.FINALIZED]: "bg-purple-100 text-purple-800",
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (isOpen && !target.closest(".card-select-container")) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className={`relative group card-select-container ${className}`}>
+      <label className={`block font-medium text-gray-700 mb-2 ${className.includes('text-lg') ? 'text-base' : className.includes('text-base') ? 'text-sm' : 'text-xs'}`}>
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <div className="relative">
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
+          className={`
+            w-full ${className.includes('text-lg') ? 'min-h-[3.5rem] text-lg' : className.includes('text-base') ? 'min-h-[2.75rem] text-base' : 'min-h-[2.5rem] text-sm'} pl-3 pr-10 border border-gray-200 rounded-lg 
+            bg-white text-left transition-all duration-200
+            hover:border-gray-300 hover:shadow-sm
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+            disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
+            ${isOpen ? "ring-2 ring-blue-500 border-blue-500" : ""}
+            ${loading ? "cursor-wait" : "cursor-pointer"}
+            relative
+          `}
+        >
+          <div className="flex items-center justify-between h-full py-2.5">
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
+              {icon && (
+                <div
+                  className={`transition-colors flex-shrink-0 ${
+                    isOpen ? "text-blue-500" : "text-gray-400"
+                  }`}
+                >
+                  {icon}
+                </div>
+              )}
+              <span
+                className={`flex-1 truncate ${
+                  selectedOption ? "text-gray-900" : "text-gray-500"
+                }`}
+                title={selectedOption ? selectedOption.label : placeholder}
+              >
+                {selectedOption ? selectedOption.label : placeholder}
+              </span>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ml-2 ${
+                isOpen ? "rotate-180" : ""
+              }`}
+            />
+          </div>
+        </button>
+
+        {loading && (
+          <div className="absolute right-8 top-1/2 transform -translate-y-1/2 z-10">
+            <RefreshCw className="h-4 w-4 text-gray-400 animate-spin" />
+          </div>
+        )}
+
+        {isOpen && (
+          <div className="absolute z-[9999] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto">
+            {options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className={`
+                  w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors
+                  flex items-start justify-between min-h-[3rem]
+                  ${
+                    option.value === value
+                      ? "bg-blue-50 text-blue-900"
+                      : "text-gray-900"
+                  }
+                `}
+              >
+                <span className="flex-1 leading-relaxed break-words">
+                  {option.label}
+                </span>
+                {option.value === value && (
+                  <Check className="h-4 w-4 text-blue-600" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default function LiquidationEditPage() {
   const router = useRouter();
   const params = useParams();
   const dispatch = useAppDispatch();
-  const liquidationId = params.id as string;
-  
+  const proposalId = params.id as string;
+
   const {
-    filteredLiquidationProposedInventoryResults,
-    currentLiquidationProposedFilter,
     currentLiquidationProposal,
     isFetchingProposal,
     isUpdatingProposal,
+    fetchProposalError,
     updateProposalError,
   } = useAppSelector((state: RootState) => state.liquidation);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [roomFilter, setRoomFilter] = useState<string>("");
-  const [assetTypeFilter, setAssetTypeFilter] = useState<AssetType>(AssetType.FIXED_ASSET);
   const { user, hasAnyPermission } = useAuth();
-  
   const canUpdate = hasAnyPermission([
     PermissionConstants.PERM_UPDATE_LIQUIDATION,
   ]);
 
-  // State for selected assets (for comparison and editing)
-  const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
-  const [originalSelectedAssets, setOriginalSelectedAssets] = useState<string[]>([]);
-  
-  // State for detail modal
+  const [assetsFromStore, setAssetsFromStore] = useState<any[]>([]);
+  const [filteredAssets, setFilteredAssets] = useState<any[]>([]);
+  const [assetNotes, setAssetNotes] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedAssetDetail, setSelectedAssetDetail] = useState<LiquidationProposedInventoryResult | null>(null);
-  
-  // State for save confirmation modal
-  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [selectedAssetDetail, setSelectedAssetDetail] = useState<any | null>(null);
 
+  // Load liquidation proposal data
   useEffect(() => {
     if (!canUpdate) {
       router.push("/unauthorized");
       return;
     }
 
-    if (liquidationId) {
-      // Load liquidation proposal details
-      dispatch(getLiquidationProposalById(liquidationId));
+    if (proposalId) {
+      dispatch(getLiquidationProposalById(proposalId));
     }
-  }, [canUpdate, router, liquidationId, dispatch]);
+  }, [proposalId, dispatch, canUpdate, router]);
 
-  // Load inventory data when proposal is loaded
+  // Initialize form data when proposal is loaded
   useEffect(() => {
     if (currentLiquidationProposal) {
-      const initialFilter: LiquidationProposedFilterRequest = {
-        ...currentLiquidationProposedFilter,
-        assetType: currentLiquidationProposal.assetType,
-      };
+      // Check if proposal can be edited
+      if (
+        currentLiquidationProposal.status !== LiquidationStatus.DRAFT &&
+        currentLiquidationProposal.status !== LiquidationStatus.REJECTED
+      ) {
+        toast.error("Chỉ có thể chỉnh sửa đề xuất thanh lý ở trạng thái Nháp hoặc Từ chối");
+        router.push(`/liquidation/${proposalId}`);
+        return;
+      }
 
-      dispatch(filterLiquidationProposedInventoryResults(initialFilter));
-      
-      // Set original selected assets from current proposal
-      const currentAssetIds = currentLiquidationProposal.items?.map(item => item.assetId) || [];
-      setOriginalSelectedAssets(currentAssetIds);
-      // Note: selectedAssets will be set after inventory data is loaded
+      // Convert liquidation items to assets format
+      const assets = (currentLiquidationProposal.items || []).map((item) => ({
+        id: item.assetId,
+        itemId: item.id, // Store the liquidation item ID
+        ktCode: item.asset?.ktCode || "",
+        fixedCode: item.asset?.fixedCode || "",
+        name: item.asset?.name || "",
+        specs: item.asset?.specs || "",
+        entrydate: item.asset?.entrydate || "",
+        currentRoomId: item.asset?.currentRoomId,
+        unit: item.asset?.unit || "",
+        quantity: item.systemQuantity || 1,
+        systemQuantity: item.systemQuantity,
+        countedQuantity: item.countedQuantity,
+        type: item.asset?.type as any || "FIXED_ASSET" as any,
+        bookItemStatus: item.asset?.status as any,
+        currentRoom: item.asset?.currentRoom ? {
+          id: item.asset.currentRoom.id,
+          name: item.asset.currentRoom.name,
+          roomCode: item.asset.currentRoom.roomCode,
+          building: item.asset.currentRoom.building || "",
+          floor: item.asset.currentRoom.floor || "",
+          roomNumber: item.asset.currentRoom.roomNumber || "",
+          status: item.asset.currentRoom.status as any || "ACTIVE" as any,
+          unitId: item.asset.currentRoom.unitId,
+        } : undefined,
+        imageUrl: item.imageUrl,
+      }));
+
+      setAssetsFromStore(assets);
+      setFilteredAssets(assets);
+
+      // Set asset notes
+      const notes: Record<string, string> = {};
+      (currentLiquidationProposal.items || []).forEach((item) => {
+        if (item.note) {
+          notes[item.assetId] = item.note;
+        }
+      });
+      setAssetNotes(notes);
     }
-  }, [currentLiquidationProposal, dispatch]);
-
-  // Set selected assets when inventory data is loaded
-  useEffect(() => {
-    if (filteredLiquidationProposedInventoryResults.data.length > 0 && originalSelectedAssets.length > 0) {
-      // Map asset IDs to inventory result IDs
-      const selectedInventoryIds = filteredLiquidationProposedInventoryResults.data
-        .filter(item => originalSelectedAssets.includes(item.asset.id))
-        .map(item => item.id);
-      setSelectedAssets(selectedInventoryIds);
-    }
-  }, [filteredLiquidationProposedInventoryResults.data, originalSelectedAssets]);
-
-  // Check for changes
-  useEffect(() => {
-    const hasChanged = JSON.stringify(selectedAssets.sort()) !== JSON.stringify(originalSelectedAssets.map(assetId => 
-      filteredLiquidationProposedInventoryResults.data.find(item => item.asset.id === assetId)?.id
-    ).filter(Boolean).sort());
-    setHasChanges(hasChanged);
-  }, [selectedAssets, originalSelectedAssets, filteredLiquidationProposedInventoryResults.data]);
+  }, [currentLiquidationProposal, router, proposalId]);
 
   // Show error toast if update fails
   useEffect(() => {
@@ -167,59 +341,167 @@ export default function LiquidationEditPage() {
     }
   }, [updateProposalError]);
 
+  // Handle remove asset from list
+  const handleRemoveAsset = (assetId: string) => {
+    const updatedAssets = assetsFromStore.filter(asset => asset.id !== assetId);
+    setAssetsFromStore(updatedAssets);
+    setFilteredAssets(updatedAssets);
+    
+    // Remove note
+    setAssetNotes((prev) => {
+      const copy = { ...prev };
+      delete copy[assetId];
+      return copy;
+    });
+  };
+
+  // Handle note change
+  const handleNoteChange = (assetId: string, note: string) => {
+    setAssetNotes((prev) => ({ ...prev, [assetId]: note }));
+  };
+
+  // Handle add assets from modal
+  const handleAddAssetsFromModal = (selectedAssets: Asset[]) => {
+    if (!selectedAssets || selectedAssets.length === 0) {
+      toast.error("Không có tài sản nào được chọn!");
+      return;
+    }
+
+    const currentAssetIds = assetsFromStore.map(asset => asset.id);
+    const existingIds = new Set(currentAssetIds);
+    const newAssets = selectedAssets.filter(asset => !existingIds.has(asset.id));
+    
+    if (newAssets.length === 0) {
+      toast.error("Tất cả tài sản đã được thêm vào danh sách!");
+      setIsAddAssetModalOpen(false);
+      return;
+    }
+
+    // Convert new assets to the format we need
+    const formattedNewAssets = newAssets.map(asset => ({
+      id: asset.id,
+      ktCode: asset.ktCode,
+      fixedCode: asset.fixedCode,
+      name: asset.name,
+      specs: asset.specs,
+      entrydate: asset.entrydate,
+      currentRoomId: asset.currentRoomId,
+      unit: asset.unit,
+      quantity: asset.quantity || 1,
+      systemQuantity: asset.quantity || 1,
+      countedQuantity: asset.quantity || 1,
+      type: asset.type,
+      bookItemStatus: asset.status,
+      currentRoom: asset.currentRoom,
+    }));
+
+    const updatedAssets = [...assetsFromStore, ...formattedNewAssets];
+    setAssetsFromStore(updatedAssets);
+    setFilteredAssets(updatedAssets);
+    
+    toast.success(`Đã thêm ${newAssets.length} tài sản vào danh sách thanh lý`);
+    
+    setIsAddAssetModalOpen(false);
+  };
+
+  // Get initial filters for modal
+  const modalInitialFilters = useMemo(() => ({
+    unitId: currentLiquidationProposal?.unitId || user?.unitId || undefined,
+    year: new Date().getFullYear().toString(),
+    assetType: currentLiquidationProposal?.assetType || "FIXED_ASSET",
+  }), [currentLiquidationProposal?.unitId, currentLiquidationProposal?.assetType, user?.unitId]);
+
+  // Handle submit edit
+  const handleSubmitEdit = async () => {
+    if (assetsFromStore.length === 0) {
+      toast.error("Vui lòng chọn ít nhất một tài sản để cập nhật đề xuất thanh lý");
+      return;
+    }
+
+    if (!currentLiquidationProposal?.unitId) {
+      toast.error("Không thể xác định đơn vị của đề xuất thanh lý.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const items: UpdateLiquidationItemDto[] = assetsFromStore.map((asset) => ({
+        id: asset.itemId, // Include item ID if it exists (for existing items)
+        assetId: asset.id,
+        systemQuantity: asset.systemQuantity || asset.quantity || 1,
+        countedQuantity: asset.countedQuantity || asset.quantity || 1,
+        note: assetNotes[asset.id] || `Đề xuất thanh lý - ${asset.name}`,
+        imageUrl: asset.imageUrl || undefined,
+      }));
+
+      const updateDto: UpdateLiquidationProposalDto = {
+        unitId: currentLiquidationProposal.unitId,
+        items: items,
+      };
+
+      // Call API to update proposal
+      await dispatch(updateLiquidationProposal({
+        id: proposalId,
+        updateDto: updateDto,
+      })).unwrap();
+      
+      toast.success(`Đã cập nhật đề xuất thanh lý thành công!`);
+      
+      // Navigate back to detail page
+      router.push(`/liquidation/${proposalId}`);
+      
+    } catch (error: any) {
+      console.error("Error updating liquidation proposal:", error);
+      toast.error(
+        error?.message || "Có lỗi xảy ra khi cập nhật đề xuất thanh lý. Vui lòng thử lại."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    router.push(`/liquidation/${proposalId}`);
+  };
+
   // Table columns configuration
-  const columns: TableColumn<LiquidationProposedInventoryResult>[] = [
+  const columns: TableColumn<any>[] = [
     {
-      key: "stt",
-      title: "STT",
-      width: "60px",
-      render: (_, record, index) => (
-        <div className="text-sm text-center text-gray-900 font-medium">
-          {((filteredLiquidationProposedInventoryResults?.pagination.page ||
-            1) -
-            1) *
-            (filteredLiquidationProposedInventoryResults?.pagination.limit ||
-              10) +
-            index +
-            1}
-        </div>
-      ),
-      className: "text-center",
-    },
-    {
-      key: "asset.fixedCode",
+      key: "fixedCode",
       title: "Mã tài sản",
       width: "120px",
       render: (_, record) => (
         <div className="text-sm">
-          <div className="text-xs text-gray-500">{record.asset.fixedCode}</div>
+          <div className="text-xs text-gray-500">{record.fixedCode}</div>
         </div>
       ),
       sortable: true,
     },
     {
-      key: "asset.ktCode",
+      key: "ktCode",
       title: "Mã kế toán",
       width: "120px",
       render: (_, record) => (
         <div className="text-sm">
-          <div className="text-xs text-gray-500">{record.asset.ktCode}</div>
+          <div className="text-xs text-gray-500">{record.ktCode}</div>
         </div>
       ),
       sortable: true,
     },
     {
-      key: "asset.name",
+      key: "name",
       title: "Tên tài sản",
       width: "200px",
       render: (_, record) => (
         <div className="text-sm">
           <div className="font-medium text-gray-900 line-clamp-2">
-            {record.asset.name}
+            {record.name}
           </div>
-          {record.asset.specs && (
+          {record.specs && (
             <div className="text-xs text-gray-500 mt-1 line-clamp-1">
-              {record.asset.specs}
+              {record.specs}
             </div>
           )}
         </div>
@@ -227,612 +509,322 @@ export default function LiquidationEditPage() {
       sortable: true,
     },
     {
-      key: "room.code",
+      key: "roomCode",
       title: "Mã vị trí",
       width: "120px",
       render: (_, record) => (
         <div className="text-sm">
-          <div className="text-xs text-gray-500">{record.room.code}</div>
+          <div className="text-xs text-gray-500">{record.currentRoom?.roomCode || 'N/A'}</div>
         </div>
       ),
       sortable: true,
     },
     {
-      key: "systemQuantity",
-      title: "SL theo sổ sách",
+      key: "quantity",
+      title: "Số lượng",
       width: "80px",
       render: (_, record) => (
         <div className="text-sm text-center text-gray-900 font-medium">
-          {record.systemQuantity}
+          {record.quantity || 1}
         </div>
       ),
       className: "text-center",
       sortable: true,
     },
     {
-      key: "countedQuantity",
-      title: "SL theo kiểm kê",
-      width: "80px",
+      key: "status",
+      title: "Trạng thái",
+      width: "150px",
       render: (_, record) => (
-        <div className="text-sm text-center text-gray-900 font-medium">
-          {record.countedQuantity}
+        <div className="flex justify-center">
+          {getAssetStatusBadge(record.bookItemStatus)}
         </div>
       ),
       className: "text-center",
-      sortable: true,
     },
     {
       key: "note",
       title: "Ghi chú",
-      width: "150px",
+      width: "200px",
       render: (_, record) => (
-        <div className="text-sm text-gray-600">{record.note || "-"}</div>
-      ),
-    },
-    {
-      key: "imgs",
-      title: "Hình ảnh",
-      width: "100px",
-      render: (_, record) => (
-        <div className="flex justify-center">
-          {record.fileUrls && record.fileUrls.length > 0 ? (
-            record.fileUrls.slice(0, 3).map((file) => (
-              <img
-                key={file.id}
-                src={file.url}
-                alt="Asset"
-                className="w-20 h-20 rounded-md object-cover mx-1 border"
-              />
-            ))
-          ) : (
-            <div className="text-xs text-gray-500">Không có hình ảnh</div>
-          )}
-        </div>
+        <input
+          type="text"
+          className="border rounded px-2 py-1 text-xs w-full"
+          placeholder="Nhập ghi chú..."
+          value={assetNotes[record.id] || ""}
+          onChange={(e) => handleNoteChange(record.id, e.target.value)}
+          disabled={isSubmitting || isUpdatingProposal}
+        />
       ),
     },
     {
       key: "actions",
       title: "Thao tác",
-      width: "120px",
+      width: "150px",
       render: (_, record) => (
-        <div className="flex justify-start">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm" className="h-8 px-3 text-sm">
-                Hành động
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedAssetDetail(record);
-                  setIsDetailModalOpen(true);
-                }}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <span>Xem chi tiết</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <div className="flex justify-center items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedAssetDetail(record);
+              setIsDetailModalOpen(true);
+            }}
+            className="h-8 px-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-red-600 hover:bg-red-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRemoveAsset(record.id);
+            }}
+            disabled={isSubmitting || isUpdatingProposal}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       ),
-      className: "text-left",
+      className: "text-center",
     },
   ];
 
-  const handlerRender = (filter: LiquidationProposedFilterRequest) => {
-    dispatch(filterLiquidationProposedInventoryResults(filter));
-  };
-
-  useEffect(() => {
-    if (currentLiquidationProposal) {
-      handlerRender({
-        ...currentLiquidationProposedFilter,
-        search: searchTerm || undefined,
-        roomId: roomFilter || undefined,
-        assetType: assetTypeFilter,
-      });
-    }
-  }, [searchTerm, roomFilter, assetTypeFilter, currentLiquidationProposal]);
-
-  // Get unique rooms from data for filter
-  const availableRooms = useMemo(() => {
-    const rooms = filteredLiquidationProposedInventoryResults.data
-      .map((item) => item.room)
-      .filter(
-        (room, index, self) => index === self.findIndex((r) => r.id === room.id)
-      );
-    return rooms;
-  }, [filteredLiquidationProposedInventoryResults.data]);
-
-  // Handle asset selection
-  const handleAssetSelection = (
-    selectedRowKeys: string[],
-    selectedRows: LiquidationProposedInventoryResult[]
-  ) => {
-    setSelectedAssets(selectedRowKeys);
-  };
-
-  // Handle save liquidation proposal
-  const handleSaveProposal = () => {
-    if (!hasChanges) {
-      toast("Không có thay đổi nào để lưu");
-      return;
-    }
-
-    setIsSaveModalOpen(true);
-  };
-
-  // Handle confirm save
-  const handleConfirmSave = async () => {
-    try {
-      if (!currentLiquidationProposal) {
-        toast.error("Không tìm thấy thông tin đề xuất");
-        return;
-      }
-
-      // Tạo danh sách items từ các tài sản đã chọn
-      const selectedItems = filteredLiquidationProposedInventoryResults.data.filter(
-        (item) => selectedAssets.includes(item.id)
-      );
-
-      const updateDto: UpdateLiquidationProposalDto = {
-        items: selectedItems.map((item): UpdateLiquidationItemDto => {
-          // Tìm item hiện tại trong proposal (nếu có)
-          const existingItem = currentLiquidationProposal.items?.find(
-            proposalItem => proposalItem.assetId === item.asset.id
-          );
-
-          return {
-            id: existingItem?.id, // Giữ ID cũ nếu có để cập nhật
-            assetId: item.asset.id,
-            systemQuantity: item.systemQuantity,
-            countedQuantity: item.countedQuantity,
-            note: item.note || `Đề xuất thanh lý từ kết quả kiểm kê - ${item.inventorySession.name}`,
-            // Lấy hình ảnh đầu tiên nếu có
-            imageUrl: item.fileUrls && item.fileUrls.length > 0 ? item.fileUrls[0].url : undefined,
-          };
-        }),
-      };
-
-      // Gọi API cập nhật đề xuất thanh lý
-      await dispatch(updateLiquidationProposal({
-        id: liquidationId,
-        updateDto: updateDto
-      })).unwrap();
-      
-      toast.success("Đã cập nhật đề xuất thanh lý thành công!");
-      
-      setIsSaveModalOpen(false);
-      
-      // Reload proposal data
-      dispatch(getLiquidationProposalById(liquidationId));
-      
-    } catch (error: any) {
-      console.error("Error updating liquidation proposal:", error);
-      const errorMessage = error?.response?.data?.message || error?.message || "Có lỗi xảy ra khi cập nhật đề xuất thanh lý. Vui lòng thử lại.";
-      toast.error(errorMessage);
-    }
-  };
-
-  // Handle reset changes
-  const handleResetChanges = () => {
-    setSelectedAssets(originalSelectedAssets);
-    toast("Đã khôi phục về trạng thái ban đầu");
-  };
-
   if (isFetchingProposal) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex items-center gap-2">
-          <RefreshCw className="h-5 w-5 animate-spin" />
-          <span>Đang tải thông tin đề xuất...</span>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
+          <div className="mb-4">
+            <RefreshCw className="h-16 w-16 text-gray-400 mx-auto mb-4 animate-spin" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Đang tải dữ liệu...
+            </h2>
+            <p className="text-gray-600 mb-6">Vui lòng đợi trong giây lát</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!currentLiquidationProposal) {
+  if (fetchProposalError || !currentLiquidationProposal) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Không tìm thấy đề xuất</h2>
-          <p className="text-gray-600 mb-4">Đề xuất thanh lý không tồn tại hoặc bạn không có quyền truy cập.</p>
-          <Link href="/liquidation">
-            <Button variant="default">Quay lại danh sách</Button>
-          </Link>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
+          <div className="mb-4">
+            <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Không tìm thấy đề xuất thanh lý
+            </h2>
+            <p className="text-gray-600 mb-6">
+              {fetchProposalError || "Đề xuất thanh lý không tồn tại hoặc đã bị xóa."}
+            </p>
+          </div>
+          <Button onClick={() => router.push("/liquidation")} variant="outline" className="w-full">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Quay lại danh sách
+          </Button>
         </div>
       </div>
     );
   }
 
-  if (currentLiquidationProposal.status !== LiquidationStatus.DRAFT) {
+  if (assetsFromStore.length === 0 && !isFetchingProposal) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Không thể chỉnh sửa</h2>
-          <p className="text-gray-600 mb-4">
-            Chỉ có thể chỉnh sửa đề xuất ở trạng thái nháp (DRAFT). 
-            Trạng thái hiện tại: <Badge className={liquidationStatusColors[currentLiquidationProposal.status]}>
-              {liquidationStatusLabels[currentLiquidationProposal.status]}
-            </Badge>
-          </p>
-          <Link href={`/liquidation/${liquidationId}`}>
-            <Button variant="default">Xem chi tiết</Button>
-          </Link>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
+          <div className="mb-4">
+            <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Đang tải dữ liệu...
+            </h2>
+            <p className="text-gray-600 mb-6">Vui lòng đợi trong giây lát</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Chỉnh sửa đề xuất thanh lý
-            </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/liquidation/${liquidationId}`}>
-            <Button variant="outline" className="flex items-center gap-2">
-              <Eye className="h-4 w-4" />
-              Xem chi tiết
-            </Button>
-          </Link>
-
-          {hasChanges && (
-            <>
-              <Button
-                variant="outline"
-                onClick={handleResetChanges}
-                className="flex items-center gap-2"
-              >
-                <X className="h-4 w-4" />
-                Hủy thay đổi
-              </Button>
-              <Button
-                variant="default"
-                onClick={handleSaveProposal}
-                disabled={isUpdatingProposal}
-                className="flex items-center gap-2"
-              >
-                <Save className="h-4 w-4" />
-                {isUpdatingProposal ? "Đang lưu..." : "Lưu thay đổi"}
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Tìm kiếm theo tên tài sản, mã tài sản..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          {/* Room Filter */}
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={roomFilter}
-            onChange={(e) => setRoomFilter(e.target.value)}
-          >
-            <option value="">Tất cả phòng</option>
-            {availableRooms.map((room) => (
-              <option key={room.id} value={room.id}>
-                {room.name} ({room.code})
-              </option>
-            ))}
-          </select>
-
-          {/* Asset Type Filter */}
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={assetTypeFilter}
-            onChange={(e) => setAssetTypeFilter(e.target.value as AssetType)}
-          >
-            {Object.entries(assetTypeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Assets Table */}
-      <Table<LiquidationProposedInventoryResult>
-        columns={columns}
-        data={filteredLiquidationProposedInventoryResults.data}
-        emptyText="Không tìm thấy tài sản đề xuất thanh lý"
-        emptyIcon={<Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
-        multiSort={true}
-        sortConfigs={currentLiquidationProposedFilter.sorting}
-        onSortChange={(sortConfigs) => {
-          handlerRender({
-            ...currentLiquidationProposedFilter,
-            sorting: sortConfigs,
-          });
-        }}
-        rowSelection={{
-          selectedRowKeys: selectedAssets,
-          onChange: handleAssetSelection,
-        }}
-        rowKey="id"
-        pagination={{
-          current:
-            filteredLiquidationProposedInventoryResults?.pagination.page || 1,
-          pageSize:
-            filteredLiquidationProposedInventoryResults?.pagination.limit || 10,
-          total:
-            filteredLiquidationProposedInventoryResults?.pagination.total || 0,
-          onChange: (page, pageSize) => {
-            handlerRender({
-              ...currentLiquidationProposedFilter,
-              pagination: {
-                currentPage: page,
-                itemsPerPage: pageSize,
-              },
-            });
-          },
-          showSizeChanger: true,
-          pageSizeOptions: [10, 20, 50, 100],
-          serverSide: true,
-        }}
-      />
-
-      {/* Save Confirmation Modal */}
-      <Modal
-        isOpen={isSaveModalOpen}
-        onClose={() => setIsSaveModalOpen(false)}
-        title="Xác nhận cập nhật đề xuất thanh lý"
-        size="lg"
-      >
-        <ModalBody className="p-6">
-          <div className="text-center mb-6">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
-              <Save className="h-6 w-6 text-blue-600" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Cập nhật đề xuất thanh lý
-            </h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Bạn có chắc chắn muốn cập nhật danh sách tài sản trong đề xuất này?
-            </p>
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h4 className="font-medium text-gray-900 mb-2">Thay đổi:</h4>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>Số tài sản ban đầu:</span>
-                <span className="font-medium">{originalSelectedAssets.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Số tài sản sau chỉnh sửa:</span>
-                <span className="font-medium">{selectedAssets.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Thay đổi:</span>
-                <span className={`font-medium ${selectedAssets.length > originalSelectedAssets.length ? 'text-green-600' : selectedAssets.length < originalSelectedAssets.length ? 'text-red-600' : 'text-gray-600'}`}>
-                  {selectedAssets.length > originalSelectedAssets.length ? '+' : ''}{selectedAssets.length - originalSelectedAssets.length}
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col w-full sm:w-auto">
+              <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+                <button
+                  onClick={() => router.push("/liquidation")}
+                  className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+                >
+                  Thanh lý
+                </button>
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                <button
+                  onClick={() => router.push(`/liquidation/${proposalId}`)}
+                  className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+                >
+                  Chi tiết
+                </button>
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                  Chỉnh sửa đề xuất thanh lý
                 </span>
               </div>
             </div>
-          </div>
-        </ModalBody>
-        <ModalFooter className="flex justify-end gap-3 p-6 border-t">
-          <Button
-            variant="outline"
-            onClick={() => setIsSaveModalOpen(false)}
-            disabled={isUpdatingProposal}
-          >
-            Hủy
-          </Button>
-          <Button
-            variant="default"
-            onClick={handleConfirmSave}
-            disabled={isUpdatingProposal}
-            className="flex items-center gap-2"
-          >
-            {isUpdatingProposal ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Đang cập nhật...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Cập nhật
-              </>
-            )}
-          </Button>
-        </ModalFooter>
-      </Modal>
-
-      {/* Asset Detail Modal */}
-      <Modal
-        isOpen={isDetailModalOpen}
-        onClose={() => {
-          setIsDetailModalOpen(false);
-          setSelectedAssetDetail(null);
-        }}
-        title="Chi tiết tài sản"
-        size="2xl"
-      >
-        {selectedAssetDetail && (
-          <ModalBody className="p-6">
-            {/* First Row - Inventory Session and Location */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* Inventory Information */}
-              <div className="p-4 rounded-lg border border-gray-200">
-                <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-gray-600" />
-                  Thông tin kỳ kiểm kê
-                </h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">Tên kỳ kiểm kê:</span>
-                    <span className="col-span-2 text-sm text-gray-900 font-medium">{selectedAssetDetail.inventorySession.name}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">Năm:</span>
-                    <span className="col-span-2 text-sm text-gray-900">{selectedAssetDetail.inventorySession.year}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">SL theo sổ sách:</span>
-                    <span className="col-span-2 text-sm font-semibold text-gray-900">{selectedAssetDetail.systemQuantity}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">SL theo kiểm kê:</span>
-                    <span className="col-span-2 text-sm font-semibold text-gray-900">{selectedAssetDetail.countedQuantity}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">Trạng thái:</span>
-                    <Badge className={`w-fit ${statusColors[selectedAssetDetail.status as InventoryResultStatus]}`}>
-                      {statusLabels[selectedAssetDetail.status as InventoryResultStatus]}
-                    </Badge>
-                  </div>
-                  {selectedAssetDetail.scanMethod && (
-                    <div className="grid grid-cols-3 gap-4">
-                      <span className="text-sm text-gray-600">Phương thức quét:</span>
-                      <span className="col-span-2 text-sm text-gray-900">{selectedAssetDetail.scanMethod}</span>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">Ngày kiểm kê:</span>
-                    <span className="col-span-2 text-sm text-gray-900">
-                      {new Date(selectedAssetDetail.createdAt).toLocaleDateString('vi-VN')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Location Information */}
-              <div className="p-4 rounded-lg border border-gray-200">
-                <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-gray-600" />
-                  Thông tin vị trí
-                </h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">Phòng:</span>
-                    <span className="col-span-2 text-sm text-gray-900 font-medium">{selectedAssetDetail.room.name}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">Mã vị trí:</span>
-                    <span className="col-span-2 text-sm font-semibold text-gray-900">{selectedAssetDetail.room.code}</span>
-                  </div>
-                </div>
-              </div>
+            <div className="flex items-center space-x-3">
+              <Button
+                onClick={() => {
+                  setIsAddAssetModalOpen(true);
+                }}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-green-700 text-white"
+                disabled={isSubmitting || isUpdatingProposal}
+              >
+                <Plus className="h-4 w-4" />
+                Thêm tài sản
+              </Button>
+              <Button
+                onClick={handleCancelEdit}
+                variant="outline"
+                disabled={isSubmitting || isUpdatingProposal}
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                onClick={handleSubmitEdit}
+                disabled={isSubmitting || isUpdatingProposal || assetsFromStore.length === 0}
+                className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isUpdatingProposal || isSubmitting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Lưu thay đổi
+                  </>
+                )}
+              </Button>
             </div>
+          </div>
+        </div>
 
-            {/* Note Section (if exists) */}
-            {selectedAssetDetail.note && (
-              <div className="mb-6 p-4 rounded-lg border border-gray-200">
-                <h3 className="text-base font-semibold text-gray-900 mb-2">Ghi chú</h3>
-                <p className="text-sm text-gray-900">{selectedAssetDetail.note}</p>
-              </div>
-            )}
+        {/* Assets Table */}
+        <Table<any>
+          key={`assets-table-${assetsFromStore.length}`}
+          columns={columns}
+          data={filteredAssets}
+          loading={false}
+          emptyText="Không có tài sản nào được chọn"
+          emptyIcon={<Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
+          rowKey="id"
+          pagination={false}
+        />
 
-            {/* Second Row - Asset Basic Info and Images */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Basic Asset Info */}
-              <div className="p-4 rounded-lg border border-gray-200">
-                <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Info className="h-4 w-4 text-gray-600" />
-                  Thông tin tài sản
-                </h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">Mã tài sản:</span>
-                    <span className="col-span-2 text-sm font-semibold text-gray-900">{selectedAssetDetail.asset.fixedCode || selectedAssetDetail.asset.ktCode}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">Mã kế toán:</span>
-                    <span className="col-span-2 text-sm font-semibold text-gray-900">{selectedAssetDetail.asset.ktCode}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">Tên tài sản:</span>
-                    <span className="col-span-2 text-sm text-gray-900 font-medium">{selectedAssetDetail.asset.name}</span>
-                  </div>
-                  {selectedAssetDetail.asset.specs && (
+        {/* Asset Detail Modal */}
+        <Modal
+          isOpen={isDetailModalOpen}
+          onClose={() => {
+            setIsDetailModalOpen(false);
+            setSelectedAssetDetail(null);
+          }}
+          title="Chi tiết tài sản"
+          size="2xl"
+        >
+          {selectedAssetDetail && (
+            <ModalBody className="p-6">
+              {/* Asset Basic Info */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div className="p-4 rounded-lg border border-gray-200">
+                  <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Info className="h-4 w-4 text-gray-600" />
+                    Thông tin tài sản
+                  </h3>
+                  <div className="space-y-3">
                     <div className="grid grid-cols-3 gap-4">
-                      <span className="text-sm text-gray-600">Thông số:</span>
-                      <span className="col-span-2 text-sm text-gray-900">{selectedAssetDetail.asset.specs}</span>
+                      <span className="text-sm text-gray-600">Mã tài sản:</span>
+                      <span className="col-span-2 text-sm font-semibold text-gray-900">{selectedAssetDetail.fixedCode}</span>
                     </div>
-                  )}
-                  <div className="grid grid-cols-3 gap-4">
-                    <span className="text-sm text-gray-600">Loại tài sản:</span>
-                    <Badge className="w-fit bg-gray-100 text-gray-800 border-gray-300">
-                      {assetTypeLabels[selectedAssetDetail.asset.type as keyof typeof assetTypeLabels]}
-                    </Badge>
-                  </div>
-                  {selectedAssetDetail.asset.entrydate && (
                     <div className="grid grid-cols-3 gap-4">
-                      <span className="text-sm text-gray-600">Ngày nhập:</span>
-                      <span className="col-span-2 text-sm text-gray-900">
-                        {new Date(selectedAssetDetail.asset.entrydate).toLocaleDateString('vi-VN')}
+                      <span className="text-sm text-gray-600">Mã kế toán:</span>
+                      <span className="col-span-2 text-sm font-semibold text-gray-900">{selectedAssetDetail.ktCode}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <span className="text-sm text-gray-600">Tên tài sản:</span>
+                      <span className="col-span-2 text-sm text-gray-900 font-medium">{selectedAssetDetail.name}</span>
+                    </div>
+                    {selectedAssetDetail.specs && (
+                      <div className="grid grid-cols-3 gap-4">
+                        <span className="text-sm text-gray-600">Thông số:</span>
+                        <span className="col-span-2 text-sm text-gray-900">{selectedAssetDetail.specs}</span>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-3 gap-4">
+                      <span className="text-sm text-gray-600">Số lượng:</span>
+                      <span className="col-span-2 text-sm font-semibold text-gray-900">{selectedAssetDetail.quantity || 1}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <span className="text-sm text-gray-600">Trạng thái:</span>
+                      <span className="col-span-2">
+                        {getAssetStatusBadge(selectedAssetDetail.bookItemStatus)}
                       </span>
                     </div>
-                  )}
+                    {selectedAssetDetail.entrydate && (
+                      <div className="grid grid-cols-3 gap-4">
+                        <span className="text-sm text-gray-600">Ngày nhập:</span>
+                        <span className="col-span-2 text-sm text-gray-900">
+                          {new Date(selectedAssetDetail.entrydate).toLocaleDateString('vi-VN')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Location Information */}
+                <div className="p-4 rounded-lg border border-gray-200">
+                  <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-gray-600" />
+                    Thông tin vị trí
+                  </h3>
+                  <div className="space-y-3">
+                    {selectedAssetDetail.currentRoom && (
+                      <>
+                        <div className="grid grid-cols-3 gap-4">
+                          <span className="text-sm text-gray-600">Phòng:</span>
+                          <span className="col-span-2 text-sm text-gray-900 font-medium">{selectedAssetDetail.currentRoom.name}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <span className="text-sm text-gray-600">Mã vị trí:</span>
+                          <span className="col-span-2 text-sm font-semibold text-gray-900">{selectedAssetDetail.currentRoom.roomCode}</span>
+                        </div>
+                      </>
+                    )}
+                    {!selectedAssetDetail.currentRoom && (
+                      <div className="text-sm text-gray-500">Chưa có thông tin vị trí</div>
+                    )}
+                  </div>
                 </div>
               </div>
+            </ModalBody>
+          )}
+        </Modal>
 
-              {/* Images */}
-              <div className="p-4 rounded-lg border border-gray-200">
-                <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Camera className="h-4 w-4 text-gray-600" />
-                  Hình ảnh minh chứng ({selectedAssetDetail.fileUrls?.length || 0})
-                </h3>
-                {selectedAssetDetail.fileUrls && selectedAssetDetail.fileUrls.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-3 max-h-80 overflow-y-auto">
-                    {selectedAssetDetail.fileUrls.map((file, index) => (
-                      <div key={file.id} className="relative group border rounded-lg overflow-hidden bg-white">
-                        <img
-                          src={file.url}
-                          alt={`Hình ảnh ${index}`}
-                          className="w-full h-32 object-contain"
-                          onError={(e) => {
-                            e.currentTarget.src = '/placeholder-image.png';
-                            e.currentTarget.alt = 'Không thể tải hình ảnh';
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
-                          <button
-                            onClick={() => window.open(file.url, '_blank')}
-                            className="opacity-0 group-hover:opacity-100 bg-white text-gray-900 px-3 py-1 rounded-md text-xs font-medium transition-opacity shadow-lg"
-                          >
-                            Xem lớn
-                          </button>
-                        </div>
-                        <div className="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white px-1.5 py-0.5 rounded text-xs">
-                          {new Date(file.createdAt).toLocaleDateString('vi-VN')}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-gray-500 border-2 border-dashed border-orange-300 rounded-lg bg-white">
-                    <Camera className="h-6 w-6 mx-auto mb-2 text-gray-400" />
-                    <p className="text-xs">Không có hình ảnh minh chứng</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </ModalBody>
-        )}
-      </Modal>
+        <AssetBookSelectionModal
+          isOpen={isAddAssetModalOpen}
+          onClose={() => {
+            setIsAddAssetModalOpen(false);
+          }}
+          onConfirm={handleAddAssetsFromModal}
+          title="Chọn tài sản từ sổ tài sản để thanh lý"
+          excludeAssetIds={assetsFromStore.map(asset => asset.id)}
+          initialFilters={modalInitialFilters}
+        />
+      </div>
     </div>
   );
 }
+

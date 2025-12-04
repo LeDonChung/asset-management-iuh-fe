@@ -89,6 +89,7 @@ export default function TransactionStatusModal({
       submitData.rejectionReason = note.trim();
     } else {
       submitData.note = note.trim() || undefined;
+      submitData.evidenceUrl = evidenceUrl.trim() || undefined;
     }
 
     onConfirm(submitData);
@@ -157,8 +158,8 @@ export default function TransactionStatusModal({
             />
           </div>
 
-          {/* Evidence upload - only show for approve action */}
-          {action === 'approve' && (
+          {/* Evidence upload - show for approve and propose actions */}
+          {(action === 'approve' || action === 'propose') && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <div className="flex items-center gap-2">

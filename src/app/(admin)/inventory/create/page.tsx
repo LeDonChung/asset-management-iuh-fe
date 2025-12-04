@@ -20,6 +20,7 @@ import {
   X,
   Copy,
   Plus,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -349,22 +350,16 @@ export default function CreateInventorySessionPage() {
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-        <Link href="/inventory">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-              {isCopyMode ? "Sao chép kỳ kiểm kê" : "Tạo kỳ kiểm kê mới"}
-          </h1>
-            <p className="text-gray-600">
-              {isCopyMode 
-                ? "Sao chép từ kỳ kiểm kê có sẵn với các tùy chọn linh hoạt"
-                : "Điền đầy đủ thông tin để tạo kỳ kiểm kê mới"
-              }
-            </p>
+          {/* Breadcrumb */}
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <Link href="/inventory" className="hover:text-gray-900 text-gray-900 font-semibold text-lg sm:text-xl">
+              Kiểm kê
+            </Link>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              {isCopyMode ? "Sao chép" : "Tạo mới"}
+            </span>
           </div>
         </div>
         
