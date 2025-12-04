@@ -18,6 +18,7 @@ import {
   Eye,
   Edit,
   MoreVertical,
+  ChevronRight,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
@@ -487,9 +488,20 @@ export default function TransactionPage() {
     <>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold">Quản lý bàn giao</h1>
+            <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+              <button
+                onClick={() => router.push("/asset/asset-book")}
+                className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+              >
+                Tài sản
+              </button>
+              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+              <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                Bàn giao
+              </span>
+            </div>
           </div>
           {canCreate && (
             <Button

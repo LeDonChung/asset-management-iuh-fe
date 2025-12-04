@@ -15,6 +15,7 @@ import {
 import { getUnitCampus } from "@/lib/store/slices/unitSlice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableColumn } from "@/components/ui/table";
 import {
   ArrowLeft,
@@ -29,6 +30,7 @@ import {
   ArrowRight,
   ArrowUpDown,
   Trash2,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -42,7 +44,6 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import toast from "react-hot-toast";
 
-// CardSelect Component
 interface CardSelectProps {
   label: string;
   icon: React.ReactNode;
@@ -77,7 +78,6 @@ const CardSelect: React.FC<CardSelectProps> = ({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const selectedOption = options.find((opt) => opt.value === value);
 
-  // Update dropdown position when opening
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
@@ -89,7 +89,6 @@ const CardSelect: React.FC<CardSelectProps> = ({
     }
   }, [isOpen]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
@@ -204,7 +203,6 @@ export default function TransactionPage() {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
 
-  // Access scope types
   const accessScopeTypes = user?.accessScopeTypes || [];
   const hasGlobalAccess = accessScopeTypes.includes(AccessScopeType.GLOBAL);
   const hasChildUnitsAccess = accessScopeTypes.includes(AccessScopeType.CHILD_UNITS);
@@ -214,32 +212,24 @@ export default function TransactionPage() {
   const {
     selectedAssetsForHandover,
     handoverContext,
-    currentTransaction,
-    loading,
-    error,
     isCreatingTransaction,
-    createTransactionError,
   } = useSelector((state: RootState) => state.transaction);
   
   const { campuses } = useSelector((state: RootState) => state.unit);
 
-  // State cho việc chọn đơn vị và trạng thái
   const [selectedCampusId, setSelectedCampusId] = useState("");
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [transactionNote, setTransactionNote] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<TransactionStatus>(TransactionStatus.DRAFT);
   const [selectedDate, setSelectedDate] = useState(() => {
-    // Mặc định là ngày hiện tại
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State cho ghi chú tài sản
   const [assetNotes, setAssetNotes] = useState<Record<string, string>>({});
 
-  // Load handover draft from sessionStorage if available
   useEffect(() => {
     const loadHandoverDraft = () => {
       try {
@@ -248,7 +238,6 @@ export default function TransactionPage() {
           const handoverDraft = JSON.parse(savedDraft);
           console.log("Loading handover draft from sessionStorage:", handoverDraft);
 
-          // Restore filter context
           if (handoverDraft.filterContext) {
             const { filterContext } = handoverDraft;
             if (filterContext.selectedCampusId) {
@@ -259,25 +248,21 @@ export default function TransactionPage() {
             }
           }
 
-          // Restore assets to Redux if not already loaded
           if (selectedAssetsForHandover.length === 0 && handoverDraft.assets) {
             dispatch(setSelectedAssetsForHandover(handoverDraft.assets));
             
-            // Restore handover context
             if (handoverDraft.handoverContext) {
               dispatch(setHandoverContext(handoverDraft.handoverContext));
             }
           }
 
-          // Set default transaction note
           if (!transactionNote && handoverDraft.assets?.length > 0) {
             const unitName = handoverDraft.filterContext?.unitName || "đơn vị được chọn";
             setTransactionNote(`Bàn giao ${handoverDraft.assets.length} tài sản đến ${unitName}`);
           }
 
-          // Thông báo đã khôi phục dữ liệu
           if (handoverDraft.assets?.length > 0) {
-            toast.success(`Đã khôi phục ${handoverDraft.assets.length} tài sản từ phiên trước`);
+            // toast.success(`Đã khôi phục ${handoverDraft.assets.length} tài sản từ phiên trước`);
           }
         }
       } catch (error) {
@@ -286,15 +271,12 @@ export default function TransactionPage() {
     };
 
     loadHandoverDraft();
-  }, [dispatch, selectedAssetsForHandover.length, transactionNote]);
+  }, []);
 
-  // Redirect nếu không có tài sản nào được chọn và không có draft
   useEffect(() => {
     if (selectedAssetsForHandover.length === 0) {
-      // Kiểm tra xem có draft trong sessionStorage không
       const savedDraft = sessionStorage.getItem('handoverDraft');
       if (!savedDraft) {
-        // Delay redirect một chút để tránh race condition
         const timer = setTimeout(() => {
           router.push("/asset/asset-book");
         }, 100);
@@ -304,7 +286,6 @@ export default function TransactionPage() {
     }
   }, [selectedAssetsForHandover, router]);
 
-  // Load initial data based on role and context
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -344,8 +325,6 @@ export default function TransactionPage() {
             if (userCampus && userUnit) {
               setSelectedCampusId(userCampus.id);
               setUnits(userCampus.childUnits ?? []);
-              // Unit/Self access có thể chọn đơn vị khác, không tự động set selectedUnitId
-              // setSelectedUnitId(userUnit.id);
             }
           } else if (hasGlobalAccess) {
             // Global access có thể chọn tất cả, nhưng ưu tiên context nếu có
@@ -370,71 +349,22 @@ export default function TransactionPage() {
     loadInitialData();
   }, [dispatch, hasGlobalAccess, hasChildUnitsAccess, hasUnitAccess, hasSelfAccess, user, handoverContext]);
 
-  // Update units when campus changes
   useEffect(() => {
     if (selectedCampusId) {
       const campus = campuses.find((campus) => campus.id === selectedCampusId);
       setUnits(campus?.childUnits ?? []);
-      setSelectedUnitId(""); // Reset unit selection
+      setSelectedUnitId("");
     }
   }, [selectedCampusId, campuses]);
 
-  // Tính toán thông tin nguồn từ context hoặc tài sản đã chọn
-  const sourceUnits = useMemo(() => {
-    // Nếu có context thì dùng context
-    if (handoverContext?.sourceUnit) {
-      return [
-        {
-          unit: handoverContext.sourceUnit,
-          rooms: new Set<string>(),
-          count: selectedAssetsForHandover.length,
-        },
-      ];
-    }
-
-    // Nếu không có context, tính từ tài sản (fallback)
-    const unitsMap = new Map<
-      string,
-      { unit: Unit; rooms: Set<string>; count: number }
-    >();
-
-    selectedAssetsForHandover.forEach((asset) => {
-      if (asset.currentRoom?.unit) {
-        const unitId = asset.currentRoom.unit.id;
-        const roomName =
-          asset.currentRoom.name ||
-          asset.currentRoom.roomCode ||
-          "Không xác định";
-
-        if (unitsMap.has(unitId)) {
-          const existing = unitsMap.get(unitId)!;
-          existing.rooms.add(roomName);
-          existing.count += 1;
-        } else {
-          unitsMap.set(unitId, {
-            unit: asset.currentRoom.unit,
-            rooms: new Set([roomName]),
-            count: 1,
-          });
-        }
-      }
-    });
-
-    return Array.from(unitsMap.values());
-  }, [selectedAssetsForHandover, handoverContext]);
-
   const handleCancelHandover = () => {
-    // Xóa handover draft khỏi sessionStorage
     sessionStorage.removeItem('handoverDraft');
-    // Xóa tất cả dữ liệu transaction
     dispatch(resetTransactionState());
-    // Quay về trang sổ tài sản
     router.push("/asset/asset-book");
   };
 
   const handleRemoveAsset = (assetId: string) => {
     dispatch(removeAssetFromHandover(assetId));
-    // Xóa các state liên quan
     setAssetNotes((prev) => {
       const copy = { ...prev };
       delete copy[assetId];
@@ -457,27 +387,22 @@ export default function TransactionPage() {
       return;
     }
 
-    // Kiểm tra ngày không được lớn hơn ngày hiện tại
-    const selectedDateObj = new Date(selectedDate);
     const today = new Date();
-    today.setHours(23, 59, 59, 999); // Set to end of day for comparison
+    today.setHours(23, 59, 59, 999);
 
     setIsSubmitting(true);
 
     try {
       const unitName = units.find((u) => u.id === selectedUnitId)?.name || "";
 
-      // Tạo transaction items từ selected assets
       const transactionItems = selectedAssetsForHandover.map((asset) => ({
         assetId: asset.id,
         fromRoomId: asset.currentRoom?.id,
         note: assetNotes[asset.id] || `Bàn giao đến ${unitName}`,
       }));
 
-      // Determine fromUnitId from context or from the assets' current units
       let fromUnitId: string | undefined = handoverContext?.sourceUnitId;
       
-      // If no context, get fromUnitId from the first asset's current room unit
       if (!fromUnitId && selectedAssetsForHandover.length > 0) {
         const firstAsset = selectedAssetsForHandover[0];
         fromUnitId = firstAsset.currentRoom?.unit?.id;
@@ -487,7 +412,6 @@ export default function TransactionPage() {
         throw new Error("Không thể xác định đơn vị nguồn");
       }
 
-      // Tạo transaction DTO cho API mới (chỉ TRANSFER)
       const createTransactionDto = {
         fromUnitId: fromUnitId,
         toUnitId: selectedUnitId,
@@ -497,21 +421,16 @@ export default function TransactionPage() {
         createdAt: new Date(selectedDate).toISOString(),
       };
 
-      // Gọi API để tạo transaction
       const result = await dispatch(createTransaction(createTransactionDto)).unwrap();
 
-      // Kiểm tra kết quả
       if (result && result.id) {
-        // Xóa handover draft khỏi sessionStorage
         sessionStorage.removeItem('handoverDraft');
         
-        // Hiển thị thông báo thành công
         const statusText = selectedStatus === TransactionStatus.DRAFT ? "nháp" : "đề xuất";
         toast.success(
           `Tạo yêu cầu bàn giao ${statusText} thành công! Mã giao dịch: ${result.id}`
         );
 
-        // Reset state and redirect
         dispatch(resetTransactionState());
         router.push("/asset/asset-book");
       } else {
@@ -525,7 +444,6 @@ export default function TransactionPage() {
     }
   };
 
-  // Define table columns for selected assets
   const columns: TableColumn<Asset>[] = [
     {
       key: "codes",
@@ -581,7 +499,6 @@ export default function TransactionPage() {
           {record.currentRoom ? (
             <div className="space-y-1">
               <div className="flex items-center ">
-                <MapPin className="h-3 w-3 mr-1" />
                 <span className="font-medium">
                   {record.currentRoom.roomCode || record.currentRoom.name}
                 </span>
@@ -632,7 +549,6 @@ export default function TransactionPage() {
     },
   ];
 
-  // Loading state khi chưa có dữ liệu
   if (selectedAssetsForHandover.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -658,23 +574,20 @@ export default function TransactionPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-6">
-        {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/asset/asset-book">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Bàn giao tài sản
-                </h1>
-                <p className="text-gray-600">
-                  Hoàn tất thông tin bàn giao cho{" "}
-                  {selectedAssetsForHandover.length} tài sản đã chọn
-                </p>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col w-full sm:w-auto">
+              <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+                <button
+                  onClick={() => router.push("/asset/asset-book")}
+                  className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+                >
+                  Sổ tài sản
+                </button>
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                  Tạo bàn giao
+                </span>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -709,20 +622,12 @@ export default function TransactionPage() {
           </div>
         </div>
 
-        {/* Unit and Room Selection */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-300 mb-6 ">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100 ">
-            <div className="flex items-center space-x-3">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Chọn đơn vị tiếp nhận
-              </h3>
-            </div>
-          </div>
+          
 
           <div className="p-6">
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Campus Selection (Global access only) */}
               {hasGlobalAccess && (
                 <CardSelect
                   label="Cơ sở"
@@ -743,7 +648,6 @@ export default function TransactionPage() {
                 />
               )}
 
-              {/* Unit Selection */}
               {(hasChildUnitsAccess || hasGlobalAccess || hasUnitAccess || hasSelfAccess) && (
                 <CardSelect
                   label="Đơn vị tiếp nhận"
@@ -765,51 +669,51 @@ export default function TransactionPage() {
               )}
             </div>
 
-            {/* Transaction Note */}
             <div className="mt-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Ghi chú cho yêu cầu bàn giao
               </label>
-              <Input
+              <Textarea
                 placeholder="Nhập ghi chú cho yêu cầu bàn giao (tùy chọn)..."
                 value={transactionNote}
                 onChange={(e) => setTransactionNote(e.target.value)}
                 disabled={isSubmitting || isCreatingTransaction}
-                className="w-full"
+                className="w-full min-h-[100px]"
+                rows={4}
               />
             </div>
 
-            {/* Date Selection */}
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ngày bàn giao
-                <span className="text-red-500 ml-1">*</span>
-              </label>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                disabled={isSubmitting || isCreatingTransaction}
-                className="w-full"
-              />
-            </div>
+            <div className="grid grid-cols-2 gap-6 mt-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ngày bàn giao
+                  <span className="text-red-500 ml-1">*</span>
+                </label>
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  disabled={isSubmitting || isCreatingTransaction}
+                  className="w-full"
+                />
+              </div>
 
-            {/* Transaction Status */}
-            <div className="mt-6">
-              <CardSelect
-                label="Trạng thái yêu cầu"
-                icon={<></>}
-                value={selectedStatus}
-                onChange={(value) => setSelectedStatus(value as TransactionStatus)}
-                options={[
-                  { value: TransactionStatus.DRAFT, label: "Nháp" },
-                  { value: TransactionStatus.PROPOSED, label: "Đề xuất" },
-                ]}
-                placeholder="Chọn trạng thái yêu cầu"
-                disabled={isSubmitting || isCreatingTransaction}
-                required
-                className="text-base"
-              />
+              <div>
+                <CardSelect
+                  label="Trạng thái yêu cầu"
+                  icon={<></>}
+                  value={selectedStatus}
+                  onChange={(value) => setSelectedStatus(value as TransactionStatus)}
+                  options={[
+                    { value: TransactionStatus.DRAFT, label: "Nháp" },
+                    { value: TransactionStatus.PROPOSED, label: "Đề xuất" },
+                  ]}
+                  placeholder="Chọn trạng thái yêu cầu"
+                  disabled={isSubmitting || isCreatingTransaction}
+                  required
+                  className="text-base"
+                />
+              </div>
             </div>
           </div>
         </div>
