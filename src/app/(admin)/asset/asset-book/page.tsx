@@ -1,21 +1,27 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Asset, AssetType, Room, Unit, AssetStatus, AssetBookItemStatus, AccessScopeType } from "@/types/asset";
 import {
-  Building,
-  Eye,
+  Asset,
+  AssetType,
+  Room,
+  Unit,
+  AssetStatus,
+  AssetBookItemStatus,
+  AccessScopeType,
+} from "@/types/asset";
+import {
   RefreshCw,
   Download,
   ChevronDown,
   Check,
-  Edit2,
   ArrowRightLeft,
   AlertCircle,
   X,
   MoreVertical,
   Move,
   Trash2,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,12 +48,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PermissionConstants } from "@/lib/constants/permissions";
 import { proposeAssetLiquidation } from "@/lib/store/slices/assetSlice";
-import { setSelectedAssetsForHandover, setHandoverContext } from "@/lib/store/slices/transactionSlice";
-import { setSelectedAssetsForMove, setMoveContext } from "@/lib/store/slices/moveSlice";
+import {
+  setSelectedAssetsForHandover,
+  setHandoverContext,
+} from "@/lib/store/slices/transactionSlice";
+import {
+  setSelectedAssetsForMove,
+  setMoveContext,
+} from "@/lib/store/slices/moveSlice";
 
-// Helper function to render asset book item status badge
 const getAssetBookItemStatusBadge = (status: AssetBookItemStatus) => {
-  const statusConfig: Partial<Record<AssetBookItemStatus, { label: string; className: string }>> = {
+  const statusConfig: Partial<
+    Record<AssetBookItemStatus, { label: string; className: string }>
+  > = {
     [AssetBookItemStatus.IN_USE]: {
       label: "Đang sử dụng",
       className: "bg-green-100 text-green-800 border border-green-200",
@@ -88,76 +101,37 @@ const getAssetBookItemStatusBadge = (status: AssetBookItemStatus) => {
   );
 };
 
-// Helper function to render asset status badge
-const getAssetStatusBadge = (status: AssetStatus) => {
-  const statusConfig = {
-    [AssetStatus.IN_USE]: {
-      label: "Đang sử dụng",
-      className: "bg-green-100 text-green-800 border border-green-200",
-    },
-    [AssetStatus.TRANSFERRED]: {
-      label: "Đã bàn giao",
-      className: "bg-blue-100 text-blue-800 border border-blue-200",
-    },
-    [AssetStatus.DAMAGED]: {
-      label: "Hư hỏng",
-      className: "bg-yellow-100 text-yellow-800 border border-yellow-200",
-    },
-    [AssetStatus.LOST]: {
-      label: "Đã mất",
-      className: "bg-red-100 text-red-800 border border-red-200",
-    },
-    [AssetStatus.PROPOSED_LIQUIDATION]: {
-      label: "Đề xuất thanh lý",
-      className: "bg-orange-100 text-orange-800 border border-orange-200",
-    },
-    [AssetStatus.LIQUIDATED]: {
-      label: "Đã thanh lý",
-      className: "bg-gray-100 text-gray-800 border border-gray-300",
-    },
-  };
-
-  const config = statusConfig[status] || {
-    label: status,
-    className: "bg-gray-100 text-gray-800 border border-gray-200",
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.className}`}
-    >
-      {config.label}
-    </span>
-  );
-};
-
-// Helper functions to check if asset can be selected for operations
 const canSelectForHandover = (status: AssetBookItemStatus): boolean => {
-  // Bàn giao: chỉ không cho chọn đã bàn giao, đã thanh lý
-  return ![AssetBookItemStatus.TRANSFERRED, AssetBookItemStatus.LIQUIDATED].includes(status);
+  return ![
+    AssetBookItemStatus.TRANSFERRED,
+    AssetBookItemStatus.LIQUIDATED,
+  ].includes(status);
 };
 
 const canSelectForMove = (status: AssetBookItemStatus): boolean => {
-  // Di chuyển: chỉ không cho chọn đã bàn giao, đã thanh lý
-  return ![AssetBookItemStatus.TRANSFERRED, AssetBookItemStatus.LIQUIDATED].includes(status);
+  return ![
+    AssetBookItemStatus.TRANSFERRED,
+    AssetBookItemStatus.LIQUIDATED,
+  ].includes(status);
 };
 
-// Helper check: can propose liquidation
-const canProposeLiquidation = (bookItemStatus: AssetBookItemStatus, assetStatus?: AssetStatus): boolean => {
-  // Chỉ cho phép thanh lý tài sản khác ngoài đã bàn giao và đã thanh lý
-  // Không cho chọn: TRANSFERRED (đã bàn giao) và LIQUIDATED (đã thanh lý)
-  const eligibleInBook = ![AssetBookItemStatus.TRANSFERRED, AssetBookItemStatus.LIQUIDATED].includes(bookItemStatus);
+const canProposeLiquidation = (
+  bookItemStatus: AssetBookItemStatus,
+  assetStatus?: AssetStatus
+): boolean => {
+  const eligibleInBook = ![
+    AssetBookItemStatus.TRANSFERRED,
+    AssetBookItemStatus.LIQUIDATED,
+  ].includes(bookItemStatus);
   return eligibleInBook;
 };
 
-// Asset type options for filter dropdown
 const assetTypeOptions = [
   { value: "", label: "Chọn loại sổ" },
   { value: "FIXED_ASSET", label: "Tài sản cố định" },
   { value: "TOOLS_EQUIPMENT", label: "Công cụ dụng cụ" },
 ];
 
-// Year options
 const getYearOptions = () => {
   const currentYear = new Date().getFullYear();
   const years = [];
@@ -167,7 +141,16 @@ const getYearOptions = () => {
   return years;
 };
 
-// CardSelect Component
+const getStatusOptions = () => {
+  return [
+    { value: "", label: "Tất cả trạng thái" },
+    { value: AssetBookItemStatus.IN_USE, label: "Đang sử dụng" },
+    { value: AssetBookItemStatus.TRANSFERRED, label: "Đã bàn giao" },
+    { value: AssetBookItemStatus.LIQUIDATED, label: "Đã thanh lý" },
+    { value: AssetBookItemStatus.PROPOSED_LIQUIDATION, label: "Đề xuất thanh lý" },
+  ];
+};
+
 interface CardSelectProps {
   label: string;
   icon: React.ReactNode;
@@ -202,7 +185,6 @@ const CardSelect: React.FC<CardSelectProps> = ({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const selectedOption = options.find((opt) => opt.value === value);
 
-  // Update dropdown position when opening
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
@@ -214,7 +196,6 @@ const CardSelect: React.FC<CardSelectProps> = ({
     }
   }, [isOpen]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
@@ -234,7 +215,15 @@ const CardSelect: React.FC<CardSelectProps> = ({
 
   return (
     <div className={`relative group card-select-container ${className}`}>
-      <label className={`block font-medium text-gray-700 mb-2 ${className.includes('text-lg') ? 'text-base' : className.includes('text-base') ? 'text-sm' : 'text-xs'}`}>
+      <label
+        className={`block font-medium text-gray-700 mb-2 ${
+          className.includes("text-lg")
+            ? "text-base"
+            : className.includes("text-base")
+            ? "text-sm"
+            : "text-xs"
+        }`}
+      >
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
@@ -245,7 +234,13 @@ const CardSelect: React.FC<CardSelectProps> = ({
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
           className={`
-            w-full ${className.includes('text-lg') ? 'min-h-[3.5rem] text-lg' : className.includes('text-base') ? 'min-h-[2.75rem] text-base' : 'min-h-[2.5rem] text-sm'} pl-3 pr-10 border border-gray-200 rounded-lg 
+            w-full ${
+              className.includes("text-lg")
+                ? "min-h-[3.5rem] text-lg"
+                : className.includes("text-base")
+                ? "min-h-[2.75rem] text-base"
+                : "min-h-[2.5rem] text-sm"
+            } pl-3 pr-10 border border-gray-200 rounded-lg 
             bg-white text-left transition-all duration-200
             hover:border-gray-300 hover:shadow-sm
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
@@ -329,75 +324,129 @@ export default function AssetBookPage() {
   const router = useRouter();
   const { hasRole, hasAnyPermission, user } = useAuth();
 
-  // Access scope types
   const accessScopeTypes = user?.accessScopeTypes || [];
   const hasGlobalAccess = accessScopeTypes.includes(AccessScopeType.GLOBAL);
-  const hasChildUnitsAccess = accessScopeTypes.includes(AccessScopeType.CHILD_UNITS);
+  const hasChildUnitsAccess = accessScopeTypes.includes(
+    AccessScopeType.CHILD_UNITS
+  );
   const hasUnitAccess = accessScopeTypes.includes(AccessScopeType.UNIT);
   const hasSelfAccess = accessScopeTypes.includes(AccessScopeType.SELF);
 
-  // State for filters
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCampusId, setSelectedCampusId] = useState("");
+  const loadFiltersFromStorage = () => {
+    try {
+      const stored = localStorage.getItem("assetBookFilters");
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      return null;
+    }
+    return null;
+  };
+
+  const storedFilters = loadFiltersFromStorage();
+
+  const [searchTerm, setSearchTerm] = useState(storedFilters?.searchTerm || "");
+  const [selectedCampusId, setSelectedCampusId] = useState(
+    storedFilters?.selectedCampusId || ""
+  );
   const [units, setUnits] = useState<Unit[]>();
-  const [selectedUnitId, setSelectedUnitId] = useState("");
+  const [selectedUnitId, setSelectedUnitId] = useState(
+    storedFilters?.selectedUnitId || ""
+  );
   const [rooms, setRooms] = useState<Room[]>();
   const [selectedYear, setSelectedYear] = useState(
-    new Date().getFullYear().toString()
+    storedFilters?.selectedYear || new Date().getFullYear().toString()
   );
-  const [selectedRoomId, setSelectedRoomId] = useState("");
-  const [selectedAssetType, setSelectedAssetType] = useState("FIXED_ASSET"); // Mặc định chọn tài sản cố định
+  const [selectedRoomId, setSelectedRoomId] = useState(
+    storedFilters?.selectedRoomId || ""
+  );
+  const [selectedAssetType, setSelectedAssetType] = useState(
+    storedFilters?.selectedAssetType || "FIXED_ASSET"
+  );
+  const [selectedStatus, setSelectedStatus] = useState(
+    storedFilters?.selectedStatus || ""
+  );
 
-  // Selection mode states
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
-  
-  // Move mode states
+
   const [isMoveMode, setIsMoveMode] = useState(false);
-  const [selectedAssetsForMoveLocal, setSelectedAssetsForMoveLocal] = useState<string[]>([]);
-  
-  // Liquidation mode states
+  const [selectedAssetsForMoveLocal, setSelectedAssetsForMoveLocal] = useState<
+    string[]
+  >([]);
+
   const [isLiquidationMode, setIsLiquidationMode] = useState(false);
-  const [selectedAssetsForLiquidationLocal, setSelectedAssetsForLiquidationLocal] = useState<string[]>([]);
-  
-  // Advanced filter toggle
+  const [
+    selectedAssetsForLiquidationLocal,
+    setSelectedAssetsForLiquidationLocal,
+  ] = useState<string[]>([]);
+
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Redux selectors
-  const { currentFilter, filteredAssetBooks, loading, error, isExporting, exportError } = useSelector(
-    (state: RootState) => state.assetBook
-  );
+  const {
+    currentFilter,
+    filteredAssetBooks,
+    loading,
+    error,
+    isExporting,
+    exportError,
+  } = useSelector((state: RootState) => state.assetBook);
   const { campuses } = useSelector((state: RootState) => state.unit);
   const { loading: roomsLoading } = useSelector(
     (state: RootState) => state.room
   );
 
-  // Load initial data
+  useEffect(() => {
+    const filtersToSave = {
+      searchTerm,
+      selectedCampusId,
+      selectedUnitId,
+      selectedYear,
+      selectedRoomId,
+      selectedAssetType,
+      selectedStatus,
+    };
+
+    try {
+      localStorage.setItem("assetBookFilters", JSON.stringify(filtersToSave));
+    } catch (error) {
+      console.error("Error saving filters to localStorage:", error);
+    }
+  }, [
+    searchTerm,
+    selectedCampusId,
+    selectedUnitId,
+    selectedYear,
+    selectedRoomId,
+    selectedAssetType,
+    selectedStatus,
+  ]);
+
   useEffect(() => {
     const loadInitialData = async () => {
       try {
         const campusesResult = await dispatch(getUnitCampus()).unwrap();
-        if (campusesResult) {
-          if (user) {
-            console.log("User unit ID:", user.unitId);
-            if (hasChildUnitsAccess) {
-              // Child units access: unitId chính là campus ID
-              const userCampus = campusesResult.find((campus: Unit) => campus.id === user?.unitId);
-              if (userCampus) {
-                setUnits(userCampus.childUnits ?? []);
+        if (campusesResult && user) {
+          if (hasChildUnitsAccess) {
+            // Child units access: unitId chính là campus ID
+            const userCampus = campusesResult.find(
+              (campus: Unit) => campus.id === user?.unitId
+            );
+            if (userCampus) {
+              const childUnits = userCampus.childUnits ?? [];
+              setUnits(childUnits);
+
+              if (!storedFilters?.selectedCampusId) {
                 setSelectedCampusId(userCampus.id);
-              } else {
-                setUnits([]);
-                setSelectedCampusId("");
               }
-            } else if (hasUnitAccess || hasSelfAccess) {
-              setSelectedUnitId(user.unitId);
             } else {
               setUnits([]);
-              setSelectedCampusId("");
-              setSelectedUnitId("");
             }
-            // KHÔNG call API ở đây nữa - chỉ call khi chọn xong loại tài sản
+          } else if (hasUnitAccess || hasSelfAccess) {
+            if (!storedFilters?.selectedUnitId) {
+              setSelectedUnitId(user.unitId);
+            }
           }
         }
       } catch (e: any) {
@@ -407,37 +456,35 @@ export default function AssetBookPage() {
     loadInitialData();
   }, []);
 
-  // Handle filter changes - chỉ call API khi đã chọn loại tài sản
   useEffect(() => {
-    // Kiểm tra điều kiện bắt buộc trước khi call API
     const hasRequiredFilters = () => {
-      // 1. Phải có thông tin user và đơn vị
       if (!user) return false;
-      
-      const hasUnitInfo = 
-        (hasGlobalAccess && selectedCampusId && selectedUnitId) || 
-        (hasChildUnitsAccess && selectedUnitId) || 
+
+      const hasUnitInfo =
+        (hasGlobalAccess && selectedCampusId && selectedUnitId) ||
+        (hasChildUnitsAccess && selectedUnitId) ||
         ((hasUnitAccess || hasSelfAccess) && user.unitId);
-      
-      // 2. Phải chọn năm
+
       if (!selectedYear) return false;
-      
-      // 3. Loại tài sản là tùy chọn - có thể để trống để tải tất cả
-      // if (!selectedAssetType) return false;
-      
+      if (!selectedAssetType) return false;
+
       return hasUnitInfo;
     };
 
-    // Chỉ call API khi đã đủ tất cả điều kiện
     if (hasRequiredFilters()) {
       handleFilterChange({
         ...currentFilter,
         search: searchTerm || undefined,
         campusId: selectedCampusId || undefined,
-        unitId: selectedUnitId || ((hasUnitAccess || hasSelfAccess) && user ? user.unitId : undefined),
+        unitId:
+          selectedUnitId ||
+          ((hasUnitAccess || hasSelfAccess) && user ? user.unitId : undefined),
         year: selectedYear ? parseInt(selectedYear) : undefined,
         roomId: selectedRoomId || undefined,
         assetType: (selectedAssetType as AssetType) || undefined,
+        status: selectedStatus
+          ? (selectedStatus as AssetBookItemStatus)
+          : undefined,
       });
     }
   }, [
@@ -446,7 +493,8 @@ export default function AssetBookPage() {
     selectedUnitId,
     selectedYear,
     selectedRoomId,
-    selectedAssetType, // Đây là trigger chính
+    selectedAssetType,
+    selectedStatus,
     user?.unitId,
     hasGlobalAccess,
     hasChildUnitsAccess,
@@ -460,7 +508,6 @@ export default function AssetBookPage() {
 
   const handleExport = async () => {
     try {
-      // Kiểm tra điều kiện để xuất
       if (!selectedAssetType) {
         toast.error("Vui lòng chọn loại tài sản để xuất sổ!");
         return;
@@ -471,10 +518,8 @@ export default function AssetBookPage() {
         return;
       }
 
-      // Xác định unitId để xuất
       let exportUnitId: string | undefined = selectedUnitId;
-      
-      // Nếu chưa có selectedUnitId, thử lấy từ user (cho Unit/Self access)
+
       if (!exportUnitId && (hasUnitAccess || hasSelfAccess) && user?.unitId) {
         exportUnitId = user.unitId;
       }
@@ -484,23 +529,18 @@ export default function AssetBookPage() {
         return;
       }
 
-      console.log("Exporting asset book data...", {
-        type: selectedAssetType,
-        unitId: exportUnitId,
-        year: parseInt(selectedYear),
-      });
-
       toast.loading("Đang xuất sổ tài sản...");
-      
-      await dispatch(exportAssetBookToExcel({
-        type: selectedAssetType as AssetType,
-        unitId: exportUnitId,
-        year: parseInt(selectedYear),
-      })).unwrap();
+
+      await dispatch(
+        exportAssetBookToExcel({
+          type: selectedAssetType as AssetType,
+          unitId: exportUnitId,
+          year: parseInt(selectedYear),
+        })
+      ).unwrap();
 
       toast.dismiss();
       toast.success("Xuất sổ tài sản thành công!");
-      
     } catch (error: any) {
       toast.dismiss();
       toast.error(error?.message || "Có lỗi xảy ra khi xuất sổ tài sản!");
@@ -533,40 +573,23 @@ export default function AssetBookPage() {
     selectedRowKeys: string[],
     selectedRows: Asset[]
   ) => {
-    console.log("=== DEBUG SELECTION ===");
-    console.log("selectedRowKeys:", selectedRowKeys);
-    console.log("selectedRows:", selectedRows);
-    console.log("deduplicatedAssets sample:", deduplicatedAssets.slice(0, 2));
     setSelectedAssets(selectedRowKeys);
-    console.log("Đã chọn tài sản:", selectedRowKeys);
-    console.log("Chi tiết tài sản được chọn:", selectedRows);
   };
 
   const handleMoveSelectionChange = (
     selectedRowKeys: string[],
     selectedRows: Asset[]
   ) => {
-    console.log("=== DEBUG MOVE SELECTION ===");
-    console.log("selectedRowKeys:", selectedRowKeys);
-    console.log("selectedRows:", selectedRows);
     setSelectedAssetsForMoveLocal(selectedRowKeys);
-    console.log("Đã chọn tài sản để di chuyển:", selectedRowKeys);
-    console.log("Chi tiết tài sản được chọn để di chuyển:", selectedRows);
   };
 
   const handleLiquidationSelectionChange = (
     selectedRowKeys: string[],
     selectedRows: Asset[]
   ) => {
-    console.log("=== DEBUG LIQUIDATION SELECTION ===");
-    console.log("selectedRowKeys:", selectedRowKeys);
-    console.log("selectedRows:", selectedRows);
     setSelectedAssetsForLiquidationLocal(selectedRowKeys);
-    console.log("Đã chọn tài sản để thanh lý:", selectedRowKeys);
-    console.log("Chi tiết tài sản được chọn để thanh lý:", selectedRows);
   };
 
-  // Memoize deduplicated data to avoid recalculating on every render
   const deduplicatedAssets = React.useMemo(() => {
     const seen = new Set<string>();
     return filteredAssetBooks.data.filter((asset) => {
@@ -588,86 +611,82 @@ export default function AssetBookPage() {
       selectedAssets.includes(asset.id)
     );
 
-    // Logic cải thiện để xác định sourceUnitId
     let sourceUnitId: string | undefined = selectedUnitId || undefined;
-    
-    // Nếu chưa có selectedUnitId, thử lấy từ user (cho Unit/Self access)
+
     if (!sourceUnitId && (hasUnitAccess || hasSelfAccess) && user?.unitId) {
       sourceUnitId = user.unitId;
     }
-    
-    // Nếu vẫn chưa có, thử lấy từ tài sản đã chọn
+
     if (!sourceUnitId && selectedAssetObjects.length > 0) {
       const firstAsset = selectedAssetObjects[0];
       sourceUnitId = firstAsset.currentRoom?.unit?.id;
     }
 
-    // Lưu context bàn giao (thông tin đơn vị nguồn)
     const handoverContext = {
       sourceCampusId: selectedCampusId || undefined,
       sourceUnitId: sourceUnitId || undefined,
       sourceRoomId: selectedRoomId || undefined,
-      // Thêm thông tin chi tiết
-      sourceCampus: selectedCampusId ? campuses.find(c => c.id === selectedCampusId) : undefined,
-      sourceUnit: sourceUnitId ? 
-                  (units?.find(u => u.id === sourceUnitId) || 
-                   campuses.flatMap(c => c.childUnits || []).find(u => u.id === sourceUnitId)) : 
-                  undefined,
+      sourceCampus: selectedCampusId
+        ? campuses.find((c) => c.id === selectedCampusId)
+        : undefined,
+      sourceUnit: sourceUnitId
+        ? units?.find((u) => u.id === sourceUnitId) ||
+          campuses
+            .flatMap((c) => c.childUnits || [])
+            .find((u) => u.id === sourceUnitId)
+        : undefined,
     };
 
     try {
-      // Tạo handover draft để lưu vào sessionStorage
       const handoverDraft = {
-        selectedIds: selectedAssetObjects.map(asset => asset.id),
+        selectedIds: selectedAssetObjects.map((asset) => asset.id),
         assets: selectedAssetObjects,
         handoverContext: handoverContext,
         filterContext: {
           selectedCampusId: selectedCampusId || undefined,
-          selectedUnitId: selectedUnitId || ((hasUnitAccess || hasSelfAccess) && user?.unitId ? user.unitId : undefined),
+          selectedUnitId:
+            selectedUnitId ||
+            ((hasUnitAccess || hasSelfAccess) && user?.unitId
+              ? user.unitId
+              : undefined),
           selectedYear: selectedYear || undefined,
           selectedRoomId: selectedRoomId || undefined,
           selectedAssetType: selectedAssetType || undefined,
-          campusName: selectedCampusId ? campuses.find(c => c.id === selectedCampusId)?.name : undefined,
-          unitName: selectedUnitId ? 
-                    (units?.find(u => u.id === selectedUnitId)?.name || 
-                     campuses.flatMap(c => c.childUnits || []).find(u => u.id === selectedUnitId)?.name) :
-                    undefined,
-          roomName: selectedRoomId ? rooms?.find(r => r.id === selectedRoomId)?.name : undefined,
+          campusName: selectedCampusId
+            ? campuses.find((c) => c.id === selectedCampusId)?.name
+            : undefined,
+          unitName: selectedUnitId
+            ? units?.find((u) => u.id === selectedUnitId)?.name ||
+              campuses
+                .flatMap((c) => c.childUnits || [])
+                .find((u) => u.id === selectedUnitId)?.name
+            : undefined,
+          roomName: selectedRoomId
+            ? rooms?.find((r) => r.id === selectedRoomId)?.name
+            : undefined,
         },
-        status: 'DRAFT',
+        status: "DRAFT",
         timestamp: new Date().toISOString(),
       };
 
-      // Lưu draft vào sessionStorage
-      sessionStorage.setItem('handoverDraft', JSON.stringify(handoverDraft));
-      
-      console.log("Saved handover draft to sessionStorage:", handoverDraft);
-
-      // Kiểm tra lại xem có lưu được không
-      const saved = sessionStorage.getItem('handoverDraft');
-      console.log("Verification - saved handover draft data:", saved);
-
+      sessionStorage.setItem("handoverDraft", JSON.stringify(handoverDraft));
     } catch (error) {
       console.error("Error saving handover draft to sessionStorage:", error);
       toast.error("Có lỗi khi lưu dữ liệu. Vui lòng thử lại.");
       return;
     }
 
-    // Lưu danh sách tài sản đã chọn vào Redux store
     dispatch(setSelectedAssetsForHandover(selectedAssetObjects));
-    
-    console.log("handoverContext:", handoverContext);
+
     dispatch(setHandoverContext(handoverContext));
-    
+
     toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để bàn giao`);
-    
-    // Thoát khỏi selection mode
+
     setIsSelectionMode(false);
     setSelectedAssets([]);
-    
-    // Delay một chút rồi mới chuyển trang để đảm bảo sessionStorage đã lưu
+
     setTimeout(() => {
-      router.push('/asset/transaction/create');
+      router.push("/asset/transaction/create");
     }, 100);
   };
 
@@ -681,65 +700,64 @@ export default function AssetBookPage() {
       selectedAssetsForMoveLocal.includes(asset.id)
     );
 
-    // Lưu context di chuyển (thông tin phòng nguồn)
     const moveContext = {
       sourceRoomId: selectedRoomId || undefined,
-      sourceRoom: selectedRoomId ? rooms?.find(r => r.id === selectedRoomId) : undefined,
+      sourceRoom: selectedRoomId
+        ? rooms?.find((r) => r.id === selectedRoomId)
+        : undefined,
     };
 
     try {
-      // Tạo move draft để lưu vào sessionStorage
       const moveDraft = {
-        selectedIds: selectedAssetObjects.map(asset => asset.id),
+        selectedIds: selectedAssetObjects.map((asset) => asset.id),
         assets: selectedAssetObjects,
         moveContext: moveContext,
         filterContext: {
           selectedCampusId: selectedCampusId || undefined,
-          selectedUnitId: selectedUnitId || ((hasUnitAccess || hasSelfAccess) && user?.unitId ? user.unitId : undefined),
+          selectedUnitId:
+            selectedUnitId ||
+            ((hasUnitAccess || hasSelfAccess) && user?.unitId
+              ? user.unitId
+              : undefined),
           selectedYear: selectedYear || undefined,
           selectedRoomId: selectedRoomId || undefined,
           selectedAssetType: selectedAssetType || undefined,
-          campusName: selectedCampusId ? campuses.find(c => c.id === selectedCampusId)?.name : undefined,
-          unitName: selectedUnitId ? 
-                    (units?.find(u => u.id === selectedUnitId)?.name || 
-                     campuses.flatMap(c => c.childUnits || []).find(u => u.id === selectedUnitId)?.name) :
-                    undefined,
-          roomName: selectedRoomId ? rooms?.find(r => r.id === selectedRoomId)?.name : undefined,
+          campusName: selectedCampusId
+            ? campuses.find((c) => c.id === selectedCampusId)?.name
+            : undefined,
+          unitName: selectedUnitId
+            ? units?.find((u) => u.id === selectedUnitId)?.name ||
+              campuses
+                .flatMap((c) => c.childUnits || [])
+                .find((u) => u.id === selectedUnitId)?.name
+            : undefined,
+          roomName: selectedRoomId
+            ? rooms?.find((r) => r.id === selectedRoomId)?.name
+            : undefined,
         },
-        status: 'DRAFT',
+        status: "DRAFT",
         timestamp: new Date().toISOString(),
       };
 
-      // Lưu draft vào sessionStorage
-      sessionStorage.setItem('moveDraft', JSON.stringify(moveDraft));
-      
-      console.log("Saved move draft to sessionStorage:", moveDraft);
-
-      // Kiểm tra lại xem có lưu được không
-      const saved = sessionStorage.getItem('moveDraft');
-      console.log("Verification - saved move draft data:", saved);
-
+      sessionStorage.setItem("moveDraft", JSON.stringify(moveDraft));
     } catch (error) {
-      console.error("Error saving move draft to sessionStorage:", error);
       toast.error("Có lỗi khi lưu dữ liệu. Vui lòng thử lại.");
       return;
     }
 
-    // Lưu danh sách tài sản đã chọn vào Redux store
     dispatch(setSelectedAssetsForMove(selectedAssetObjects));
-    
-    console.log("moveContext:", moveContext);
+
     dispatch(setMoveContext(moveContext));
-    
-    toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để di chuyển`);
-    
-    // Thoát khỏi move mode
+
+    toast.success(
+      `Đã chọn ${selectedAssetObjects.length} tài sản để di chuyển`
+    );
+
     setIsMoveMode(false);
     setSelectedAssetsForMoveLocal([]);
-    
-    // Delay một chút rồi mới chuyển trang để đảm bảo sessionStorage đã lưu
+
     setTimeout(() => {
-      router.push('/asset/move/create');
+      router.push("/asset/move/create");
     }, 100);
   };
 
@@ -753,43 +771,50 @@ export default function AssetBookPage() {
       selectedAssetsForLiquidationLocal.includes(asset.id)
     );
 
-    console.log("Selected assets for liquidation:", selectedAssetObjects);
-
     try {
       const liquidationDraft = {
-        selectedIds: selectedAssetObjects.map(asset => asset.id),
+        selectedIds: selectedAssetObjects.map((asset) => asset.id),
         assets: selectedAssetObjects,
         filterContext: {
           selectedCampusId: selectedCampusId || undefined,
-          selectedUnitId: selectedUnitId || ((hasUnitAccess || hasSelfAccess) && user?.unitId ? user.unitId : undefined),
+          selectedUnitId:
+            selectedUnitId ||
+            ((hasUnitAccess || hasSelfAccess) && user?.unitId
+              ? user.unitId
+              : undefined),
           selectedYear: selectedYear || undefined,
           selectedRoomId: selectedRoomId || undefined,
           selectedAssetType: selectedAssetType || undefined,
-          campusName: selectedCampusId ? campuses.find(c => c.id === selectedCampusId)?.name : undefined,
-          unitName: selectedUnitId ? 
-                    (units?.find(u => u.id === selectedUnitId)?.name || 
-                     campuses.flatMap(c => c.childUnits || []).find(u => u.id === selectedUnitId)?.name) :
-                    undefined,
-          roomName: selectedRoomId ? rooms?.find(r => r.id === selectedRoomId)?.name : undefined,
+          campusName: selectedCampusId
+            ? campuses.find((c) => c.id === selectedCampusId)?.name
+            : undefined,
+          unitName: selectedUnitId
+            ? units?.find((u) => u.id === selectedUnitId)?.name ||
+              campuses
+                .flatMap((c) => c.childUnits || [])
+                .find((u) => u.id === selectedUnitId)?.name
+            : undefined,
+          roomName: selectedRoomId
+            ? rooms?.find((r) => r.id === selectedRoomId)?.name
+            : undefined,
         },
-        status: 'DRAFT',
-        note: '',
-        assetType: selectedAssetType || 'FIXED_ASSET',
+        status: "DRAFT",
+        note: "",
+        assetType: selectedAssetType || "FIXED_ASSET",
         timestamp: new Date().toISOString(),
       };
 
       // Lưu draft mới
-      sessionStorage.setItem('liquidationDraft', JSON.stringify(liquidationDraft));
-      
+      sessionStorage.setItem(
+        "liquidationDraft",
+        JSON.stringify(liquidationDraft)
+      );
+
       // Lưu legacy key để backward compatibility
-      sessionStorage.setItem('selectedAssetsForLiquidation', JSON.stringify(selectedAssetObjects));
-      
-      console.log("Saved liquidation draft to sessionStorage:", liquidationDraft);
-
-      // Kiểm tra lại xem có lưu được không
-      const saved = sessionStorage.getItem('liquidationDraft');
-      console.log("Verification - saved draft data:", saved);
-
+      sessionStorage.setItem(
+        "selectedAssetsForLiquidation",
+        JSON.stringify(selectedAssetObjects)
+      );
     } catch (error) {
       console.error("Error saving to sessionStorage:", error);
       toast.error("Có lỗi khi lưu dữ liệu. Vui lòng thử lại.");
@@ -798,28 +823,34 @@ export default function AssetBookPage() {
 
     toast.success(`Đã chọn ${selectedAssetObjects.length} tài sản để thanh lý`);
 
-    // Thoát khỏi liquidation mode
     setIsLiquidationMode(false);
     setSelectedAssetsForLiquidationLocal([]);
 
-    // Delay một chút rồi mới chuyển trang để đảm bảo sessionStorage đã lưu
     setTimeout(() => {
-      router.push('/liquidation/create');
+      router.push("/liquidation/create");
     }, 100);
   };
 
   useEffect(() => {
     if (selectedCampusId) {
-      setUnits(
-        campuses.find((campus) => campus.id === selectedCampusId)?.childUnits ??
-          []
-      );
-      // Reset dependent selections when campus changes
-      setSelectedUnitId("");
-      setSelectedRoomId("");
-      setRooms([]);
+      const campus = campuses.find((campus) => campus.id === selectedCampusId);
+      const childUnits = campus?.childUnits ?? [];
+      setUnits(childUnits);
+
+      const stored = loadFiltersFromStorage();
+      const isRestoringFromStorage =
+        stored &&
+        stored.selectedCampusId === selectedCampusId &&
+        stored.selectedUnitId;
+
+      if (!isRestoringFromStorage) {
+        setSelectedUnitId("");
+        setSelectedRoomId("");
+        setRooms([]);
+      }
     }
-  }, [selectedCampusId]);
+  }, [selectedCampusId, campuses]);
+
   useEffect(() => {
     const fetchRooms = async () => {
       if (selectedUnitId) {
@@ -828,6 +859,7 @@ export default function AssetBookPage() {
             fetchRoomsByUnitId(selectedUnitId)
           ).unwrap();
           setRooms(res);
+          console.log("Rooms loaded for unit:", selectedUnitId, res.length);
         } catch (error) {
           console.error("Error fetching rooms:", error);
           setRooms([]);
@@ -838,7 +870,7 @@ export default function AssetBookPage() {
     };
     fetchRooms();
   }, [dispatch, selectedUnitId]);
-  // Define table columns for Asset Book (theo format Excel)
+
   const columns: TableColumn<Asset>[] = [
     {
       key: "fixedCode",
@@ -859,8 +891,16 @@ export default function AssetBookPage() {
       sortable: true,
     },
     {
+      key: "name",
+      title: "Tên tài sản",
+      render: (_, record) => (
+        <div className="text-sm font-medium text-gray-900">{record.name}</div>
+      ),
+      sortable: true,
+    },
+    {
       key: "roomCode",
-      title: "Mã vị trí",
+      title: "Mã phòng",
       render: (_, record) => (
         <div className="text-sm text-gray-900">
           {record.currentRoom
@@ -869,21 +909,6 @@ export default function AssetBookPage() {
         </div>
       ),
       sortable: true,
-    },
-    {
-      key: "name",
-      title: "Tên TSCD",
-      render: (_, record) => (
-        <div className="text-sm font-medium text-gray-900">{record.name}</div>
-      ),
-      sortable: true,
-    },
-    {
-      key: "specs",
-      title: "Thông số KT",
-      render: (_, record) => (
-        <div className="text-sm text-gray-500">{record.specs || "-"}</div>
-      ),
     },
     {
       key: "origin",
@@ -917,7 +942,9 @@ export default function AssetBookPage() {
       title: "Trạng thái trong sổ",
       render: (_, record) => (
         <div className="flex justify-center">
-          {getAssetBookItemStatusBadge(record.bookItemStatus as AssetBookItemStatus)}
+          {getAssetBookItemStatusBadge(
+            record.bookItemStatus as AssetBookItemStatus
+          )}
         </div>
       ),
       sortable: true,
@@ -937,7 +964,6 @@ export default function AssetBookPage() {
               </DropdownMenuTrigger>
 
               <DropdownMenuContent align="end" className="w-52">
-                {/* Ai cũng có thể xem chi tiết */}
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
@@ -948,7 +974,6 @@ export default function AssetBookPage() {
                   <span>Xem chi tiết</span>
                 </DropdownMenuItem>
 
-                {/* Chỉnh sửa */}
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
@@ -959,107 +984,143 @@ export default function AssetBookPage() {
                   <span>Chỉnh sửa</span>
                 </DropdownMenuItem>
 
-                {/* Separator cho actions khác */}
-                {(canSelectForHandover(asset.bookItemStatus as AssetBookItemStatus) && !isMoveMode) ||
-                (canSelectForMove(asset.bookItemStatus as AssetBookItemStatus) && !isSelectionMode) ||
-                (canProposeLiquidation(asset.bookItemStatus as AssetBookItemStatus, asset.status as AssetStatus) && !isSelectionMode && !isMoveMode) ||
-                (hasAnyPermission([PermissionConstants.PERM_PROPOSED_LIQUIDATION]) && canProposeLiquidation(asset.bookItemStatus as AssetBookItemStatus, asset.status as AssetStatus)) ? (
+                {(canSelectForHandover(
+                  asset.bookItemStatus as AssetBookItemStatus
+                ) &&
+                  !isMoveMode) ||
+                (canSelectForMove(
+                  asset.bookItemStatus as AssetBookItemStatus
+                ) &&
+                  !isSelectionMode) ||
+                (canProposeLiquidation(
+                  asset.bookItemStatus as AssetBookItemStatus,
+                  asset.status as AssetStatus
+                ) &&
+                  !isSelectionMode &&
+                  !isMoveMode) ||
+                (hasAnyPermission([
+                  PermissionConstants.PERM_PROPOSED_LIQUIDATION,
+                ]) &&
+                  canProposeLiquidation(
+                    asset.bookItemStatus as AssetBookItemStatus,
+                    asset.status as AssetStatus
+                  )) ? (
                   <DropdownMenuSeparator />
                 ) : null}
 
-                {/* Bàn giao - chỉ hiện khi có thể bàn giao */}
-                {canSelectForHandover(asset.bookItemStatus as AssetBookItemStatus) && !isMoveMode && (
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isSelectionMode) {
-                        if (!selectedAssets.includes(asset.id)) {
-                          setSelectedAssets((prev) => [...prev, asset.id]);
+                {canSelectForHandover(
+                  asset.bookItemStatus as AssetBookItemStatus
+                ) &&
+                  !isMoveMode && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isSelectionMode) {
+                          if (!selectedAssets.includes(asset.id)) {
+                            setSelectedAssets((prev) => [...prev, asset.id]);
+                          }
+                        } else {
+                          setSelectedAssets([asset.id]);
+                          setIsSelectionMode(true);
                         }
-                      } else {
-                        // Nếu chưa ở chế độ bàn giao, chọn tài sản này và vào chế độ bàn giao
-                        setSelectedAssets([asset.id]);
-                        setIsSelectionMode(true);
-                      }
-                    }}
-                    className="flex items-center gap-2 cursor-pointer text-orange-600"
-                  >
-                    <span>Bàn giao</span>
-                  </DropdownMenuItem>
-                )}
+                      }}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>Bàn giao</span>
+                    </DropdownMenuItem>
+                  )}
 
-                {/* Di chuyển - chỉ hiện khi có thể di chuyển */}
-                {canSelectForMove(asset.bookItemStatus as AssetBookItemStatus) && !isSelectionMode && (
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isMoveMode) {
-                        if (!selectedAssetsForMoveLocal.includes(asset.id)) {
-                          setSelectedAssetsForMoveLocal((prev) => [...prev, asset.id]);
+                {canSelectForMove(
+                  asset.bookItemStatus as AssetBookItemStatus
+                ) &&
+                  !isSelectionMode && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isMoveMode) {
+                          if (!selectedAssetsForMoveLocal.includes(asset.id)) {
+                            setSelectedAssetsForMoveLocal((prev) => [
+                              ...prev,
+                              asset.id,
+                            ]);
+                          }
+                        } else {
+                          setSelectedAssetsForMoveLocal([asset.id]);
+                          setIsMoveMode(true);
                         }
-                      } else {
-                        // Nếu chưa ở chế độ di chuyển, chọn tài sản này và vào chế độ di chuyển
-                        setSelectedAssetsForMoveLocal([asset.id]);
-                        setIsMoveMode(true);
-                      }
-                    }}
-                    className="flex items-center gap-2 cursor-pointer text-green-600"
-                  >
-                    <span>Di chuyển</span>
-                  </DropdownMenuItem>
-                )}
+                      }}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>Di chuyển</span>
+                    </DropdownMenuItem>
+                  )}
 
-                {/* Chọn thanh lý - chỉ hiện khi có thể thanh lý */}
-                {canProposeLiquidation(asset.bookItemStatus as AssetBookItemStatus, asset.status as AssetStatus) && !isSelectionMode && !isMoveMode && (
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isLiquidationMode) {
-                        if (!selectedAssetsForLiquidationLocal.includes(asset.id)) {
-                          setSelectedAssetsForLiquidationLocal((prev) => [...prev, asset.id]);
+                {canProposeLiquidation(
+                  asset.bookItemStatus as AssetBookItemStatus,
+                  asset.status as AssetStatus
+                ) &&
+                  !isSelectionMode &&
+                  !isMoveMode && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isLiquidationMode) {
+                          if (
+                            !selectedAssetsForLiquidationLocal.includes(
+                              asset.id
+                            )
+                          ) {
+                            setSelectedAssetsForLiquidationLocal((prev) => [
+                              ...prev,
+                              asset.id,
+                            ]);
+                          }
+                        } else {
+                          setSelectedAssetsForLiquidationLocal([asset.id]);
+                          setIsLiquidationMode(true);
                         }
-                      } else {
-                        // Nếu chưa ở chế độ thanh lý, chọn tài sản này và vào chế độ thanh lý
-                        setSelectedAssetsForLiquidationLocal([asset.id]);
-                        setIsLiquidationMode(true);
-                      }
-                    }}
-                    className="flex items-center gap-2 cursor-pointer text-red-600"
-                  >
-                    <span>Thanh lý</span>
-                  </DropdownMenuItem>
-                )}
+                      }}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>Thanh lý</span>
+                    </DropdownMenuItem>
+                  )}
 
-                {/* Đề xuất thanh lý - chỉ hiện khi có quyền và có thể thanh lý */}
-                {hasAnyPermission([PermissionConstants.PERM_PROPOSED_LIQUIDATION]) &&
-                canProposeLiquidation(asset.bookItemStatus as AssetBookItemStatus, asset.status as AssetStatus) && (
-                  <DropdownMenuItem
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      try {
-                        await dispatch(proposeAssetLiquidation({ id: asset.id, note: "Đề xuất thanh lý từ sổ tài sản" })).unwrap();
-                        // Refresh current list by reusing current filter
-                        handleFilterChange({
-                          ...currentFilter,
-                        });
-                      } catch (err: any) {
-                        // toast handled in thunk
-                      }
-                    }}
-                    className="flex items-center gap-2 cursor-pointer text-orange-700"
-                  >
-                    <span>Đề xuất thanh lý</span>
-                  </DropdownMenuItem>
-                )}
+                {hasAnyPermission([
+                  PermissionConstants.PERM_PROPOSED_LIQUIDATION,
+                ]) &&
+                  canProposeLiquidation(
+                    asset.bookItemStatus as AssetBookItemStatus,
+                    asset.status as AssetStatus
+                  ) && (
+                    <DropdownMenuItem
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          await dispatch(
+                            proposeAssetLiquidation({
+                              id: asset.id,
+                              note: "Đề xuất thanh lý từ sổ tài sản",
+                            })
+                          ).unwrap();
+                          handleFilterChange({
+                            ...currentFilter,
+                          });
+                        } catch (err: any) {}
+                      }}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>Đánh dấu thanh lý</span>
+                    </DropdownMenuItem>
+                  )}
 
-                {/* Xóa */}
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={(e) => {
                       e.stopPropagation();
                     }}
-                    className="flex items-center gap-2 cursor-pointer text-red-600"
+                    className="flex items-center gap-2 cursor-pointer"
                   >
                     <span>Xóa</span>
                   </DropdownMenuItem>
@@ -1074,65 +1135,59 @@ export default function AssetBookPage() {
   ];
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6 overflow-x-auto sm:overflow-x-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sổ Tài Sản</h1>
-          <p className="text-gray-600">
-            Quản lý và theo dõi tài sản theo cơ sở, đơn vị
-          </p>
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <button
+              onClick={() => router.push("/asset/asset-book")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Tài sản
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Sổ tài sản
+            </span>
+          </div>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center flex-wrap gap-2 sm:gap-4 w-full sm:w-auto">
           {/* Nút bàn giao */}
           <Button
             onClick={handleToggleSelectionMode}
-            variant={isSelectionMode ? "destructive" : "default"}
-            className={`flex items-center ${
-              isSelectionMode
-                ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-            }`}
+            variant="outline"
             disabled={isMoveMode}
+            className="border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors text-xs sm:text-sm px-3 sm:px-4 py-2"
           >
-            <ArrowRightLeft className="h-4 w-4 mr-2" />
-            {isSelectionMode ? "Hủy chọn" : "Bàn giao tài sản"}
+            {isSelectionMode ? "Hủy chọn" : "Bàn giao"}
           </Button>
 
           {/* Nút di chuyển */}
           <Button
             onClick={handleToggleMoveMode}
-            variant={isMoveMode ? "destructive" : "default"}
-            className={`flex items-center ${
-              isMoveMode
-                ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-green-600 hover:bg-green-700 text-white"
-            }`}
+            variant="outline"
             disabled={isSelectionMode}
+            className="border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors text-xs sm:text-sm px-3 sm:px-4 py-2"
           >
-            <Move className="h-4 w-4 mr-2" />
-            {isMoveMode ? "Hủy di chuyển" : "Di chuyển tài sản"}
+            {isMoveMode ? "Hủy di chuyển" : "Di chuyển"}
           </Button>
 
           {/* Nút thanh lý */}
           <Button
             onClick={handleToggleLiquidationMode}
-            variant={isLiquidationMode ? "destructive" : "default"}
-            className={`flex items-center ${
-              isLiquidationMode
-                ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-red-600 hover:bg-red-700 text-white"
-            }`}
+            variant="outline"
             disabled={isSelectionMode || isMoveMode}
+            className="border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors text-xs sm:text-sm px-3 sm:px-4 py-2"
           >
-            <Trash2 className="h-4 w-4 mr-2" />
-            {isLiquidationMode ? "Hủy thanh lý" : "Thanh lý tài sản"}
+            {isLiquidationMode ? "Hủy thanh lý" : "Thanh lý"}
           </Button>
 
-          <Button 
+          <Button
             onClick={handleExport}
             disabled={isExporting || !selectedAssetType || !selectedYear}
-            className="min-w-[150px]"
+            variant="outline"
+            className="min-w-[120px] sm:min-w-[150px] border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors text-xs sm:text-sm px-3 sm:px-4 py-2"
           >
             {isExporting ? (
               <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -1226,7 +1281,11 @@ export default function AssetBookPage() {
               className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             >
               {showAdvancedFilters ? "Ẩn bộ lọc" : "Hiển thị bộ lọc"}
-              <ChevronDown className={`h-4 w-4 ml-2 transition-transform duration-200 ${showAdvancedFilters ? "rotate-180" : ""}`} />
+              <ChevronDown
+                className={`h-4 w-4 ml-2 transition-transform duration-200 ${
+                  showAdvancedFilters ? "rotate-180" : ""
+                }`}
+              />
             </Button>
           </div>
 
@@ -1248,6 +1307,17 @@ export default function AssetBookPage() {
                     />
                   </div>
                 </div>
+
+                {/* Status Filter */}
+                <CardSelect
+                  label="Trạng thái"
+                  icon={<></>}
+                  value={selectedStatus}
+                  onChange={setSelectedStatus}
+                  options={getStatusOptions()}
+                  placeholder="Tất cả trạng thái"
+                  className="text-base"
+                />
 
                 {/* Room Filter */}
                 {selectedUnitId && (
@@ -1271,8 +1341,6 @@ export default function AssetBookPage() {
               </div>
             </div>
           )}
-
-          
         </div>
       </div>
 
@@ -1399,9 +1467,11 @@ export default function AssetBookPage() {
         data={deduplicatedAssets}
         loading={loading}
         emptyText="Không tìm thấy tài sản"
-        emptyIcon={<div className="h-12 w-12 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
-          <span className="text-gray-400 font-bold text-xl">?</span>
-        </div>}
+        emptyIcon={
+          <div className="h-12 w-12 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
+            <span className="text-gray-400 font-bold text-xl">?</span>
+          </div>
+        }
         multiSort={true}
         sortConfigs={currentFilter.sorting}
         onSortChange={(sortConfigs) => {
@@ -1416,7 +1486,9 @@ export default function AssetBookPage() {
                 selectedRowKeys: selectedAssets,
                 onChange: handleSelectionChange,
                 getCheckboxProps: (record) => ({
-                  disabled: !canSelectForHandover(record.bookItemStatus as AssetBookItemStatus),
+                  disabled: !canSelectForHandover(
+                    record.bookItemStatus as AssetBookItemStatus
+                  ),
                 }),
               }
             : isMoveMode
@@ -1424,7 +1496,9 @@ export default function AssetBookPage() {
                 selectedRowKeys: selectedAssetsForMoveLocal,
                 onChange: handleMoveSelectionChange,
                 getCheckboxProps: (record) => ({
-                  disabled: !canSelectForMove(record.bookItemStatus as AssetBookItemStatus),
+                  disabled: !canSelectForMove(
+                    record.bookItemStatus as AssetBookItemStatus
+                  ),
                 }),
               }
             : isLiquidationMode
@@ -1432,7 +1506,10 @@ export default function AssetBookPage() {
                 selectedRowKeys: selectedAssetsForLiquidationLocal,
                 onChange: handleLiquidationSelectionChange,
                 getCheckboxProps: (record) => ({
-                  disabled: !canProposeLiquidation(record.bookItemStatus as AssetBookItemStatus, record.status as AssetStatus),
+                  disabled: !canProposeLiquidation(
+                    record.bookItemStatus as AssetBookItemStatus,
+                    record.status as AssetStatus
+                  ),
                 }),
               }
             : undefined

@@ -3,6 +3,7 @@ import {
   Asset,
   AssetBook,
   AssetBookItem,
+  AssetBookItemStatus,
   AssetBookStatus,
   AssetType,
   BaseFilterRequest,
@@ -34,6 +35,7 @@ export interface AssetBookFilterRequest extends BaseFilterRequest {
   year?: number;
   roomId?: string;
   assetType?: AssetType;
+  status?: AssetBookItemStatus;
 }
 interface AssetBookState {
   assetBookInventory: AssetBookInventory;
