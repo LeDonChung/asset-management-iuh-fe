@@ -18,6 +18,7 @@ import {
   Hash,
   Download,
   Eye,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { InventorySessionStatus, InventorySessionUnit } from "@/types/asset";
@@ -254,15 +255,16 @@ export default function InventorySessionDetailPage() {
       <div className="">
         <div className="mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={handleGoBack}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-xl font-semibold">Chi tiết kỳ kiểm kê</h1>
-                <p className="text-sm text-gray-600 truncate max-w-md">
-                  {session.name}
-                </p>
+            <div>
+              {/* Breadcrumb */}
+              <div className="flex items-center text-sm sm:text-base text-gray-600 mb-2">
+                <Link href="/inventory" className="hover:text-gray-900 text-gray-900 font-semibold text-lg sm:text-xl">
+                  Kiểm kê
+                </Link>
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                {session.name}
+                </span>
               </div>
             </div>
 

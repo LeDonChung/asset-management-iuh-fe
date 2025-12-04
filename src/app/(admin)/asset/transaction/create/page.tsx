@@ -31,6 +31,7 @@ import {
   ArrowUpDown,
   Trash2,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -43,6 +44,7 @@ import {
 } from "@/types/asset";
 import { useAuth } from "@/contexts/AuthContext";
 import toast from "react-hot-toast";
+import AssetBookSelectionModal from "@/components/asset/AssetBookSelectionModal";
 
 interface CardSelectProps {
   label: string;
@@ -229,6 +231,9 @@ export default function TransactionPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [assetNotes, setAssetNotes] = useState<Record<string, string>>({});
+  
+  const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
+  const savedUnitIdRef = useRef<string>("");
 
   useEffect(() => {
     const loadHandoverDraft = () => {
@@ -375,6 +380,80 @@ export default function TransactionPage() {
   const handleNoteChange = (assetId: string, note: string) => {
     setAssetNotes((prev) => ({ ...prev, [assetId]: note }));
   };
+
+  useEffect(() => {
+    if (isAddAssetModalOpen) {
+      savedUnitIdRef.current = selectedUnitId;
+    }
+  }, [isAddAssetModalOpen, selectedUnitId]);
+
+  useEffect(() => {
+    if (!isAddAssetModalOpen && savedUnitIdRef.current) {
+      if (savedUnitIdRef.current && savedUnitIdRef.current !== selectedUnitId) {
+        setSelectedUnitId(savedUnitIdRef.current);
+      }
+      setTimeout(() => {
+        savedUnitIdRef.current = "";
+      }, 100);
+    }
+  }, [isAddAssetModalOpen]);
+
+  const handleAddAssetsFromModal = (selectedAssets: Asset[]) => {
+    if (!selectedAssets || selectedAssets.length === 0) {
+      toast.error("Không có tài sản nào được chọn!");
+      return;
+    }
+
+    const currentAssetIds = selectedAssetsForHandover.map(asset => asset.id);
+    const existingIds = new Set(currentAssetIds);
+    const newAssets = selectedAssets.filter(asset => !existingIds.has(asset.id));
+    
+    if (newAssets.length === 0) {
+      toast.error("Tất cả tài sản đã được thêm vào danh sách!");
+      setIsAddAssetModalOpen(false);
+      return;
+    }
+
+    const updatedAssets = [...selectedAssetsForHandover, ...newAssets];
+    
+    dispatch(setSelectedAssetsForHandover(updatedAssets));
+    
+    try {
+      const handoverDraft = {
+        selectedIds: updatedAssets.map((asset) => asset.id),
+        assets: updatedAssets,
+        handoverContext: handoverContext,
+        filterContext: {
+          selectedCampusId: selectedCampusId || undefined,
+          selectedUnitId: selectedUnitId || undefined,
+        },
+        status: "DRAFT",
+        timestamp: new Date().toISOString(),
+      };
+      sessionStorage.setItem("handoverDraft", JSON.stringify(handoverDraft));
+    } catch (error) {
+      console.error("Error saving handover draft:", error);
+    }
+    
+    toast.success(`Đã thêm ${newAssets.length} tài sản vào danh sách bàn giao`);
+    
+    setIsAddAssetModalOpen(false);
+  };
+
+  const modalInitialFilters = useMemo(() => {
+    // Sử dụng đơn vị nguồn (nơi tài sản đang ở) để filter, không phải đơn vị tiếp nhận
+    // Ưu tiên: handoverContext.sourceUnitId > đơn vị của tài sản đầu tiên > undefined
+    const sourceUnitId = handoverContext?.sourceUnitId || 
+      (selectedAssetsForHandover.length > 0 
+        ? selectedAssetsForHandover[0].currentRoom?.unit?.id 
+        : undefined);
+    
+    return {
+      unitId: sourceUnitId,
+      year: new Date().getFullYear().toString(),
+      assetType: "FIXED_ASSET",
+    };
+  }, [handoverContext?.sourceUnitId, selectedAssetsForHandover]);
 
   const handleSubmitHandover = async () => {
     if (!selectedUnitId) {
@@ -592,6 +671,15 @@ export default function TransactionPage() {
             </div>
             <div className="flex items-center space-x-3">
               <Button
+                onClick={() => {
+                  setIsAddAssetModalOpen(true);
+                }}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-green-700 text-white"
+                disabled={isSubmitting || isCreatingTransaction}
+              >
+                Thêm tài sản
+              </Button>
+              <Button
                 onClick={handleCancelHandover}
                 variant="outline"
                 disabled={isSubmitting || isCreatingTransaction}
@@ -727,6 +815,17 @@ export default function TransactionPage() {
             <Package2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           }
         />
+
+      <AssetBookSelectionModal
+        isOpen={isAddAssetModalOpen}
+        onClose={() => {
+          setIsAddAssetModalOpen(false);
+        }}
+        onConfirm={handleAddAssetsFromModal}
+        title="Chọn tài sản từ sổ tài sản để bàn giao"
+        excludeAssetIds={selectedAssetsForHandover.map(asset => asset.id)}
+        initialFilters={modalInitialFilters}
+      />
       </div>
     </div>
   );

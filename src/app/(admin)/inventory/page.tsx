@@ -14,6 +14,7 @@ import {
   Edit,
   Trash2,
   MoreVertical,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -129,7 +130,6 @@ export default function InventoryPage() {
   };
 
   const handleDeleteSession = async (session: InventorySession) => {
-    // Chỉ cho phép xóa khi ở trạng thái Kế hoạch
     if (session.status !== InventorySessionStatus.PLANNED) {
       toast.error("Chỉ có thể xóa kỳ kiểm kê ở trạng thái Kế hoạch");
       return;
@@ -141,7 +141,6 @@ export default function InventoryPage() {
           deleteInventorySession(session.id)
         ).unwrap();
         if (result) {
-          // remove state sau khi xóa
           dispatch(deleteSessionById({ id: session.id }));
           toast.success(`Đã xóa kỳ kiểm kê thành công!`);
         }
@@ -172,7 +171,6 @@ export default function InventoryPage() {
     }
   };
 
-  // Define table columns
   const columns: TableColumn<InventorySession>[] = [
     {
       key: "name",
@@ -308,12 +306,15 @@ export default function InventoryPage() {
 
   return (
     <div className="p-6">
-      {/* Header */}
+      {/* Header with Breadcrumb */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Quản lý kỳ kiểm kê
-          </h1>
+          {/* Breadcrumb */}
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Kiểm kê
+            </span>
+          </div>
         </div>
         {canCreate && (
           <Link href="/inventory/create">
@@ -373,7 +374,6 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Sessions Table */}
       {filterLoading ? (
         <div className="flex justify-center items-center py-12">
           <div className="text-center">

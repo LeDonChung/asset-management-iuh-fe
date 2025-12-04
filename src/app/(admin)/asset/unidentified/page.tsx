@@ -5,11 +5,11 @@ import {
   Search,
   Plus,
   Edit,
-  Trash2,
-  AlertTriangle,
   Package,
   Eye,
   MoreVertical,
+  Tag,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -31,6 +31,7 @@ import { useAppDispatch } from "@/lib/store/hooks";
 import {
   fetchUnidentifiedAssets,
   UnidentifiedAssetFilter,
+  updateAsset,
 } from "@/lib/store/slices/assetSlice";
 import {
   DropdownMenu,
@@ -39,19 +40,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Modal } from "@/components/ui/modal";
+import { Label } from "@/components/ui/label";
 import { PermissionConstants } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Asset type options for filter dropdown
-const assetTypeOptions = [
-  { value: "", label: "Tất cả loại tài sản" },
-  { value: AssetType.FIXED_ASSET, label: "Tài sản cố định" },
-  { value: AssetType.TOOLS_EQUIPMENT, label: "Công cụ dụng cụ" },
-];
-
 export default function UnidentifiedAssetsPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState<AssetType>();
+  const [showIdentifyModal, setShowIdentifyModal] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [rfidValue, setRfidValue] = useState("");
+  const [identifyLoading, setIdentifyLoading] = useState(false);
   const router = useRouter();
   const { hasAnyPermission } = useAuth();
   const canIdentify = hasAnyPermission([
@@ -77,6 +76,15 @@ export default function UnidentifiedAssetsPage() {
       itemsPerPage: 10,
     },
     sorting: [],
+    conditions: [
+      // Chỉ lấy tài sản cố định
+      {
+        field: "type",
+        fieldType: FieldType.SELECT,
+        operator: FilterOperator.EQUALS,
+        value: [AssetType.FIXED_ASSET],
+      },
+    ],
   });
 
   useEffect(() => {
@@ -94,6 +102,13 @@ export default function UnidentifiedAssetsPage() {
     handlerRender({
       ...currentFilter,
       conditions: [
+        // Luôn lọc theo tài sản cố định
+        {
+          field: "type",
+          fieldType: FieldType.SELECT,
+          operator: FilterOperator.EQUALS,
+          value: [AssetType.FIXED_ASSET],
+        },
         ...(searchTerm
           ? [
               {
@@ -104,19 +119,9 @@ export default function UnidentifiedAssetsPage() {
               },
             ]
           : []),
-        ...(typeFilter
-          ? [
-              {
-                field: "type",
-                fieldType: FieldType.SELECT,
-                operator: FilterOperator.EQUALS,
-                value: [typeFilter],
-              },
-            ]
-          : []),
       ],
     });
-  }, [searchTerm, typeFilter]);
+  }, [searchTerm]);
 
   const handlerRender = (filter: UnidentifiedAssetFilter) => {
     setCurrentFilter(filter);
@@ -131,10 +136,47 @@ export default function UnidentifiedAssetsPage() {
     router.push(`/asset/${asset.id}`);
   };
 
-  const getAssetTypeLabel = (type: AssetType) => {
-    return (
-      assetTypeOptions.find((option) => option.value === type)?.label || type
-    );
+  const handleOpenIdentifyModal = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setRfidValue(asset.rfidTag?.rfidId || "");
+    setShowIdentifyModal(true);
+  };
+
+  const handleCloseIdentifyModal = () => {
+    setShowIdentifyModal(false);
+    setSelectedAsset(null);
+    setRfidValue("");
+  };
+
+  const handleSubmitIdentify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedAsset) return;
+    
+    if (!rfidValue.trim()) {
+      toast.error("Vui lòng nhập mã RFID");
+      return;
+    }
+
+    setIdentifyLoading(true);
+
+    try {
+      await dispatch(updateAsset({
+        id: selectedAsset.id,
+        data: {
+          rfid: rfidValue.trim(),
+        }
+      })).unwrap();
+
+      toast.success("Định danh tài sản thành công!");
+      handleCloseIdentifyModal();
+      dispatch(fetchUnidentifiedAssets(currentFilter));
+    } catch (error: any) {
+      console.error("Error identifying asset:", error);
+      toast.error(error.message || "Có lỗi xảy ra khi định danh tài sản.");
+    } finally {
+      setIdentifyLoading(false);
+    }
   };
 
   const getUnidentifiedReason = (asset: Asset) => {
@@ -153,36 +195,29 @@ export default function UnidentifiedAssetsPage() {
 
   const columns: TableColumn<Asset>[] = [
     {
-      key: "name",
-      title: "Thông tin tài sản",
+      key: "fixedCode",
+      title: "Mã TSCD",
       render: (_, record) => (
-        <div className="flex items-center">
-          <Package className="h-5 min-w-5 text-gray-400 mr-3" />
-          <div>
-            <div className="text-sm font-medium text-gray-900">
-              {record.name}
-            </div>
-            <div className="text-xs text-gray-500">
-              {record.ktCode} • {record.fixedCode}
-            </div>
-            {record.specs && (
-              <div className="text-xs text-gray-500 mt-1">{record.specs}</div>
-            )}
-          </div>
+        <div className="text-sm font-medium text-gray-900">
+          {record.fixedCode}
         </div>
       ),
-      maxWidth: 300,
       sortable: true,
     },
     {
-      key: "type",
-      title: "Loại tài sản",
+      key: "ktCode",
+      title: "Mã KT",
       render: (_, record) => (
-        <Badge variant="outline" className="bg-blue-100 text-blue-800">
-          <span>{getAssetTypeLabel(record.type)}</span>
-        </Badge>
+        <div className="text-sm font-medium text-gray-900">{record.ktCode}</div>
       ),
-      maxWidth: 160,
+      sortable: true,
+    },
+    {
+      key: "name",
+      title: "Tên tài sản",
+      render: (_, record) => (
+        <div className="text-sm font-medium text-gray-900">{record.name}</div>
+      ),
       sortable: true,
     },
     {
@@ -193,19 +228,42 @@ export default function UnidentifiedAssetsPage() {
           {record.category?.name || "Chưa phân loại"}
         </div>
       ),
-      maxWidth: 150,
       sortable: true,
+    },
+    {
+      key: "specs",
+      title: "Thông số kỹ thuật",
+      render: (_, record) => (
+        <div className="text-sm text-gray-900">{record.specs || "-"}</div>
+      ),
+      sortable: true,
+    },
+    {
+      key: "origin",
+      title: "Nước SX",
+      render: (_, record) => (
+        <div className="text-sm text-gray-900">{record.origin || "-"}</div>
+      ),
+      sortable: true,
+    },
+    {
+      key: "unit",
+      title: "ĐVT",
+      render: (_, record) => (
+        <div className="text-sm text-gray-900 text-center">{record.unit}</div>
+      ),
+      className: "text-center",
     },
     {
       key: "quantity",
       title: "Số lượng",
       render: (_, record) => (
-        <div className="text-sm text-gray-900">
-          {record.quantity} {record.unit}
+        <div className="text-sm font-medium text-gray-900 text-center">
+          {record.quantity}
         </div>
       ),
-      maxWidth: 120,
       sortable: true,
+      className: "text-center",
     },
     {
       key: "entrydate",
@@ -215,8 +273,25 @@ export default function UnidentifiedAssetsPage() {
           {new Date(record.entrydate).toLocaleDateString("vi-VN")}
         </div>
       ),
-      maxWidth: 120,
       sortable: true,
+    },
+    {
+      key: "rfidStatus",
+      title: "Trạng thái RFID",
+      render: (_, record) => (
+        <div className="flex justify-center">
+          {record.rfidTag?.rfidId ? (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+              Đã có RFID
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+              Chưa có RFID
+            </span>
+          )}
+        </div>
+      ),
+      className: "text-center",
     },
     {
       key: "actions",
@@ -235,6 +310,17 @@ export default function UnidentifiedAssetsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              {canIdentify && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenIdentifyModal(record);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer text-blue-600"
+                >
+                  <span>Định danh</span>
+                </DropdownMenuItem>
+              )}
               {canView && (
                 <DropdownMenuItem
                   onClick={(e) => {
@@ -259,58 +345,58 @@ export default function UnidentifiedAssetsPage() {
           </DropdownMenu>
         </div>
       ),
-      maxWidth: 100,
       className: "text-right",
     },
   ];
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Tài sản chưa định danh
-          </h1>
+          {/* Breadcrumb */}
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <button
+              onClick={() => router.push("/asset")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Tài sản
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Định danh RFID
+            </span>
+          </div>
         </div>
         {canIdentify && (
           <Link href="/asset/create">
-            <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 sm:px-4 py-2">
               <Plus className="h-4 w-4" />
               Thêm tài sản mới
             </Button>
           </Link>
         )}
       </div>
-
       {/* Filters */}
-      <div className="bg-white p-4 rounded-xl border border-gray-300 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Tìm kiếm theo tên tài sản..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      <div className="bg-white rounded-xl border border-gray-300 mb-6">
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tìm kiếm
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Nhập tên, mã tài sản cố định..."
+                  className="pl-10 min-h-[2.75rem] text-base border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
-
-          {/* Type Filter */}
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={typeFilter || ""}
-            onChange={(e) =>
-              setTypeFilter((e.target.value as AssetType) || undefined)
-            }
-          >
-            {assetTypeOptions.map(({ value, label }) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
@@ -319,7 +405,7 @@ export default function UnidentifiedAssetsPage() {
         columns={columns}
         data={unidentifiedAssets.data}
         loading={unidentifiedLoading}
-        emptyText="Không tìm thấy tài sản chưa định danh"
+        emptyText="Không có tài sản cố định nào chưa có RFID"
         emptyIcon={<Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
         multiSort={true}
         sortConfigs={currentFilter.sorting}
@@ -347,6 +433,58 @@ export default function UnidentifiedAssetsPage() {
           serverSide: true,
         }}
       />
+
+      {/* Identify Modal */}
+      <Modal 
+        isOpen={showIdentifyModal} 
+        onClose={handleCloseIdentifyModal} 
+        title="Định danh tài sản"
+      >
+        <form onSubmit={handleSubmitIdentify} className="space-y-4">
+          {selectedAsset && (
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium text-gray-900">{selectedAsset.name}</span>
+                <span className="text-gray-400 mx-2">•</span>
+                <span className="text-gray-600">{selectedAsset.ktCode}</span>
+              </p>
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="rfid">Mã RFID *</Label>
+            <Input
+              id="rfid"
+              type="text"
+              value={rfidValue}
+              onChange={(e) => setRfidValue(e.target.value)}
+              placeholder="Nhập mã RFID"
+              required
+              disabled={identifyLoading}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Hệ thống sẽ tự động kiểm tra và cập nhật trạng thái tài sản
+            </p>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleCloseIdentifyModal}
+              disabled={identifyLoading}
+            >
+              Hủy
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={identifyLoading || !rfidValue.trim()}
+            >
+              {identifyLoading ? 'Đang xử lý...' : 'Định danh'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

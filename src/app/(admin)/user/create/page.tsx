@@ -17,6 +17,7 @@ import {
     Users,
     Settings,
     CheckSquare,
+    ChevronRight,
 } from "lucide-react";
 import {
     User,
@@ -218,18 +219,19 @@ export default function CreateUserPage() {
         <div className="space-y-6 p-6">
             {/* Header */}
             <div className="flex items-center space-x-4">
-                <Link href="/user">
-                    <Button variant="ghost" size="icon" className="rounded-lg">
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                </Link>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">
-                        Thêm người dùng mới
-                    </h1>
-                    <p className="text-gray-600">
-                        Tạo tài khoản người dùng và phân quyền
-                    </p>
+                    <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+                        <button
+                            onClick={() => router.push("/user")}
+                            className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+                        >
+                            Người dùng
+                        </button>
+                        <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                        <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+                            Thêm mới
+                        </span>
+                    </div>
                 </div>
             </div>
 

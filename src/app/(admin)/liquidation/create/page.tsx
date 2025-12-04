@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableColumn } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Package, FileText, Eye, Calendar, MapPin, User, Camera, Info, ArrowLeft, Trash2, ChevronDown, Check, RefreshCw } from "lucide-react";
+import { Search, Plus, Package, FileText, Eye, Calendar, MapPin, User, Camera, Info, ArrowLeft, Trash2, ChevronDown, Check, RefreshCw, ChevronRight, Save } from "lucide-react";
 import {
   LiquidationProposedInventoryResult,
   AssetType,
@@ -15,6 +15,7 @@ import {
   CreateLiquidationItemDto,
   LiquidationStatus,
   AssetBookItemStatus,
+  Asset,
 } from "@/types/asset";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -35,6 +36,7 @@ import {
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useAuth } from "@/contexts/AuthContext";
 import { PermissionConstants } from "@/hooks/usePermissions";
+import AssetBookSelectionModal from "@/components/asset/AssetBookSelectionModal";
 
 const statusLabels = {
   [InventoryResultStatus.MATCHED]: "Khớp",
@@ -215,9 +217,9 @@ const CardSelect: React.FC<CardSelectProps> = ({
             w-full ${className.includes('text-lg') ? 'min-h-[3.5rem] text-lg' : className.includes('text-base') ? 'min-h-[2.75rem] text-base' : 'min-h-[2.5rem] text-sm'} pl-3 pr-10 border border-gray-200 rounded-lg 
             bg-white text-left transition-all duration-200
             hover:border-gray-300 hover:shadow-sm
-            focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
             disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
-            ${isOpen ? "ring-2 ring-red-500 border-red-500" : ""}
+            ${isOpen ? "ring-2 ring-blue-500 border-blue-500" : ""}
             ${loading ? "cursor-wait" : "cursor-pointer"}
             relative
           `}
@@ -225,7 +227,13 @@ const CardSelect: React.FC<CardSelectProps> = ({
           <div className="flex items-center justify-between h-full py-2.5">
             <div className="flex items-center space-x-3 flex-1 min-w-0">
               {icon && (
-                <div className="flex-shrink-0">{icon}</div>
+                <div
+                  className={`transition-colors flex-shrink-0 ${
+                    isOpen ? "text-blue-500" : "text-gray-400"
+                  }`}
+                >
+                  {icon}
+                </div>
               )}
               <span
                 className={`flex-1 truncate ${
@@ -265,7 +273,7 @@ const CardSelect: React.FC<CardSelectProps> = ({
                   flex items-start justify-between min-h-[3rem]
                   ${
                     option.value === value
-                      ? "bg-red-50 text-red-900"
+                      ? "bg-blue-50 text-blue-900"
                       : "text-gray-900"
                   }
                 `}
@@ -274,7 +282,7 @@ const CardSelect: React.FC<CardSelectProps> = ({
                   {option.label}
                 </span>
                 {option.value === value && (
-                  <Check className="h-4 w-4 text-red-600" />
+                  <Check className="h-4 w-4 text-blue-600" />
                 )}
               </button>
             ))}
@@ -453,13 +461,14 @@ export default function LiquidationCreatePage() {
   // State for detail modal
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedAssetDetail, setSelectedAssetDetail] = useState<any | null>(null);
+  
+  // State for add asset modal
+  const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
 
-  // Auto-select all assets when they are loaded
+  // Sync selectedAssets with assetsFromStore (all assets are selected since no checkbox)
   useEffect(() => {
-    if (assetsFromStore.length > 0) {
-      const assetIds = assetsFromStore.map(asset => asset.id);
-      setSelectedAssets(assetIds);
-    }
+    const assetIds = assetsFromStore.map(asset => asset.id);
+    setSelectedAssets(assetIds);
   }, [assetsFromStore]);
 
   // Filter assets based on search and filters
@@ -492,17 +501,6 @@ export default function LiquidationCreatePage() {
 
   // Table columns configuration
   const columns: TableColumn<any>[] = [
-    {
-      key: "stt",
-      title: "STT",
-      width: "60px",
-      render: (_, record, index) => (
-        <div className="text-sm text-center text-gray-900 font-medium">
-          {index + 1}
-        </div>
-      ),
-      className: "text-center",
-    },
     {
       key: "fixedCode",
       title: "Mã tài sản",
@@ -580,9 +578,9 @@ export default function LiquidationCreatePage() {
     {
       key: "actions",
       title: "Thao tác",
-      width: "100px",
+      width: "150px",
       render: (_, record) => (
-        <div className="flex justify-center">
+        <div className="flex justify-center items-center gap-2">
           <Button 
             variant="ghost" 
             size="sm" 
@@ -594,6 +592,18 @@ export default function LiquidationCreatePage() {
             className="h-8 px-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
           >
             <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-red-600 hover:bg-red-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRemoveAsset(record.id);
+            }}
+            disabled={isSubmitting || isCreatingProposal}
+          >
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       ),
@@ -619,17 +629,49 @@ export default function LiquidationCreatePage() {
     return rooms;
   }, [filteredAssets]);
 
-  // Handle asset selection
-  const handleAssetSelection = (
-    selectedRowKeys: string[],
-    selectedRows: any[]
-  ) => {
-    setSelectedAssets(selectedRowKeys);
+  // Handle remove asset from list
+  const handleRemoveAsset = (assetId: string) => {
+    const updatedAssets = assetsFromStore.filter(asset => asset.id !== assetId);
+    setAssetsFromStore(updatedAssets);
+    setFilteredAssets(updatedAssets);
   };
+
+  // Handle add assets from modal
+  const handleAddAssetsFromModal = (selectedAssets: Asset[]) => {
+    if (!selectedAssets || selectedAssets.length === 0) {
+      toast.error("Không có tài sản nào được chọn!");
+      return;
+    }
+
+    const currentAssetIds = assetsFromStore.map(asset => asset.id);
+    const existingIds = new Set(currentAssetIds);
+    const newAssets = selectedAssets.filter(asset => !existingIds.has(asset.id));
+    
+    if (newAssets.length === 0) {
+      toast.error("Tất cả tài sản đã được thêm vào danh sách!");
+      setIsAddAssetModalOpen(false);
+      return;
+    }
+
+    const updatedAssets = [...assetsFromStore, ...newAssets];
+    setAssetsFromStore(updatedAssets);
+    setFilteredAssets(updatedAssets);
+    
+    toast.success(`Đã thêm ${newAssets.length} tài sản vào danh sách thanh lý`);
+    
+    setIsAddAssetModalOpen(false);
+  };
+
+  // Get initial filters for modal
+  const modalInitialFilters = useMemo(() => ({
+    unitId: user?.unitId || undefined,
+    year: new Date().getFullYear().toString(),
+    assetType: selectedAssetType || "FIXED_ASSET",
+  }), [user?.unitId, selectedAssetType]);
 
   // Handle create liquidation proposal - submit directly
   const handleCreateProposal = async () => {
-    if (selectedAssets.length === 0) {
+    if (assetsFromStore.length === 0) {
       toast.error("Vui lòng chọn ít nhất một tài sản để tạo đề xuất thanh lý");
       return;
     }
@@ -642,10 +684,8 @@ export default function LiquidationCreatePage() {
     setIsSubmitting(true);
 
     try {
-      // Tạo danh sách items từ các tài sản đã chọn từ store
-      const selectedItems = assetsFromStore.filter(
-        (asset) => selectedAssets.includes(asset.id)
-      );
+      // Tạo danh sách items từ tất cả tài sản trong store
+      const selectedItems = assetsFromStore;
 
       const createDto: CreateLiquidationProposalDto = {
         unitId: user!.unitId!,
@@ -668,7 +708,7 @@ export default function LiquidationCreatePage() {
         : "dưới dạng nháp";
       
       toast.success(
-        `Đã tạo đề xuất thanh lý cho ${selectedAssets.length} tài sản ${statusMessage}!`
+        `Đã tạo đề xuất thanh lý cho ${assetsFromStore.length} tài sản ${statusMessage}!`
       );
       
       // Clear draft từ sessionStorage sau khi tạo thành công
@@ -698,27 +738,32 @@ export default function LiquidationCreatePage() {
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/asset/asset-book">
-                <Button
-                  variant="ghost" 
-                  size="sm"
-                  className="p-2 hover:bg-gray-100"
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col w-full sm:w-auto">
+              <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+                <button
+                  onClick={() => router.push("/asset/asset-book")}
+                  className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                  Sổ tài sản
+                </button>
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+                <span className="text-gray-900 font-semibold text-lg sm:text-xl">
                   Tạo đề xuất thanh lý
-                </h1>
-                <p className="text-gray-600">
-                  Hoàn tất thông tin để tạo đề xuất thanh lý cho {assetsFromStore.length} tài sản đã chọn
-                </p>
+                </span>
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <Button
+                onClick={() => {
+                  setIsAddAssetModalOpen(true);
+                }}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-green-700 text-white"
+                disabled={isSubmitting || isCreatingProposal}
+              >
+                <Plus className="h-4 w-4" />
+                Thêm tài sản
+              </Button>
               <Button
                 onClick={() => router.push("/asset/asset-book")}
                 variant="outline"
@@ -728,17 +773,18 @@ export default function LiquidationCreatePage() {
               </Button>
               <Button
                 onClick={handleCreateProposal}
-                disabled={isSubmitting || isCreatingProposal || selectedAssets.length === 0}
+                disabled={isSubmitting || isCreatingProposal || assetsFromStore.length === 0}
                 className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {isCreatingProposal || isSubmitting ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                     Đang tạo...
                   </>
                 ) : (
                   <>
-                    {selectedStatus === LiquidationStatus.PROPOSED ? "Gửi đề xuất thanh lý" : "Lưu nháp yêu cầu thanh lý"}
+                    <Save className="h-4 w-4 mr-2" />
+                    {selectedStatus === LiquidationStatus.PROPOSED ? "Gửi đề xuất" : "Lưu nháp"}
                   </>
                 )}
               </Button>
@@ -747,14 +793,6 @@ export default function LiquidationCreatePage() {
         </div>
       {/* Status Selection */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-300 mb-6">
-        <div className="bg-gradient-to-r from-red-50 to-orange-50 px-6 py-4 border-b border-gray-100 rounded-t-xl">
-          <div className="flex items-center space-x-3">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Chọn trạng thái đề xuất
-            </h3>
-          </div>
-        </div>
-
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <CardSelect
@@ -778,16 +816,12 @@ export default function LiquidationCreatePage() {
 
       {/* Assets Table */}
       <Table<any>
-        title="Tài sản đã chọn để thanh lý"
+        key={`assets-table-${assetsFromStore.length}`}
         columns={columns}
         data={filteredAssets}
         loading={false}
         emptyText="Không có tài sản nào được chọn"
         emptyIcon={<Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
-        rowSelection={{
-          selectedRowKeys: selectedAssets,
-          onChange: handleAssetSelection,
-        }}
         rowKey="id"
         pagination={false}
       />
@@ -879,6 +913,17 @@ export default function LiquidationCreatePage() {
           </ModalBody>
         )}
       </Modal>
+
+      <AssetBookSelectionModal
+        isOpen={isAddAssetModalOpen}
+        onClose={() => {
+          setIsAddAssetModalOpen(false);
+        }}
+        onConfirm={handleAddAssetsFromModal}
+        title="Chọn tài sản từ sổ tài sản để thanh lý"
+        excludeAssetIds={assetsFromStore.map(asset => asset.id)}
+        initialFilters={modalInitialFilters}
+      />
       </div>
     </div>
   );

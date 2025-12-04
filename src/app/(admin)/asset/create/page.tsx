@@ -16,6 +16,7 @@ import {
   User,
   CheckSquare,
   ChevronDown,
+  ChevronRight,
   Check,
   RefreshCw
 } from "lucide-react";
@@ -379,10 +380,13 @@ export default function CreateAssetPage() {
       })).unwrap();
 
       toast.success("Tạo tài sản thành công!");
-      // Redirect on success
-      router.push("/asset/unidentified");
+      
+      if (formData.type === AssetType.FIXED_ASSET && !formData.rfid) {
+        router.push("/asset/unidentified");
+      } else {
+        router.push("/asset");
+      }
     } catch (error: any) {
-      // Error already handled in the thunk
       console.error("Error creating asset:", error);
       toast.error(error.message || "Có lỗi xảy ra khi tạo tài sản.");
     } finally {
@@ -394,19 +398,26 @@ export default function CreateAssetPage() {
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Link href="/asset">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Thêm tài sản mới
-            </h1>
-            <p className="text-gray-600">
-              Điền đầy đủ thông tin để tạo tài sản mới
-            </p>
+        <div>
+          {/* Breadcrumb */}
+          <div className="flex items-center text-sm sm:text-base text-gray-600 mb-3">
+            <button
+              onClick={() => router.push("/asset")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Tài sản
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <button
+              onClick={() => router.push("/asset/unidentified")}
+              className="hover:text-blue-600 text-lg sm:text-xl transition-colors font-semibold cursor-pointer"
+            >
+              Định danh
+            </button>
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
+            <span className="text-gray-900 font-semibold text-lg sm:text-xl">
+              Tạo
+            </span>
           </div>
         </div>
       </div>
