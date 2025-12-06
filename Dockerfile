@@ -47,50 +47,33 @@
 # CMD ["pnpm", "start"]
 # Use the official Node.js 20 LTS Alpine image
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# Install pnpm globally
 RUN npm install -g pnpm
 
-# Build args
+# build args
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_WS_URL
 ARG NEXT_PUBLIC_SOCKET_URL
-ARG NODE_ENV=production
 
-# Make them available in build stage
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
-ENV NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL}
-ENV NODE_ENV=${NODE_ENV}
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
 
-# Copy dependency files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* ./
-
-# Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
 COPY . .
 
-# Debug values to verify build-time args
-RUN echo "=== Build-time environment variables ===" && \
-    echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL" && \
-    echo "NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL" && \
-    echo "NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL" && \
-    echo "NODE_ENV=$NODE_ENV"
-
-# Build Next.js app
-RUN pnpm run build
+RUN pnpm build
 
 
-# ==========================
-# Production image
-# ==========================
+# ----------- Production Stage -----------
 FROM node:20-alpine AS runner
-
 WORKDIR /app
+
+# FIX lỗi pnpm không tồn tại
+RUN npm install -g pnpm
 
 ENV NODE_ENV=production
 ENV PORT=3002
@@ -101,5 +84,4 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
 EXPOSE 3002
-
 CMD ["pnpm", "start"]
