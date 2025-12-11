@@ -53,7 +53,7 @@ const getUserFromLocalStorage = (): User | null => {
 
 export const SocketProvider: React.FC<SocketProviderProps> = ({ 
   children, 
-  serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001' 
+  serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://socket.codeshare.id.vn'
 }) => {
   const [socket, setSocket] = useState<ReturnType<typeof io> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
