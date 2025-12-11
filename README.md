@@ -1,345 +1,418 @@
-# 🏢 Hệ thống Quản lý Tài sản - IUH Frontend
+# 🏢 Hệ Thống Quản Lý Tài Sản Thông Minh
 
-Hệ thống quản lý tài sản toàn diện cho trường Đại học Công nghiệp TP.HCM (IUH) với giao diện hiện đại và tính năng mạnh mẽ.
+## 📌 Thông tin dự án
 
-## 📋 Mục lục
+**Đồ án tốt nghiệp - Trường Đại học Công Nghiệp TP.HCM**
 
-- [Tổng quan](#tổng-quan)
-- [Tính năng chính](#tính-năng-chính)
-- [Công nghệ sử dụng](#công-nghệ-sử-dụng)
-- [Cài đặt và chạy](#cài-đặt-và-chạy)
-- [Cấu trúc dự án](#cấu-trúc-dự-án)
-- [Components](#components)
-- [API Documentation](#api-documentation)
-- [Deployment](#deployment)
-- [Đóng góp](#đóng-góp)
+- **Sinh viên thực hiện:**
+  - Lê Đôn Chủng
+  - Trần Thị Thanh Tuyền
+- **Năm thực hiện:** 2025
 
-## 🎯 Tổng quan
+## 📖 Giới thiệu
 
-Hệ thống quản lý tài sản IUH là một ứng dụng web hiện đại được xây dựng để quản lý toàn bộ tài sản của trường đại học, từ việc nhập kho, phân bổ, bàn giao đến thanh lý. Hệ thống hỗ trợ đầy đủ các quy trình nghiệp vụ và cung cấp giao diện thân thiện cho người dùng.
+Hệ thống Quản lý Tài sản Thông minh là một giải pháp toàn diện để quản lý tài sản của tổ chức, sử dụng công nghệ IoT (ESP32-CAM, RFID) kết hợp với ứng dụng web và mobile hiện đại.
 
-### 🎨 Thiết kế UI/UX
+### ✨ Tính năng chính
 
-- **Modern Design**: Giao diện hiện đại với Tailwind CSS
-- **Responsive**: Hoạt động tốt trên mọi thiết bị
-- **Accessibility**: Tuân thủ tiêu chuẩn accessibility
-- **Dark Mode**: Hỗ trợ chế độ tối (đang phát triển)
+- 🔐 **Xác thực và phân quyền:** Hệ thống JWT authentication với phân quyền theo vai trò
+- 📦 **Quản lý tài sản:** CRUD đầy đủ cho tài sản, phòng ban, vị trí
+- 📊 **Dashboard thống kê:** Biểu đồ trực quan về tài sản, bảo trì, sửa chữa
+- 📱 **Ứng dụng Mobile:** Quét QR code, kiểm kê tài sản, báo cáo sự cố
+- 🔔 **Thông báo realtime:** Socket.IO cho cảnh báo và thông báo
+- 📧 **Email notification:** Gửi email tự động khi có cảnh báo
+- 🎥 **ESP32-CAM Integration:** Camera giám sát tài sản
+- 🏷️ **RFID/QR Code:** Nhận diện và tracking tài sản
 
-## ✨ Tính năng chính
+## 🏗️ Kiến trúc hệ thống
 
-### 📦 Quản lý Tài sản
-- ✅ **Danh sách tài sản** với bộ lọc nâng cao
-- ✅ **Thêm/Sửa/Xóa** tài sản
-- ✅ **Chi tiết tài sản** với lịch sử di chuyển
-- ✅ **Phân loại tài sản** theo danh mục
-- ✅ **Trạng thái tài sản** (Chờ phân bổ, Đang sử dụng, Hư hỏng, v.v.)
+Dự án bao gồm 5 phần chính:
 
-### 🔄 Quy trình Bàn giao
-- ✅ **Tạo yêu cầu bàn giao** giữa các đơn vị
-- ✅ **Phê duyệt bàn giao** theo quy trình
-- ✅ **Lịch sử bàn giao** chi tiết
-- ✅ **Bàn giao hàng loạt** nhiều tài sản
+```
+asset-management/
+├── asset-management-iuh-fe/      # Frontend Web (Next.js)
+├── asset-management-iuh-be/      # Backend API (NestJS)
+├── asset-management-iuh-mb/      # Mobile App (React Native)
+├── asset-management-iuh-sckt/    # Socket Server (Socket.IO)
+└── asset-management-nginx/       # Reverse Proxy (Nginx)
+```
 
-### 📊 Báo cáo và Thống kê
-- ✅ **Dashboard** tổng quan
-- ✅ **Báo cáo tài sản** theo đơn vị
-- ✅ **Thống kê sử dụng** tài sản
-- ✅ **Xuất báo cáo** PDF/Excel
+### 🛠️ Công nghệ sử dụng
 
-### 👥 Quản lý Người dùng
-- ✅ **Phân quyền** theo vai trò
-- ✅ **Quản lý đơn vị** và phòng ban
-- ✅ **Lịch sử hoạt động** người dùng
+#### Frontend Web
+- **Framework:** Next.js 14.x (React 18.x)
+- **UI Library:** Tailwind CSS, Radix UI, Headless UI
+- **State Management:** Redux Toolkit
+- **Data Fetching:** TanStack Query (React Query)
+- **Forms:** React Hook Form + Yup validation
+- **Charts:** Recharts
+- **QR Code:** html5-qrcode, qrcode
+- **Realtime:** Socket.IO Client
 
-## 🛠️ Công nghệ sử dụng
+#### Backend API
+- **Framework:** NestJS 11.x (Node.js)
+- **Database:** PostgreSQL with TypeORM
+- **Authentication:** JWT + Passport
+- **Validation:** class-validator
+- **Documentation:** Swagger/OpenAPI
+- **File Storage:** AWS S3
+- **Email:** Nodemailer with Handlebars
+- **Realtime:** Socket.IO
 
-### Frontend
-- **Next.js 14** - React framework với App Router
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first CSS framework
-- **Lucide React** - Icon library
-- **React Hook Form** - Form management
-- **Zod** - Schema validation
+#### Mobile App
+- **Framework:** React Native 0.80.x
+- **Navigation:** React Navigation 7.x
+- **UI:** React Native Paper
+- **State Management:** Redux Toolkit
+- **HTTP Client:** Axios
+- **IoT:** React Native BLE (Bluetooth Low Energy)
+- **Camera:** React Native Image Picker
 
-### UI Components
-- **Custom Components** - Table, Filter, Pagination, etc.
-- **Responsive Design** - Mobile-first approach
-- **Accessibility** - ARIA labels, keyboard navigation
+#### Infrastructure
+- **Socket Server:** Express + Socket.IO
+- **Reverse Proxy:** Nginx
+- **Containerization:** Docker & Docker Compose
+- **Package Manager:** pnpm
 
-### Development Tools
-- **ESLint** - Code linting
-- **Prettier** - Code formatting
-- **TypeScript** - Static type checking
+## 📋 Yêu cầu hệ thống
 
-## 🚀 Cài đặt và chạy
+### Môi trường phát triển
+- **Node.js:** v18.x hoặc cao hơn
+- **pnpm:** v8.x hoặc cao hơn
+- **PostgreSQL:** v12.x hoặc cao hơn
+- **Docker & Docker Compose:** (optional, khuyến nghị)
 
-### Yêu cầu hệ thống
-- Node.js 18+ 
-- npm hoặc yarn
-- Git
+### Môi trường Mobile Development
+- **Android Studio:** Với Android SDK
+- **Xcode:** (Cho iOS development trên macOS)
+- **Java JDK:** v17 hoặc cao hơn
 
-### Cài đặt
+## 🚀 Hướng dẫn cài đặt
+
+### 1. Clone Repository
 
 ```bash
-# Clone repository
-git clone https://github.com/your-org/asset-management-iuh-fe.git
+git clone https://github.com/LeDonChung/asset-management.git
+cd asset-management
+```
+
+### 2. Cài đặt Backend API
+
+```bash
+cd asset-management-iuh-be
+
+# Cài đặt dependencies
+pnpm install
+
+# Tạo file .env từ template
+cp .env.example .env
+
+# Cấu hình database trong .env
+# DB_HOST=localhost
+# DB_PORT=5432
+# DB_USERNAME=postgres
+# DB_PASSWORD=postgres
+# DB_NAME=asset_management
+
+# Khởi động PostgreSQL (nếu dùng Docker)
+docker-compose up -d
+
+# Chạy migrations
+pnpm run migration:run
+
+# Khởi động server
+pnpm run start:dev
+```
+
+Backend sẽ chạy tại: `http://localhost:3000`  
+Swagger API docs: `http://localhost:3000/api`
+
+### 3. Cài đặt Frontend Web
+
+```bash
 cd asset-management-iuh-fe
 
 # Cài đặt dependencies
-npm install
-# hoặc
-yarn install
+pnpm install
 
-# Tạo file environment
-cp .env.example .env.local
+# Tạo file .env.local
+echo "NEXT_PUBLIC_API_URL=http://localhost:3000" > .env.local
+echo "NEXT_PUBLIC_SOCKET_URL=http://localhost:3001" >> .env.local
 
-# Chạy development server
-npm run dev
-# hoặc
-yarn dev
+# Khởi động development server
+pnpm run dev
 ```
 
-### Environment Variables
+Frontend sẽ chạy tại: `http://localhost:3002`
 
-Tạo file `.env.local` với các biến sau:
-
-```env
-# API Configuration
-NEXT_PUBLIC_API_URL=http://localhost:3001/api
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# Authentication
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-secret-key
-
-# Database (nếu cần)
-DATABASE_URL=your-database-url
-```
-
-### Scripts
+### 4. Cài đặt Socket Server
 
 ```bash
-# Development
-npm run dev          # Chạy development server
-npm run build        # Build production
-npm run start        # Chạy production server
+cd asset-management-iuh-sckt
 
-# Code Quality
-npm run lint         # Kiểm tra code style
-npm run lint:fix     # Tự động fix code style
-npm run type-check   # Kiểm tra TypeScript
+# Cài đặt dependencies
+npm install
 
-# Testing
-npm run test         # Chạy tests
-npm run test:watch   # Chạy tests với watch mode
+# Tạo file .env
+echo "PORT=3001" > .env
+echo "API_URL=http://localhost:3000" >> .env
+
+# Khởi động server
+npm run dev
 ```
 
-## 📁 Cấu trúc dự án
+Socket server sẽ chạy tại: `http://localhost:3001`
 
-```
-src/
-├── app/                    # Next.js App Router
-│   ├── (admin)/           # Admin routes
-│   │   ├── asset/         # Asset management
-│   │   ├── dashboard/     # Dashboard
-│   │   └── users/         # User management
-│   ├── api/               # API routes
-│   └── globals.css        # Global styles
-├── components/            # Reusable components
-│   ├── ui/               # Base UI components
-│   ├── filter/           # Filter components
-│   ├── handover/         # Handover components
-│   └── layout/           # Layout components
-├── lib/                  # Utilities and helpers
-├── types/                # TypeScript type definitions
-├── hooks/                # Custom React hooks
-└── utils/                # Utility functions
-```
+### 5. Cài đặt Mobile App
 
-## 🧩 Components
+```bash
+cd asset-management-iuh-mb
 
-### Core Components
+# Cài đặt dependencies
+npm install
 
-#### 1. **Table Component**
-```tsx
-import { Table, TableColumn } from "@/components/ui/table";
+# Tạo file .env
+echo "API_URL=http://localhost:3000" > .env
+echo "SOCKET_URL=http://localhost:3001" >> .env
 
-const columns: TableColumn<Asset>[] = [
-  { key: "name", title: "Tên tài sản" },
-  { key: "status", title: "Trạng thái" }
-];
+# Cài đặt Pods cho iOS (chỉ trên macOS)
+cd ios && pod install && cd ..
 
-<Table columns={columns} data={assets} />
+# Chạy trên Android
+npm run android
+
+# Hoặc chạy trên iOS
+npm run ios
 ```
 
-#### 2. **AdvancedFilter Component**
-```tsx
-import AdvancedFilter from "@/components/filter/AdvancedFilter";
+### 6. Cài đặt Nginx (Production)
 
-<AdvancedFilter
-  filterOptions={filterOptions}
-  conditions={conditions}
-  onApply={handleApplyFilter}
-/>
+```bash
+cd asset-management-nginx
+
+# Build và chạy Nginx
+docker-compose up -d
 ```
 
-#### 3. **HandoverForm Component**
-```tsx
-import HandoverForm from "@/components/handover/HandoverForm";
+## 🐳 Docker Deployment (Khuyến nghị)
 
-<HandoverForm
-  assets={selectedAssets}
-  onSuccess={handleSuccess}
-  onCancel={handleCancel}
-/>
+### Chạy toàn bộ hệ thống với Docker Compose
+
+```bash
+# Tại thư mục root của project
+docker-compose up -d
+
+# Kiểm tra logs
+docker-compose logs -f
+
+# Dừng các services
+docker-compose down
 ```
 
-### Tính năng Components
+Các services sẽ chạy tại:
+- **Frontend:** http://localhost:3002
+- **Backend API:** http://localhost:3000
+- **Socket Server:** http://localhost:3001
+- **PostgreSQL:** localhost:5432
 
-- ✅ **Responsive Design** - Hoạt động trên mọi thiết bị
-- ✅ **TypeScript Support** - Type-safe development
-- ✅ **Accessibility** - Tuân thủ WCAG guidelines
-- ✅ **Customizable** - Dễ dàng tùy chỉnh
-- ✅ **Performance** - Tối ưu hiệu suất
+## 📱 Cấu hình ESP32-CAM và Arduino
+
+### ESP32-CAM
+```bash
+cd CameraWebServer
+
+# Upload code lên ESP32-CAM qua Arduino IDE
+# Cấu hình WiFi SSID và Password trong file .ino
+# Board: AI Thinker ESP32-CAM
+```
+
+### Arduino RFID Module
+```bash
+cd arduino
+
+# Upload code lên Arduino
+# Kết nối RFID RC522 module
+# Cấu hình Serial communication
+```
+
+## 🧪 Testing
+
+### Backend Testing
+```bash
+cd asset-management-iuh-be
+
+# Unit tests
+pnpm run test
+
+# E2E tests
+pnpm run test:e2e
+
+# Test coverage
+pnpm run test:cov
+```
+
+### Frontend Testing
+```bash
+cd asset-management-iuh-fe
+
+# Run tests
+pnpm run test
+```
 
 ## 📚 API Documentation
 
-### Authentication
-```typescript
-// Login
-POST /api/auth/login
-{
-  "username": "string",
-  "password": "string"
-}
-
-// Logout
-POST /api/auth/logout
+Sau khi khởi động backend, truy cập Swagger API documentation tại:
+```
+http://localhost:3000/api
 ```
 
-### Assets
-```typescript
-// Get assets list
-GET /api/assets?page=1&limit=10&filter=...
+## 🔑 Tài khoản mặc định
 
-// Create asset
-POST /api/assets
-{
-  "name": "string",
-  "categoryId": "string",
-  "specs": "string"
-}
+Sau khi seed database, có thể login với các tài khoản sau:
 
-// Update asset
-PUT /api/assets/:id
-{
-  "name": "string",
-  "status": "string"
-}
+**Admin:**
+- Email: admin@iuh.edu.vn
+- Password: admin123
 
-// Delete asset
-DELETE /api/assets/:id
+**User:**
+- Email: user@iuh.edu.vn
+- Password: user123
+
+## 📂 Cấu trúc thư mục chi tiết
+
+### Backend (`asset-management-iuh-be/src`)
+```
+src/
+├── modules/           # Feature modules (auth, assets, users, etc.)
+├── entities/          # TypeORM entities
+├── common/            # Shared utilities, guards, decorators
+├── migrations/        # Database migrations
+└── templates/         # Email templates (Handlebars)
 ```
 
-### Handovers
-```typescript
-// Get handovers
-GET /api/handovers?status=pending
-
-// Create handover
-POST /api/handovers
-{
-  "fromUnitId": "string",
-  "toUnitId": "string",
-  "assetIds": ["string"]
-}
-
-// Approve handover
-PUT /api/handovers/:id/approve
+### Frontend (`asset-management-iuh-fe/src`)
+```
+src/
+├── app/              # Next.js app directory
+├── components/       # Reusable components
+├── lib/              # Utilities and helpers
+├── hooks/            # Custom React hooks
+├── store/            # Redux store
+└── types/            # TypeScript types
 ```
 
-## 🚀 Deployment
+### Mobile (`asset-management-iuh-mb/src`)
+```
+src/
+├── screens/          # App screens
+├── components/       # Reusable components
+├── navigation/       # Navigation configuration
+├── services/         # API services
+├── store/            # Redux store
+└── utils/            # Utilities
+```
 
-### Production Build
+## 🔧 Scripts hữu ích
 
+### Backend
 ```bash
-# Build application
-npm run build
-
-# Start production server
-npm run start
+pnpm run start:dev     # Development mode với hot reload
+pnpm run start:prod    # Production mode
+pnpm run build         # Build project
+pnpm run migration:run # Chạy migrations
+pnpm run seed          # Seed database
 ```
 
-### Docker Deployment
-
-```dockerfile
-# Dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY . .
-RUN npm run build
-
-EXPOSE 3000
-CMD ["npm", "start"]
+### Frontend
+```bash
+pnpm run dev          # Development server
+pnpm run build        # Build for production
+pnpm run start        # Start production server
+pnpm run lint         # Lint code
 ```
 
-### Environment Variables (Production)
+### Mobile
+```bash
+npm run android       # Run on Android
+npm run ios          # Run on iOS
+npm start            # Start Metro bundler
+```
 
+## 🌐 Environment Variables
+
+### Backend (`.env`)
 ```env
-NEXT_PUBLIC_API_URL=https://api.your-domain.com
-NEXT_PUBLIC_APP_URL=https://your-domain.com
-NEXTAUTH_URL=https://your-domain.com
-NEXTAUTH_SECRET=your-production-secret
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_NAME=asset_management
+
+# JWT
+JWT_SECRET=your-secret-key
+JWT_EXPIRES_IN=1d
+
+# Email (SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+
+# AWS S3
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+AWS_REGION=ap-southeast-1
+AWS_S3_BUCKET=your-bucket-name
+
+# App
+PORT=3000
+NODE_ENV=development
 ```
 
-## 🤝 Đóng góp
-
-### Quy trình đóng góp
-
-1. **Fork** repository
-2. **Tạo branch** mới (`git checkout -b feature/amazing-feature`)
-3. **Commit** thay đổi (`git commit -m 'Add amazing feature'`)
-4. **Push** lên branch (`git push origin feature/amazing-feature`)
-5. **Tạo Pull Request**
-
-### Code Standards
-
-- Sử dụng **TypeScript** cho tất cả files
-- Tuân thủ **ESLint** rules
-- Viết **JSDoc** cho functions phức tạp
-- Test coverage > 80%
-- Responsive design cho mọi component
-
-### Commit Convention
-
-```
-feat: add new feature
-fix: bug fix
-docs: documentation changes
-style: code style changes
-refactor: code refactoring
-test: add or update tests
-chore: build process or auxiliary tool changes
+### Frontend (`.env.local`)
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
 ```
 
-## 📄 License
+### Mobile (`.env`)
+```env
+API_URL=http://localhost:3000
+SOCKET_URL=http://localhost:3001
+```
 
-Dự án này được phát triển cho trường Đại học Công nghiệp TP.HCM (IUH).
+## 🐛 Troubleshooting
+
+### Lỗi kết nối database
+- Kiểm tra PostgreSQL đã chạy chưa
+- Kiểm tra thông tin kết nối trong `.env`
+- Chạy `docker-compose up -d` để khởi động database
+
+### Lỗi build Mobile App
+- Xóa `node_modules` và cài lại: `rm -rf node_modules && npm install`
+- Clean build: `cd android && ./gradlew clean && cd ..`
+- Reset Metro bundler: `npm start -- --reset-cache`
+
+### Lỗi CORS
+- Kiểm tra cấu hình CORS trong backend
+- Đảm bảo frontend URL được thêm vào whitelist
 
 ## 📞 Liên hệ
 
-- **Email**: dev@iuh.edu.vn
-- **Website**: https://iuh.edu.vn
-- **GitHub**: https://github.com/iuh/asset-management
+- **Lê Đôn Chủng:** [Email/GitHub]
+- **Trần Thị Thanh Tuyền:** [Email/GitHub]
 
-## 🙏 Cảm ơn
+## 📄 License
 
-Cảm ơn tất cả các thành viên đã đóng góp vào dự án này!
+Đây là dự án đồ án tốt nghiệp, vui lòng không sử dụng cho mục đích thương mại mà không có sự cho phép.
+
+## 🙏 Acknowledgments
+
+- Trường Đại học Công Nghiệp TP.HCM
+- Giảng viên hướng dẫn
+- Các thư viện và framework mã nguồn mở được sử dụng trong dự án
 
 ---
 
-**IUH Asset Management System** - Quản lý tài sản thông minh cho tương lai! 🚀
+**© 2025 - Hệ Thống Quản Lý Tài Sản Thông Minh - Đồ án tốt nghiệp IUH**
