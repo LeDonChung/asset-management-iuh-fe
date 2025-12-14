@@ -39,6 +39,7 @@ import {
   Unit,
   Room,
   AccessScopeType,
+  AssetType,
 } from "@/types/asset";
 import { useAuth } from "@/contexts/AuthContext";
 import toast from "react-hot-toast";
@@ -236,6 +237,7 @@ export default function MoveCreatePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [assetNotes, setAssetNotes] = useState<Record<string, string>>({});
+  const [assetQuantities, setAssetQuantities] = useState<Record<string, number>>({});
   
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
   const savedUnitIdRef = useRef<string>("");
@@ -262,6 +264,16 @@ export default function MoveCreatePage() {
 
           if (selectedAssetsForMove.length === 0 && moveDraft.assets) {
             dispatch(setSelectedAssetsForMove(moveDraft.assets));
+            
+            const quantities: Record<string, number> = {};
+            moveDraft.assets.forEach((asset: Asset) => {
+              if (asset.type === AssetType.TOOLS_EQUIPMENT) {
+                quantities[asset.id] = moveDraft.quantities?.[asset.id] || 1;
+              } else {
+                quantities[asset.id] = 1;
+              }
+            });
+            setAssetQuantities(quantities);
             
             if (moveDraft.moveContext) {
               dispatch(setMoveContext(moveDraft.moveContext));
@@ -384,10 +396,20 @@ export default function MoveCreatePage() {
       delete copy[assetId];
       return copy;
     });
+    setAssetQuantities((prev) => {
+      const copy = { ...prev };
+      delete copy[assetId];
+      return copy;
+    });
   };
 
   const handleNoteChange = (assetId: string, note: string) => {
     setAssetNotes((prev) => ({ ...prev, [assetId]: note }));
+  };
+
+  const handleQuantityChange = (assetId: string, quantity: number) => {
+    if (quantity < 1) return;
+    setAssetQuantities((prev) => ({ ...prev, [assetId]: quantity }));
   };
 
   useEffect(() => {
@@ -430,12 +452,23 @@ export default function MoveCreatePage() {
 
     const updatedAssets = [...selectedAssetsForMove, ...newAssets];
     
+    const newQuantities: Record<string, number> = {};
+    newAssets.forEach(asset => {
+      if (asset.type === AssetType.TOOLS_EQUIPMENT) {
+        newQuantities[asset.id] = 1;
+      } else {
+        newQuantities[asset.id] = 1;
+      }
+    });
+    setAssetQuantities((prev) => ({ ...prev, ...newQuantities }));
+    
     dispatch(setSelectedAssetsForMove(updatedAssets));
     
     try {
       const moveDraft = {
         selectedIds: updatedAssets.map((asset) => asset.id),
         assets: updatedAssets,
+        quantities: assetQuantities,
         moveContext: moveContext,
         filterContext: {
           selectedCampusId: selectedCampusId || undefined,
@@ -472,6 +505,16 @@ export default function MoveCreatePage() {
       return;
     }
 
+    for (const asset of selectedAssetsForMove) {
+      if (asset.type === AssetType.TOOLS_EQUIPMENT) {
+        const quantity = assetQuantities[asset.id];
+        if (!quantity || quantity < 1) {
+          toast.error(`Vui lòng nhập số lượng hợp lệ (>= 1) cho tài sản "${asset.name}"`);
+          return;
+        }
+      }
+    }
+
     const selectedDateObj = new Date(selectedDate);
     const today = new Date();
     today.setHours(23, 59, 59, 999); // Set to end of day for comparison
@@ -483,6 +526,9 @@ export default function MoveCreatePage() {
 
       const movementItems = selectedAssetsForMove.map((asset) => ({
         assetId: asset.id,
+        quantity: asset.type === AssetType.TOOLS_EQUIPMENT 
+          ? (assetQuantities[asset.id] || 1)
+          : 1, // Tài sản cố định luôn = 1
         fromRoomId: asset.currentRoom?.id || "",
         toRoomId: selectedRoomId,
         note: assetNotes[asset.id] || `Di chuyển đến ${roomName}`,
@@ -556,13 +602,48 @@ export default function MoveCreatePage() {
     },
     {
       key: "quantity",
-      title: "Số lượng",
-      render: (_, record) => (
-        <div className="text-sm font-medium text-gray-900 text-center">
-          {record.quantity}
-        </div>
-      ),
-      sortable: true,
+      title: "Số lượng di chuyển",
+      render: (_, record) => {
+        const isCCDC = record.type === AssetType.TOOLS_EQUIPMENT;
+        const quantity = assetQuantities[record.id] ?? (isCCDC ? 1 : 1);
+        
+        if (isCCDC) {
+          return (
+            <div className="flex justify-center">
+              <input
+                type="number"
+                min="1"
+                step="1"
+                className="border rounded px-2 py-1 text-sm w-20 text-center"
+                placeholder="SL"
+                value={quantity}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (!isNaN(value) && value >= 1) {
+                    handleQuantityChange(record.id, value);
+                  } else if (e.target.value === '') {
+                    handleQuantityChange(record.id, 1);
+                  }
+                }}
+                disabled={isSubmitting || isCreatingMovement}
+                onBlur={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (isNaN(value) || value < 1) {
+                    handleQuantityChange(record.id, 1);
+                  }
+                }}
+              />
+            </div>
+          );
+        } else {
+          return (
+            <div className="text-sm font-medium text-gray-900 text-center">
+              1
+            </div>
+          );
+        }
+      },
+      sortable: false,
       className: "text-center",
     },
     {

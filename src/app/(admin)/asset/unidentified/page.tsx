@@ -10,6 +10,7 @@ import {
   MoreVertical,
   Tag,
   ChevronRight,
+  FileUp,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -44,10 +45,12 @@ import { Modal } from "@/components/ui/modal";
 import { Label } from "@/components/ui/label";
 import { PermissionConstants } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
+import ImportAssetsModal from "@/components/assets/ImportAssetsModal";
 
 export default function UnidentifiedAssetsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showIdentifyModal, setShowIdentifyModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [rfidValue, setRfidValue] = useState("");
   const [identifyLoading, setIdentifyLoading] = useState(false);
@@ -364,17 +367,27 @@ export default function UnidentifiedAssetsPage() {
             </button>
             <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 mx-1 sm:mx-2" />
             <span className="text-gray-900 font-semibold text-lg sm:text-xl">
-              Định danh RFID
+              Định danh
             </span>
           </div>
         </div>
         {canIdentify && (
-          <Link href="/asset/create">
-            <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 sm:px-4 py-2">
-              <Plus className="h-4 w-4" />
-              Thêm tài sản mới
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowImportModal(true)}
+              variant="outline"
+              className="flex items-center gap-2 text-xs sm:text-sm px-3 sm:px-4 py-2"
+            >
+              <FileUp className="h-4 w-4" />
+              Nhập Excel
             </Button>
-          </Link>
+            <Link href="/asset/create">
+              <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 sm:px-4 py-2">
+                <Plus className="h-4 w-4" />
+                Thêm tài sản mới
+              </Button>
+            </Link>
+          </div>
         )}
       </div>
       {/* Filters */}
@@ -485,6 +498,15 @@ export default function UnidentifiedAssetsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Import Modal */}
+      <ImportAssetsModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => {
+          dispatch(fetchUnidentifiedAssets(currentFilter));
+        }}
+      />
     </div>
   );
 }

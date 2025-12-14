@@ -84,6 +84,18 @@ const TransactionItemsTable: React.FC<{
       ),
     },
     {
+      key: "quantity",
+      title: "Số lượng",
+      render: (value, record) => (
+        <div className="text-center">
+          <div className="text-sm font-medium text-gray-900">
+            {record.quantity || 1}
+          </div>
+        </div>
+      ),
+      className: "text-center",
+    },
+    {
       key: "fromRoom",
       title: "Từ phòng",
       render: (value, record) => (

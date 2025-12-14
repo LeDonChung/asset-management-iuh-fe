@@ -40,6 +40,7 @@ import {
   Unit,
   TransactionStatus,
   AccessScopeType,
+  AssetType,
 } from "@/types/asset";
 import { useAuth } from "@/contexts/AuthContext";
 import toast from "react-hot-toast";
@@ -281,6 +282,7 @@ export default function EditTransactionPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [assetNotes, setAssetNotes] = useState<Record<string, string>>({});
+  const [assetQuantities, setAssetQuantities] = useState<Record<string, number>>({});
   
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
   const savedUnitIdRef = useRef<string>("");
@@ -312,12 +314,15 @@ export default function EditTransactionPage() {
 
       // Set asset notes
       const notes: Record<string, string> = {};
+      const quantities: Record<string, number> = {};
       currentTransactionDetail.items.forEach((item) => {
         if (item.note) {
           notes[item.assetId] = item.note;
         }
+        quantities[item.assetId] = item.quantity || 1;
       });
       setAssetNotes(notes);
+      setAssetQuantities(quantities);
 
       // Set transaction note
       setTransactionNote(currentTransactionDetail.requestNote || "");
@@ -425,10 +430,20 @@ export default function EditTransactionPage() {
       delete copy[assetId];
       return copy;
     });
+    setAssetQuantities((prev) => {
+      const copy = { ...prev };
+      delete copy[assetId];
+      return copy;
+    });
   };
 
   const handleNoteChange = (assetId: string, note: string) => {
     setAssetNotes((prev) => ({ ...prev, [assetId]: note }));
+  };
+
+  const handleQuantityChange = (assetId: string, quantity: number) => {
+    if (quantity < 1) return;
+    setAssetQuantities((prev) => ({ ...prev, [assetId]: quantity }));
   };
 
   useEffect(() => {
@@ -465,6 +480,17 @@ export default function EditTransactionPage() {
     }
 
     const updatedAssets = [...selectedAssets, ...newAssets];
+    
+    const newQuantities: Record<string, number> = {};
+    newAssets.forEach(asset => {
+      if (asset.type === AssetType.TOOLS_EQUIPMENT) {
+        newQuantities[asset.id] = 1;
+      } else {
+        newQuantities[asset.id] = 1;
+      }
+    });
+    setAssetQuantities((prev) => ({ ...prev, ...newQuantities }));
+    
     setSelectedAssets(updatedAssets);
     
     toast.success(`Đã thêm ${newAssets.length} tài sản vào danh sách bàn giao`);
@@ -501,6 +527,16 @@ export default function EditTransactionPage() {
       return;
     }
 
+    for (const asset of selectedAssets) {
+      if (asset.type === AssetType.TOOLS_EQUIPMENT) {
+        const quantity = assetQuantities[asset.id];
+        if (!quantity || quantity < 1) {
+          toast.error(`Vui lòng nhập số lượng hợp lệ (>= 1) cho tài sản "${asset.name}"`);
+          return;
+        }
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -508,6 +544,9 @@ export default function EditTransactionPage() {
 
       const transactionItems = selectedAssets.map((asset) => ({
         assetId: asset.id,
+        quantity: asset.type === AssetType.TOOLS_EQUIPMENT 
+          ? (assetQuantities[asset.id] || 1)
+          : 1, // Tài sản cố định luôn = 1
         fromRoomId: asset.currentRoom?.id,
         note: assetNotes[asset.id] || `Bàn giao đến ${unitName}`,
       }));
@@ -587,13 +626,48 @@ export default function EditTransactionPage() {
     },
     {
       key: "quantity",
-      title: "Số lượng",
-      render: (_, record) => (
-        <div className="text-sm font-medium text-gray-900 text-center">
-          {record.quantity}
-        </div>
-      ),
-      sortable: true,
+      title: "Số lượng bàn giao",
+      render: (_, record) => {
+        const isCCDC = record.type === AssetType.TOOLS_EQUIPMENT;
+        const quantity = assetQuantities[record.id] ?? (isCCDC ? 1 : 1);
+        
+        if (isCCDC) {
+          return (
+            <div className="flex justify-center">
+              <input
+                type="number"
+                min="1"
+                step="1"
+                className="border rounded px-2 py-1 text-sm w-20 text-center"
+                placeholder="SL"
+                value={quantity}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (!isNaN(value) && value >= 1) {
+                    handleQuantityChange(record.id, value);
+                  } else if (e.target.value === '') {
+                    handleQuantityChange(record.id, 1);
+                  }
+                }}
+                disabled={isSubmitting || isUpdatingTransaction}
+                onBlur={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (isNaN(value) || value < 1) {
+                    handleQuantityChange(record.id, 1);
+                  }
+                }}
+              />
+            </div>
+          );
+        } else {
+          return (
+            <div className="text-sm font-medium text-gray-900 text-center">
+              1
+            </div>
+          );
+        }
+      },
+      sortable: false,
       className: "text-center",
     },
     {

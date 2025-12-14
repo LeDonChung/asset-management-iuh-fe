@@ -77,6 +77,7 @@ export interface TransactionItemResponseDto {
   assetId: string
   fromRoomId?: string
   toRoomId?: string
+  quantity: number
   asset: {
     id: string
     name: string

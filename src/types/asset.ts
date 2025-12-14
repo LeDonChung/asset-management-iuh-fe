@@ -193,7 +193,8 @@ export interface Room {
 }
 
 export interface Asset {
-  id: string;
+  id: string; // Asset id
+  bookItemId?: string; // AssetBookItem ID (chỉ có khi lấy từ sổ tài sản, để làm unique key)
   ktCode: string; // Mã kế toán: xx-yyyy/nn
   fixedCode: string; // Mã tài sản cố định xxxx.yyyy
   name: string;

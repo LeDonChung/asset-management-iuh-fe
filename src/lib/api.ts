@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import { env } from './env'
 
 export const axiosInstance = axios.create({
-  baseURL: 'https://api.codeshare.id.vn',
+  baseURL: env.API_URL,
   headers: {
     'Content-Type': 'application/json',
   },

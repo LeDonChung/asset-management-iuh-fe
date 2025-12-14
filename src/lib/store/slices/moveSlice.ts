@@ -15,6 +15,7 @@ export enum MoveStatus {
 // DTOs for API calls
 export interface CreateMovementItemDto {
   assetId: string
+  quantity: number
   fromRoomId: string
   toRoomId: string
   note?: string
@@ -82,6 +83,7 @@ export interface MovementHistoryResponseDto {
 export interface MovementItemResponseDto {
   id: string
   assetId: string
+  quantity: number
   fromRoomId: string
   toRoomId: string
   note?: string
