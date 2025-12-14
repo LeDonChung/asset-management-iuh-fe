@@ -16,6 +16,7 @@ import {
   LiquidationStatus,
   AssetBookItemStatus,
   Asset,
+  AccessScopeType,
 } from "@/types/asset";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -311,7 +312,14 @@ export default function LiquidationCreatePage() {
   const [transactionNote, setTransactionNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  const [systemQuantities, setSystemQuantities] = useState<Record<string, number>>({});
+  const [countedQuantities, setCountedQuantities] = useState<Record<string, number>>({});
+  
   const { user, hasAnyPermission } = useAuth();
+
+  const getAssetKey = (asset: Asset): string => {
+    return asset.bookItemId || asset.id;
+  };
   const canCreate = hasAnyPermission([
     PermissionConstants.PERM_CREATE_LIQUIDATION,
   ]);
@@ -320,12 +328,14 @@ export default function LiquidationCreatePage() {
     PermissionConstants.PERM_PROPOSED_LIQUIDATION,
   ]);
 
-  // State for assets from store instead of API
+  const accessScopeTypes = user?.accessScopeTypes || [];
+  const hasGlobalAccess = accessScopeTypes.includes(AccessScopeType.GLOBAL);
+  const hasChildUnitsAccess = accessScopeTypes.includes(AccessScopeType.CHILD_UNITS);
+
   const [assetsFromStore, setAssetsFromStore] = useState<any[]>([]);
   const [filteredAssets, setFilteredAssets] = useState<any[]>([]);
   const hasLoadedRef = useRef(false); // Để tránh load nhiều lần
 
-  // State for filter context loaded from draft
   const [filterContext, setFilterContext] = useState<any>(null);
 
   useEffect(() => {
@@ -334,9 +344,7 @@ export default function LiquidationCreatePage() {
       }
   }, [canCreate, canPropose, router]);
 
-  // Load selected assets from sessionStorage when page loads
   useEffect(() => {
-    // Chỉ load một lần duy nhất
     if (hasLoadedRef.current) {
       return;
     }
@@ -364,13 +372,54 @@ export default function LiquidationCreatePage() {
 
         // If the draft contains full asset objects (written by asset-book), use them
         if (draft.assets && Array.isArray(draft.assets) && draft.assets.length > 0) {
+          console.log('Loading assets from draft:', draft.assets.length, 'assets');
+          
+          // Auto-detect asset type from first asset if available
+          if (draft.assets[0]?.type) {
+            setAssetTypeFilter(draft.assets[0].type);
+            setSelectedAssetType(draft.assets[0].type);
+          }
+          
           setAssetsFromStore(draft.assets);
           setFilteredAssets(draft.assets);
           console.log('Loaded assets from draft in sessionStorage:', draft.assets);
-          hasLoadedRef.current = true;
+          
+          // Initialize quantities from draft if available
+          if (draft.systemQuantities) {
+            setSystemQuantities(draft.systemQuantities);
+          } else {
+            // Initialize from asset quantities
+            const initialSystemQuantities: Record<string, number> = {};
+            draft.assets.forEach((asset: Asset) => {
+              const assetKey = asset.bookItemId || asset.id;
+              initialSystemQuantities[assetKey] = asset.quantity || 1;
+            });
+            setSystemQuantities(initialSystemQuantities);
+          }
+          
+          if (draft.countedQuantities) {
+            setCountedQuantities(draft.countedQuantities);
+          } else {
+            // Initialize from asset quantities
+            const initialCountedQuantities: Record<string, number> = {};
+            draft.assets.forEach((asset: Asset) => {
+              const assetKey = asset.bookItemId || asset.id;
+              initialCountedQuantities[assetKey] = asset.quantity || 1;
+            });
+            setCountedQuantities(initialCountedQuantities);
+          }
           
           // Thông báo đã khôi phục dữ liệu
           toast.success(`Đã khôi phục ${draft.assets.length} tài sản từ phiên trước`);
+          
+          // Load filter context if available
+          if (draft.filterContext) {
+            setFilterContext(draft.filterContext);
+            console.log('Loaded filter context from draft:', draft.filterContext);
+          }
+          
+          hasLoadedRef.current = true;
+          return; // Exit early if we loaded from draft
         }
 
         // Load filter context if available
@@ -381,6 +430,11 @@ export default function LiquidationCreatePage() {
       }
 
       // Backwards compatibility: old key used by asset-book to save full objects
+      // Only check if we haven't loaded from draft yet
+      if (hasLoadedRef.current) {
+        return;
+      }
+      
       const storedAssets = sessionStorage.getItem('selectedAssetsForLiquidation');
       console.log("Raw stored data:", storedAssets);
       if (storedAssets && storedAssets !== 'null' && storedAssets !== 'undefined') {
@@ -390,14 +444,43 @@ export default function LiquidationCreatePage() {
         if (Array.isArray(assets) && assets.length > 0) {
           // If assetsFromStore already set by draft, merge unique
           if (assetsFromStore.length === 0) {
+            // Auto-detect asset type from first asset if available
+            if (assets[0]?.type) {
+              setAssetTypeFilter(assets[0].type);
+              setSelectedAssetType(assets[0].type);
+            }
+            
             setAssetsFromStore(assets);
             setFilteredAssets(assets); // Initially show all assets
+            
+            // Initialize quantities
+            const initialSystemQuantities: Record<string, number> = {};
+            const initialCountedQuantities: Record<string, number> = {};
+            assets.forEach((asset: Asset) => {
+              const assetKey = asset.bookItemId || asset.id;
+              initialSystemQuantities[assetKey] = asset.quantity || 1;
+              initialCountedQuantities[assetKey] = asset.quantity || 1;
+            });
+            setSystemQuantities(initialSystemQuantities);
+            setCountedQuantities(initialCountedQuantities);
           } else {
             // merge by id
             const existingIds = new Set(assetsFromStore.map(a => a.id));
-            const merged = [...assetsFromStore, ...assets.filter(a => !existingIds.has(a.id))];
+            const newAssets = assets.filter(a => !existingIds.has(a.id));
+            const merged = [...assetsFromStore, ...newAssets];
             setAssetsFromStore(merged);
             setFilteredAssets(merged);
+            
+            // Initialize quantities for new assets
+            const newSystemQuantities: Record<string, number> = {};
+            const newCountedQuantities: Record<string, number> = {};
+            newAssets.forEach((asset: Asset) => {
+              const assetKey = asset.bookItemId || asset.id;
+              newSystemQuantities[assetKey] = asset.quantity || 1;
+              newCountedQuantities[assetKey] = asset.quantity || 1;
+            });
+            setSystemQuantities(prev => ({ ...prev, ...newSystemQuantities }));
+            setCountedQuantities(prev => ({ ...prev, ...newCountedQuantities }));
           }
 
           console.log('Loaded selected assets from sessionStorage (legacy key):', assets);
@@ -443,6 +526,9 @@ export default function LiquidationCreatePage() {
         assetType: selectedAssetType,
         // include full asset objects only if available
         assets: assetsFromStore && assetsFromStore.length > 0 ? assetsFromStore : undefined,
+        // keep quantities
+        systemQuantities: systemQuantities,
+        countedQuantities: countedQuantities,
         // keep filter context if available
         filterContext: filterContext || undefined,
         timestamp: new Date().toISOString(),
@@ -456,7 +542,7 @@ export default function LiquidationCreatePage() {
     } catch (e) {
       console.error('Error saving liquidation draft to sessionStorage:', e);
     }
-  }, [selectedAssets, selectedStatus, transactionNote, selectedAssetType, assetsFromStore, filterContext]);
+  }, [selectedAssets, selectedStatus, transactionNote, selectedAssetType, assetsFromStore, filterContext, systemQuantities, countedQuantities]);
   
   // State for detail modal
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -474,13 +560,21 @@ export default function LiquidationCreatePage() {
   // Filter assets based on search and filters
   useEffect(() => {
     let filtered = [...assetsFromStore];
+    
+    console.log('Filtering assets:', {
+      total: assetsFromStore.length,
+      searchTerm,
+      roomFilter,
+      assetTypeFilter,
+      firstAssetType: assetsFromStore[0]?.type
+    });
 
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(asset => 
-        asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.fixedCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.ktCode.toLowerCase().includes(searchTerm.toLowerCase())
+        asset.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.fixedCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.ktCode?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -492,10 +586,16 @@ export default function LiquidationCreatePage() {
     }
 
     // Apply asset type filter (if assets have type property)
-    if (assetTypeFilter && assetsFromStore.length > 0 && assetsFromStore[0].type) {
-      filtered = filtered.filter(asset => asset.type === assetTypeFilter);
+    // Only filter if assetTypeFilter is set AND assets have type property
+    if (assetTypeFilter && assetsFromStore.length > 0) {
+      // Check if any asset has type property before filtering
+      const hasTypeProperty = assetsFromStore.some(asset => asset.type);
+      if (hasTypeProperty) {
+        filtered = filtered.filter(asset => asset.type === assetTypeFilter);
+      }
     }
 
+    console.log('Filtered assets result:', filtered.length, 'out of', assetsFromStore.length);
     setFilteredAssets(filtered);
   }, [searchTerm, roomFilter, assetTypeFilter, assetsFromStore]);
 
@@ -553,16 +653,77 @@ export default function LiquidationCreatePage() {
       sortable: true,
     },
     {
-      key: "quantity",
-      title: "Số lượng",
-      width: "80px",
-      render: (_, record) => (
-        <div className="text-sm text-center text-gray-900 font-medium">
-          {record.quantity || 1}
-        </div>
-      ),
+      key: "currentQuantity",
+      title: "Số lượng hiện có",
+      width: "120px",
+      render: (_, record) => {
+        const assetKey = getAssetKey(record);
+        const systemQty = systemQuantities[assetKey] ?? (record.quantity || 1);
+        return (
+          <div className="text-sm text-center">
+            <div className="text-gray-900 font-medium">{systemQty}</div>
+            {record.unit && (
+              <div className="text-xs text-gray-500 mt-0.5">{record.unit}</div>
+            )}
+          </div>
+        );
+      },
       className: "text-center",
-      sortable: true,
+      sortable: false,
+    },
+    {
+      key: "liquidationQuantity",
+      title: "Số lượng thanh lý",
+      width: "150px",
+      render: (_, record) => {
+        const assetKey = getAssetKey(record);
+        const isCCDC = record.type === AssetType.TOOLS_EQUIPMENT;
+        const systemQty = systemQuantities[assetKey] ?? (record.quantity || 1);
+        const countedQty = countedQuantities[assetKey] ?? (record.quantity || 1);
+        
+        if (isCCDC) {
+          return (
+            <div className="flex justify-center">
+              <input
+                type="number"
+                min="0"
+                max={systemQty}
+                step="1"
+                className="border rounded px-2 py-1 text-sm w-20 text-center"
+                placeholder="SL"
+                value={countedQty}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (!isNaN(value) && value >= 0) {
+                    handleCountedQuantityChange(record, value);
+                  } else if (e.target.value === '') {
+                    handleCountedQuantityChange(record, 0);
+                  }
+                }}
+                disabled={isSubmitting || isCreatingProposal}
+                onBlur={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (isNaN(value) || value < 0) {
+                    handleCountedQuantityChange(record, 0);
+                  } else if (value > systemQty) {
+                    toast.error(`Số lượng không được vượt quá ${systemQty}`);
+                    handleCountedQuantityChange(record, systemQty);
+                  }
+                }}
+              />
+            </div>
+          );
+        } else {
+          // Tài sản cố định: luôn thanh lý hết (1)
+          return (
+            <div className="text-sm text-center text-gray-900 font-medium">
+              1
+            </div>
+          );
+        }
+      },
+      className: "text-center",
+      sortable: false,
     },
     {
       key: "status",
@@ -599,7 +760,7 @@ export default function LiquidationCreatePage() {
             className="h-8 px-2 text-red-600 hover:bg-red-50"
             onClick={(e) => {
               e.stopPropagation();
-              handleRemoveAsset(record.id);
+              handleRemoveAsset(record);
             }}
             disabled={isSubmitting || isCreatingProposal}
           >
@@ -614,7 +775,15 @@ export default function LiquidationCreatePage() {
   // Show error toast if create proposal fails
   useEffect(() => {
     if (createProposalError) {
-      toast.error(createProposalError);
+      // Handle error object or string
+      let errorMessage = 'Có lỗi xảy ra khi tạo đề xuất thanh lý';
+      if (typeof createProposalError === 'string') {
+        errorMessage = createProposalError;
+      } else if (typeof createProposalError === 'object' && createProposalError !== null) {
+        const errorObj = createProposalError as any;
+        errorMessage = errorObj?.message || errorObj?.error || errorMessage;
+      }
+      toast.error(errorMessage);
     }
   }, [createProposalError]);
 
@@ -630,10 +799,48 @@ export default function LiquidationCreatePage() {
   }, [filteredAssets]);
 
   // Handle remove asset from list
-  const handleRemoveAsset = (assetId: string) => {
-    const updatedAssets = assetsFromStore.filter(asset => asset.id !== assetId);
+  const handleRemoveAsset = (asset: Asset) => {
+    const assetKey = getAssetKey(asset);
+    const updatedAssets = assetsFromStore.filter(a => getAssetKey(a) !== assetKey);
     setAssetsFromStore(updatedAssets);
     setFilteredAssets(updatedAssets);
+    
+    // Remove quantities
+    setSystemQuantities(prev => {
+      const copy = { ...prev };
+      delete copy[assetKey];
+      return copy;
+    });
+    setCountedQuantities(prev => {
+      const copy = { ...prev };
+      delete copy[assetKey];
+      return copy;
+    });
+  };
+
+  // Handle system quantity change
+  const handleSystemQuantityChange = (asset: Asset, quantity: number) => {
+    if (quantity < 0) return;
+    const assetKey = getAssetKey(asset);
+    setSystemQuantities(prev => ({ ...prev, [assetKey]: quantity }));
+    // Auto-update counted quantity if it's greater than new system quantity
+    const currentCounted = countedQuantities[assetKey] || 0;
+    if (currentCounted > quantity) {
+      setCountedQuantities(prev => ({ ...prev, [assetKey]: quantity }));
+    }
+  };
+
+  // Handle counted quantity change
+  const handleCountedQuantityChange = (asset: Asset, quantity: number) => {
+    if (quantity < 0) return;
+    const assetKey = getAssetKey(asset);
+    const systemQty = systemQuantities[assetKey] || asset.quantity || 1;
+    if (quantity > systemQty) {
+      toast.error(`Số lượng thanh lý không được vượt quá số lượng hiện có (${systemQty})`);
+      setCountedQuantities(prev => ({ ...prev, [assetKey]: systemQty }));
+      return;
+    }
+    setCountedQuantities(prev => ({ ...prev, [assetKey]: quantity }));
   };
 
   // Handle add assets from modal
@@ -643,9 +850,9 @@ export default function LiquidationCreatePage() {
       return;
     }
 
-    const currentAssetIds = assetsFromStore.map(asset => asset.id);
-    const existingIds = new Set(currentAssetIds);
-    const newAssets = selectedAssets.filter(asset => !existingIds.has(asset.id));
+    const currentAssetKeys = assetsFromStore.map(asset => getAssetKey(asset));
+    const existingKeys = new Set(currentAssetKeys);
+    const newAssets = selectedAssets.filter(asset => !existingKeys.has(getAssetKey(asset)));
     
     if (newAssets.length === 0) {
       toast.error("Tất cả tài sản đã được thêm vào danh sách!");
@@ -657,17 +864,34 @@ export default function LiquidationCreatePage() {
     setAssetsFromStore(updatedAssets);
     setFilteredAssets(updatedAssets);
     
+    const newSystemQuantities: Record<string, number> = {};
+    const newCountedQuantities: Record<string, number> = {};
+    newAssets.forEach((asset: Asset) => {
+      const assetKey = getAssetKey(asset);
+      newSystemQuantities[assetKey] = asset.quantity || 1;
+      newCountedQuantities[assetKey] = asset.quantity || 1;
+    });
+    setSystemQuantities(prev => ({ ...prev, ...newSystemQuantities }));
+    setCountedQuantities(prev => ({ ...prev, ...newCountedQuantities }));
+    
     toast.success(`Đã thêm ${newAssets.length} tài sản vào danh sách thanh lý`);
     
     setIsAddAssetModalOpen(false);
   };
 
   // Get initial filters for modal
-  const modalInitialFilters = useMemo(() => ({
-    unitId: user?.unitId || undefined,
-    year: new Date().getFullYear().toString(),
-    assetType: selectedAssetType || "FIXED_ASSET",
-  }), [user?.unitId, selectedAssetType]);
+  const modalInitialFilters = useMemo(() => {
+    let unitId = undefined;
+    if (!hasGlobalAccess && !hasChildUnitsAccess) {
+      unitId = user?.unitId || undefined;
+    }
+    
+    return {
+      unitId,
+      year: new Date().getFullYear().toString(),
+      assetType: selectedAssetType || "FIXED_ASSET",
+    };
+  }, [user?.unitId, selectedAssetType, hasGlobalAccess, hasChildUnitsAccess]);
 
   // Handle create liquidation proposal - submit directly
   const handleCreateProposal = async () => {
@@ -676,7 +900,7 @@ export default function LiquidationCreatePage() {
       return;
     }
 
-    if (!user?.unitId) {
+    if (!hasGlobalAccess && !hasChildUnitsAccess && !user?.unitId) {
       toast.error("Không thể xác định đơn vị của bạn. Vui lòng đăng nhập lại.");
       return;
     }
@@ -687,16 +911,59 @@ export default function LiquidationCreatePage() {
       // Tạo danh sách items từ tất cả tài sản trong store
       const selectedItems = assetsFromStore;
 
+      for (const asset of selectedItems) {
+        const assetKey = getAssetKey(asset);
+        const systemQty = systemQuantities[assetKey] ?? (asset.quantity || 1);
+        const countedQty = countedQuantities[assetKey] ?? (asset.quantity || 1);
+        
+        if (systemQty < 0) {
+          toast.error(`Số lượng theo sổ sách không hợp lệ cho tài sản "${asset.name}"`);
+          setIsSubmitting(false);
+          return;
+        }
+        
+        if (countedQty < 0) {
+          toast.error(`Số lượng thanh lý không hợp lệ cho tài sản "${asset.name}"`);
+          setIsSubmitting(false);
+          return;
+        }
+        
+        if (countedQty > systemQty) {
+          toast.error(`Số lượng thanh lý (${countedQty}) không được vượt quá số lượng hiện có (${systemQty}) cho tài sản "${asset.name}"`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      let unitIdToUse = user?.unitId;
+      if (!unitIdToUse && assetsFromStore.length > 0) {
+        const firstAsset = assetsFromStore[0];
+        if (firstAsset.currentRoom?.unitId) {
+          unitIdToUse = firstAsset.currentRoom.unitId;
+        } else if (firstAsset.unitId) {
+          unitIdToUse = firstAsset.unitId;
+        }
+      }
+
+      if (!unitIdToUse && !hasGlobalAccess && !hasChildUnitsAccess) {
+        toast.error("Không thể xác định đơn vị. Vui lòng chọn tài sản có thông tin đơn vị.");
+        setIsSubmitting(false);
+        return;
+      }
+
       const createDto: CreateLiquidationProposalDto = {
-        unitId: user!.unitId!,
+        unitId: unitIdToUse || user!.unitId!,
         status: selectedStatus,
-        items: selectedItems.map((asset): CreateLiquidationItemDto => ({
-          assetId: asset.id,
-          systemQuantity: asset.quantity || 1,
-          countedQuantity: asset.quantity || 1,
-          note: transactionNote || `Đề xuất thanh lý từ sổ tài sản - ${asset.name}`,
-          imageUrl: undefined,
-        })),
+        items: selectedItems.map((asset): CreateLiquidationItemDto => {
+          const assetKey = getAssetKey(asset);
+          return {
+            assetId: asset.id,
+            systemQuantity: systemQuantities[assetKey] ?? (asset.quantity || 1),
+            countedQuantity: countedQuantities[assetKey] ?? (asset.quantity || 1),
+            note: transactionNote || `Đề xuất thanh lý từ sổ tài sản - ${asset.name}`,
+            imageUrl: undefined,
+          };
+        }),
         assetType: selectedAssetType as AssetType,
       };
 
@@ -725,9 +992,20 @@ export default function LiquidationCreatePage() {
       
     } catch (error: any) {
       console.error("Error creating liquidation proposal:", error);
-      toast.error(
-        error?.message || "Có lỗi xảy ra khi tạo đề xuất thanh lý. Vui lòng thử lại."
-      );
+      // Handle error object or string
+      let errorMessage = "Có lỗi xảy ra khi tạo đề xuất thanh lý. Vui lòng thử lại.";
+      if (error) {
+        if (typeof error === 'string') {
+          errorMessage = error;
+        } else if (error?.message) {
+          errorMessage = error.message;
+        } else if (error?.error) {
+          errorMessage = typeof error.error === 'string' ? error.error : error.error?.message || errorMessage;
+        } else if (error?.data?.message) {
+          errorMessage = error.data.message;
+        }
+      }
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -818,13 +1096,28 @@ export default function LiquidationCreatePage() {
       <Table<any>
         key={`assets-table-${assetsFromStore.length}`}
         columns={columns}
-        data={filteredAssets}
+        data={filteredAssets || []}
         loading={false}
         emptyText="Không có tài sản nào được chọn"
         emptyIcon={<Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />}
-        rowKey="id"
+        rowKey={(record) => getAssetKey(record)}
         pagination={false}
       />
+      
+      {/* Debug info - remove in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-4 p-2 bg-gray-100 text-xs rounded">
+          <div><strong>Debug Info:</strong></div>
+          <div>assetsFromStore: {assetsFromStore.length}</div>
+          <div>filteredAssets: {filteredAssets.length}</div>
+          <div>assetTypeFilter: {assetTypeFilter}</div>
+          <div>searchTerm: {searchTerm || '(empty)'}</div>
+          <div>roomFilter: {roomFilter || '(empty)'}</div>
+          {assetsFromStore.length > 0 && (
+            <div>First asset type: {assetsFromStore[0]?.type || 'no type'}</div>
+          )}
+        </div>
+      )}
 
       {/* Asset Detail Modal */}
       <Modal
@@ -921,7 +1214,7 @@ export default function LiquidationCreatePage() {
         }}
         onConfirm={handleAddAssetsFromModal}
         title="Chọn tài sản từ sổ tài sản để thanh lý"
-        excludeAssetIds={assetsFromStore.map(asset => asset.id)}
+        excludeAssetIds={assetsFromStore.map(asset => getAssetKey(asset))}
         initialFilters={modalInitialFilters}
       />
       </div>

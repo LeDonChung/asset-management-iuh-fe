@@ -261,10 +261,16 @@ export default function LiquidationEditPage() {
   const [assetsFromStore, setAssetsFromStore] = useState<any[]>([]);
   const [filteredAssets, setFilteredAssets] = useState<any[]>([]);
   const [assetNotes, setAssetNotes] = useState<Record<string, string>>({});
+  const [systemQuantities, setSystemQuantities] = useState<Record<string, number>>({});
+  const [countedQuantities, setCountedQuantities] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedAssetDetail, setSelectedAssetDetail] = useState<any | null>(null);
+
+  const getAssetKey = (asset: Asset | any): string => {
+    return asset.bookItemId || asset.id;
+  };
 
   // Load liquidation proposal data
   useEffect(() => {
@@ -295,6 +301,7 @@ export default function LiquidationEditPage() {
       const assets = (currentLiquidationProposal.items || []).map((item) => ({
         id: item.assetId,
         itemId: item.id, // Store the liquidation item ID
+        bookItemId: item.asset?.bookItemId, // Preserve bookItemId if available
         ktCode: item.asset?.ktCode || "",
         fixedCode: item.asset?.fixedCode || "",
         name: item.asset?.name || "",
@@ -323,18 +330,23 @@ export default function LiquidationEditPage() {
       setAssetsFromStore(assets);
       setFilteredAssets(assets);
 
-      // Set asset notes
       const notes: Record<string, string> = {};
+      const systemQty: Record<string, number> = {};
+      const countedQty: Record<string, number> = {};
       (currentLiquidationProposal.items || []).forEach((item) => {
+        const assetKey = item.asset?.bookItemId || item.assetId;
         if (item.note) {
-          notes[item.assetId] = item.note;
+          notes[assetKey] = item.note;
         }
+        systemQty[assetKey] = item.systemQuantity || item.asset?.quantity || 1;
+        countedQty[assetKey] = item.countedQuantity || item.asset?.quantity || 1;
       });
       setAssetNotes(notes);
+      setSystemQuantities(systemQty);
+      setCountedQuantities(countedQty);
     }
   }, [currentLiquidationProposal, router, proposalId]);
 
-  // Show error toast if update fails
   useEffect(() => {
     if (updateProposalError) {
       toast.error(updateProposalError);
@@ -342,34 +354,66 @@ export default function LiquidationEditPage() {
   }, [updateProposalError]);
 
   // Handle remove asset from list
-  const handleRemoveAsset = (assetId: string) => {
-    const updatedAssets = assetsFromStore.filter(asset => asset.id !== assetId);
+  const handleRemoveAsset = (asset: Asset | any) => {
+    const assetKey = getAssetKey(asset);
+    const updatedAssets = assetsFromStore.filter(a => getAssetKey(a) !== assetKey);
     setAssetsFromStore(updatedAssets);
     setFilteredAssets(updatedAssets);
     
-    // Remove note
     setAssetNotes((prev) => {
       const copy = { ...prev };
-      delete copy[assetId];
+      delete copy[assetKey];
+      return copy;
+    });
+    setSystemQuantities((prev) => {
+      const copy = { ...prev };
+      delete copy[assetKey];
+      return copy;
+    });
+    setCountedQuantities((prev) => {
+      const copy = { ...prev };
+      delete copy[assetKey];
       return copy;
     });
   };
 
   // Handle note change
-  const handleNoteChange = (assetId: string, note: string) => {
-    setAssetNotes((prev) => ({ ...prev, [assetId]: note }));
+  const handleNoteChange = (asset: Asset | any, note: string) => {
+    const assetKey = getAssetKey(asset);
+    setAssetNotes((prev) => ({ ...prev, [assetKey]: note }));
   };
 
-  // Handle add assets from modal
+  const handleSystemQuantityChange = (asset: Asset | any, quantity: number) => {
+    if (quantity < 0) return;
+    const assetKey = getAssetKey(asset);
+    setSystemQuantities(prev => ({ ...prev, [assetKey]: quantity }));
+    const currentCounted = countedQuantities[assetKey] || 0;
+    if (currentCounted > quantity) {
+      setCountedQuantities(prev => ({ ...prev, [assetKey]: quantity }));
+    }
+  };
+
+  const handleCountedQuantityChange = (asset: Asset | any, quantity: number) => {
+    if (quantity < 0) return;
+    const assetKey = getAssetKey(asset);
+    const systemQty = systemQuantities[assetKey] ?? (asset.systemQuantity ?? asset.quantity ?? 1);
+    if (quantity > systemQty) {
+      toast.error(`Số lượng thanh lý không được vượt quá số lượng hiện có (${systemQty})`);
+      setCountedQuantities(prev => ({ ...prev, [assetKey]: systemQty }));
+      return;
+    }
+    setCountedQuantities(prev => ({ ...prev, [assetKey]: quantity }));
+  };
+
   const handleAddAssetsFromModal = (selectedAssets: Asset[]) => {
     if (!selectedAssets || selectedAssets.length === 0) {
       toast.error("Không có tài sản nào được chọn!");
       return;
     }
 
-    const currentAssetIds = assetsFromStore.map(asset => asset.id);
-    const existingIds = new Set(currentAssetIds);
-    const newAssets = selectedAssets.filter(asset => !existingIds.has(asset.id));
+    const currentAssetKeys = assetsFromStore.map(asset => getAssetKey(asset));
+    const existingKeys = new Set(currentAssetKeys);
+    const newAssets = selectedAssets.filter(asset => !existingKeys.has(getAssetKey(asset)));
     
     if (newAssets.length === 0) {
       toast.error("Tất cả tài sản đã được thêm vào danh sách!");
@@ -380,6 +424,7 @@ export default function LiquidationEditPage() {
     // Convert new assets to the format we need
     const formattedNewAssets = newAssets.map(asset => ({
       id: asset.id,
+      bookItemId: asset.bookItemId,
       ktCode: asset.ktCode,
       fixedCode: asset.fixedCode,
       name: asset.name,
@@ -398,6 +443,16 @@ export default function LiquidationEditPage() {
     const updatedAssets = [...assetsFromStore, ...formattedNewAssets];
     setAssetsFromStore(updatedAssets);
     setFilteredAssets(updatedAssets);
+    
+    const newSystemQuantities: Record<string, number> = {};
+    const newCountedQuantities: Record<string, number> = {};
+    newAssets.forEach((asset: Asset) => {
+      const assetKey = getAssetKey(asset);
+      newSystemQuantities[assetKey] = asset.quantity || 1;
+      newCountedQuantities[assetKey] = asset.quantity || 1;
+    });
+    setSystemQuantities(prev => ({ ...prev, ...newSystemQuantities }));
+    setCountedQuantities(prev => ({ ...prev, ...newCountedQuantities }));
     
     toast.success(`Đã thêm ${newAssets.length} tài sản vào danh sách thanh lý`);
     
@@ -426,14 +481,41 @@ export default function LiquidationEditPage() {
     setIsSubmitting(true);
 
     try {
-      const items: UpdateLiquidationItemDto[] = assetsFromStore.map((asset) => ({
-        id: asset.itemId, // Include item ID if it exists (for existing items)
-        assetId: asset.id,
-        systemQuantity: asset.systemQuantity || asset.quantity || 1,
-        countedQuantity: asset.countedQuantity || asset.quantity || 1,
-        note: assetNotes[asset.id] || `Đề xuất thanh lý - ${asset.name}`,
-        imageUrl: asset.imageUrl || undefined,
-      }));
+      for (const asset of assetsFromStore) {
+        const assetKey = getAssetKey(asset);
+        const systemQty = systemQuantities[assetKey] ?? (asset.systemQuantity ?? asset.quantity ?? 1);
+        const countedQty = countedQuantities[assetKey] ?? (asset.countedQuantity ?? asset.quantity ?? 1);
+        
+        if (systemQty < 0) {
+          toast.error(`Số lượng theo sổ sách không hợp lệ cho tài sản "${asset.name}"`);
+          setIsSubmitting(false);
+          return;
+        }
+        
+        if (countedQty < 0) {
+          toast.error(`Số lượng thanh lý không hợp lệ cho tài sản "${asset.name}"`);
+          setIsSubmitting(false);
+          return;
+        }
+        
+        if (countedQty > systemQty) {
+          toast.error(`Số lượng thanh lý (${countedQty}) không được vượt quá số lượng hiện có (${systemQty}) cho tài sản "${asset.name}"`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      const items: UpdateLiquidationItemDto[] = assetsFromStore.map((asset) => {
+        const assetKey = getAssetKey(asset);
+        return {
+          id: asset.itemId, // Include item ID if it exists (for existing items)
+          assetId: asset.id,
+          systemQuantity: systemQuantities[assetKey] ?? (asset.systemQuantity ?? asset.quantity ?? 1),
+          countedQuantity: countedQuantities[assetKey] ?? (asset.countedQuantity ?? asset.quantity ?? 1),
+          note: assetNotes[assetKey] || `Đề xuất thanh lý - ${asset.name}`,
+          imageUrl: asset.imageUrl || undefined,
+        };
+      });
 
       const updateDto: UpdateLiquidationProposalDto = {
         unitId: currentLiquidationProposal.unitId,
@@ -520,16 +602,77 @@ export default function LiquidationEditPage() {
       sortable: true,
     },
     {
-      key: "quantity",
-      title: "Số lượng",
-      width: "80px",
-      render: (_, record) => (
-        <div className="text-sm text-center text-gray-900 font-medium">
-          {record.quantity || 1}
-        </div>
-      ),
+      key: "currentQuantity",
+      title: "Số lượng hiện có",
+      width: "120px",
+      render: (_, record) => {
+        const assetKey = getAssetKey(record);
+        const systemQty = systemQuantities[assetKey] ?? (record.systemQuantity ?? record.quantity ?? 1);
+        return (
+          <div className="text-sm text-center">
+            <div className="text-gray-900 font-medium">{systemQty}</div>
+            {record.unit && (
+              <div className="text-xs text-gray-500 mt-0.5">{record.unit}</div>
+            )}
+          </div>
+        );
+      },
       className: "text-center",
-      sortable: true,
+      sortable: false,
+    },
+    {
+      key: "liquidationQuantity",
+      title: "Số lượng thanh lý",
+      width: "150px",
+      render: (_, record) => {
+        const assetKey = getAssetKey(record);
+        const isCCDC = record.type === AssetType.TOOLS_EQUIPMENT;
+        const systemQty = systemQuantities[assetKey] ?? (record.systemQuantity ?? record.quantity ?? 1);
+        const countedQty = countedQuantities[assetKey] ?? (record.countedQuantity ?? record.quantity ?? 1);
+        
+        if (isCCDC) {
+          return (
+            <div className="flex justify-center">
+              <input
+                type="number"
+                min="0"
+                max={systemQty}
+                step="1"
+                className="border rounded px-2 py-1 text-sm w-20 text-center"
+                placeholder="SL"
+                value={countedQty}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (!isNaN(value) && value >= 0) {
+                    handleCountedQuantityChange(record, value);
+                  } else if (e.target.value === '') {
+                    handleCountedQuantityChange(record, 0);
+                  }
+                }}
+                disabled={isSubmitting || isUpdatingProposal}
+                onBlur={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (isNaN(value) || value < 0) {
+                    handleCountedQuantityChange(record, 0);
+                  } else if (value > systemQty) {
+                    toast.error(`Số lượng không được vượt quá ${systemQty}`);
+                    handleCountedQuantityChange(record, systemQty);
+                  }
+                }}
+              />
+            </div>
+          );
+        } else {
+          // Tài sản cố định: luôn thanh lý hết (1)
+          return (
+            <div className="text-sm text-center text-gray-900 font-medium">
+              1
+            </div>
+          );
+        }
+      },
+      className: "text-center",
+      sortable: false,
     },
     {
       key: "status",
@@ -551,8 +694,8 @@ export default function LiquidationEditPage() {
           type="text"
           className="border rounded px-2 py-1 text-xs w-full"
           placeholder="Nhập ghi chú..."
-          value={assetNotes[record.id] || ""}
-          onChange={(e) => handleNoteChange(record.id, e.target.value)}
+          value={assetNotes[getAssetKey(record)] || ""}
+          onChange={(e) => handleNoteChange(record, e.target.value)}
           disabled={isSubmitting || isUpdatingProposal}
         />
       ),
@@ -581,7 +724,7 @@ export default function LiquidationEditPage() {
             className="h-8 px-2 text-red-600 hover:bg-red-50"
             onClick={(e) => {
               e.stopPropagation();
-              handleRemoveAsset(record.id);
+              handleRemoveAsset(record);
             }}
             disabled={isSubmitting || isUpdatingProposal}
           >
@@ -820,7 +963,7 @@ export default function LiquidationEditPage() {
           }}
           onConfirm={handleAddAssetsFromModal}
           title="Chọn tài sản từ sổ tài sản để thanh lý"
-          excludeAssetIds={assetsFromStore.map(asset => asset.id)}
+          excludeAssetIds={assetsFromStore.map(asset => getAssetKey(asset))}
           initialFilters={modalInitialFilters}
         />
       </div>
