@@ -41,6 +41,7 @@ import {
   Unit,
   Room,
   AccessScopeType,
+  AssetType,
 } from "@/types/asset";
 import { MoveStatus } from "@/lib/store/slices/moveSlice";
 import { useAuth } from "@/contexts/AuthContext";
@@ -207,6 +208,7 @@ const convertMovementItemToAsset = (item: MovementItemResponseDto): Asset => {
   
   return {
     id: item.assetId,
+    bookItemId: fullAsset?.bookItemId || (item as any).bookItemId || undefined,
     ktCode: fullAsset?.ktCode || "",
     fixedCode: fullAsset?.fixedCode || "",
     name: fullAsset?.name || "",
@@ -215,7 +217,7 @@ const convertMovementItemToAsset = (item: MovementItemResponseDto): Asset => {
     currentRoomId: item.fromRoomId,
     locationInRoom: fullAsset?.locationInRoom || "",
     unit: fullAsset?.unit || "",
-    quantity: fullAsset?.quantity || 1,
+    quantity: item.quantity || fullAsset?.quantity || 1,
     origin: fullAsset?.origin || "",
     purchasePackage: fullAsset?.purchasePackage || 0,
     type: fullAsset?.type as any || "FIXED_ASSET" as any,
@@ -305,22 +307,24 @@ export default function EditMovementPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [assetNotes, setAssetNotes] = useState<Record<string, string>>({});
+  const [assetQuantities, setAssetQuantities] = useState<Record<string, number>>({});
   
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
   const savedUnitIdRef = useRef<string>("");
   const [selectedAssets, setSelectedAssets] = useState<Asset[]>([]);
 
-  // Load movement data from API
+  const getAssetKey = (asset: Asset): string => {
+    return asset.bookItemId || asset.id;
+  };
+
   useEffect(() => {
     if (movementId) {
       dispatch(getMovementById(movementId));
     }
   }, [movementId, dispatch]);
 
-  // Initialize form data when movement is loaded
   useEffect(() => {
     if (currentMovementDetail) {
-      // Check if movement can be edited
       if (
         currentMovementDetail.status !== MoveStatus.DRAFT &&
         currentMovementDetail.status !== MoveStatus.REJECTED
@@ -334,14 +338,20 @@ export default function EditMovementPage() {
       const assets = currentMovementDetail.items.map(convertMovementItemToAsset);
       setSelectedAssets(assets);
 
-      // Set asset notes
       const notes: Record<string, string> = {};
+      const quantities: Record<string, number> = {};
       currentMovementDetail.items.forEach((item) => {
-        if (item.note) {
-          notes[item.assetId] = item.note;
+        const asset = assets.find(a => a.id === item.assetId);
+        if (asset) {
+          const assetKey = getAssetKey(asset);
+          if (item.note) {
+            notes[assetKey] = item.note;
+          }
+          quantities[assetKey] = item.quantity || 1;
         }
       });
       setAssetNotes(notes);
+      setAssetQuantities(quantities);
 
       // Set movement note
       setMovementNote(currentMovementDetail.requestNote || "");
@@ -466,17 +476,30 @@ export default function EditMovementPage() {
     router.push(`/asset/move/${movementId}`);
   };
 
-  const handleRemoveAsset = (assetId: string) => {
-    setSelectedAssets((prev) => prev.filter((asset) => asset.id !== assetId));
+  const handleRemoveAsset = (asset: Asset) => {
+    const assetKey = getAssetKey(asset);
+    setSelectedAssets((prev) => prev.filter((a) => getAssetKey(a) !== assetKey));
     setAssetNotes((prev) => {
       const copy = { ...prev };
-      delete copy[assetId];
+      delete copy[assetKey];
+      return copy;
+    });
+    setAssetQuantities((prev) => {
+      const copy = { ...prev };
+      delete copy[assetKey];
       return copy;
     });
   };
 
-  const handleNoteChange = (assetId: string, note: string) => {
-    setAssetNotes((prev) => ({ ...prev, [assetId]: note }));
+  const handleNoteChange = (asset: Asset, note: string) => {
+    const assetKey = getAssetKey(asset);
+    setAssetNotes((prev) => ({ ...prev, [assetKey]: note }));
+  };
+
+  const handleQuantityChange = (asset: Asset, quantity: number) => {
+    if (quantity < 1) return;
+    const assetKey = getAssetKey(asset);
+    setAssetQuantities((prev) => ({ ...prev, [assetKey]: quantity }));
   };
 
   useEffect(() => {
@@ -502,9 +525,9 @@ export default function EditMovementPage() {
       return;
     }
 
-    const currentAssetIds = selectedAssets.map(asset => asset.id);
-    const existingIds = new Set(currentAssetIds);
-    const newAssets = selectedAssetsFromModal.filter(asset => !existingIds.has(asset.id));
+    const currentAssetKeys = selectedAssets.map(asset => getAssetKey(asset));
+    const existingKeys = new Set(currentAssetKeys);
+    const newAssets = selectedAssetsFromModal.filter(asset => !existingKeys.has(getAssetKey(asset)));
     
     if (newAssets.length === 0) {
       toast.error("Tất cả tài sản đã được thêm vào danh sách!");
@@ -513,6 +536,18 @@ export default function EditMovementPage() {
     }
 
     const updatedAssets = [...selectedAssets, ...newAssets];
+    
+    const newQuantities: Record<string, number> = {};
+    newAssets.forEach(asset => {
+      const assetKey = getAssetKey(asset);
+      if (asset.type === AssetType.TOOLS_EQUIPMENT) {
+        newQuantities[assetKey] = 1;
+      } else {
+        newQuantities[assetKey] = 1;
+      }
+    });
+    setAssetQuantities((prev) => ({ ...prev, ...newQuantities }));
+    
     setSelectedAssets(updatedAssets);
     
     toast.success(`Đã thêm ${newAssets.length} tài sản vào danh sách di chuyển`);
@@ -551,12 +586,40 @@ export default function EditMovementPage() {
         throw new Error("Vui lòng chọn phòng đích");
       }
 
-      const movementItems = selectedAssets.map((asset) => ({
-        assetId: asset.id,
-        fromRoomId: asset.currentRoom?.id,
-        toRoomId: selectedRoomId, // Set to the selected destination room
-        note: assetNotes[asset.id] || `Di chuyển tài sản`,
-      }));
+      for (const asset of selectedAssets) {
+        const assetKey = getAssetKey(asset);
+        if (!asset.currentRoom?.id) {
+          toast.error(`Tài sản "${asset.name}" (${asset.fixedCode}) chưa được phân bổ vào phòng. Vui lòng kiểm tra lại.`);
+          setIsSubmitting(false);
+          return;
+        }
+        if (asset.type === AssetType.TOOLS_EQUIPMENT) {
+          const quantity = assetQuantities[assetKey];
+          if (!quantity || quantity < 1) {
+            toast.error(`Vui lòng nhập số lượng hợp lệ (>= 1) cho tài sản "${asset.name}"`);
+            setIsSubmitting(false);
+            return;
+          }
+          if (quantity > asset.quantity) {
+            toast.error(`Số lượng di chuyển (${quantity}) không được vượt quá số lượng hiện có (${asset.quantity}) cho tài sản "${asset.name}"`);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
+      const movementItems = selectedAssets.map((asset) => {
+        const assetKey = getAssetKey(asset);
+        return {
+          assetId: asset.id,
+          quantity: asset.type === AssetType.TOOLS_EQUIPMENT 
+            ? (assetQuantities[assetKey] || 1)
+            : 1, // Tài sản cố định luôn = 1
+          fromRoomId: asset.currentRoom!.id, // Already validated above
+          toRoomId: selectedRoomId, // Set to the selected destination room
+          note: assetNotes[assetKey] || `Di chuyển tài sản`,
+        };
+      });
 
       // Validate that all assets have fromRoomId
       for (const item of movementItems) {
@@ -629,14 +692,71 @@ export default function EditMovementPage() {
       className: "text-center",
     },
     {
-      key: "quantity",
-      title: "Số lượng",
+      key: "currentQuantity",
+      title: "Số lượng hiện có",
       render: (_, record) => (
         <div className="text-sm font-medium text-gray-900 text-center">
           {record.quantity}
         </div>
       ),
-      sortable: true,
+      sortable: false,
+      className: "text-center",
+    },
+    {
+      key: "quantity",
+      title: "Số lượng di chuyển",
+      render: (_, record) => {
+        const assetKey = getAssetKey(record);
+        const isCCDC = record.type === AssetType.TOOLS_EQUIPMENT;
+        const quantity = assetQuantities[assetKey] ?? (isCCDC ? 1 : 1);
+        const maxQuantity = record.quantity;
+        
+        if (isCCDC) {
+          return (
+            <div className="flex justify-center">
+              <input
+                type="number"
+                min="1"
+                max={maxQuantity}
+                step="1"
+                className="border rounded px-2 py-1 text-sm w-20 text-center"
+                placeholder="SL"
+                value={quantity}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (!isNaN(value) && value >= 1) {
+                    if (value > maxQuantity) {
+                      toast.error(`Số lượng không được vượt quá ${maxQuantity}`);
+                      handleQuantityChange(record, maxQuantity);
+                    } else {
+                      handleQuantityChange(record, value);
+                    }
+                  } else if (e.target.value === '') {
+                    handleQuantityChange(record, 1);
+                  }
+                }}
+                disabled={isSubmitting || isUpdatingMovement}
+                onBlur={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (isNaN(value) || value < 1) {
+                    handleQuantityChange(record, 1);
+                  } else if (value > maxQuantity) {
+                    toast.error(`Số lượng không được vượt quá ${maxQuantity}`);
+                    handleQuantityChange(record, maxQuantity);
+                  }
+                }}
+              />
+            </div>
+          );
+        } else {
+          return (
+            <div className="text-sm font-medium text-gray-900 text-center">
+              1
+            </div>
+          );
+        }
+      },
+      sortable: false,
       className: "text-center",
     },
     {
@@ -662,16 +782,19 @@ export default function EditMovementPage() {
     {
       key: "note",
       title: "Ghi chú",
-      render: (_, record) => (
-        <input
-          type="text"
-          className="border rounded px-2 py-1 text-xs w-full"
-          placeholder="Nhập ghi chú..."
-          value={assetNotes[record.id] || ""}
-          onChange={(e) => handleNoteChange(record.id, e.target.value)}
-          disabled={isSubmitting || isUpdatingMovement}
-        />
-      ),
+      render: (_, record) => {
+        const assetKey = getAssetKey(record);
+        return (
+          <input
+            type="text"
+            className="border rounded px-2 py-1 text-xs w-full"
+            placeholder="Nhập ghi chú..."
+            value={assetNotes[assetKey] || ""}
+            onChange={(e) => handleNoteChange(record, e.target.value)}
+            disabled={isSubmitting || isUpdatingMovement}
+          />
+        );
+      },
     },
     {
       key: "actions",
@@ -681,7 +804,7 @@ export default function EditMovementPage() {
           variant="ghost"
           size="sm"
           className="text-red-600 hover:bg-red-50"
-          onClick={() => handleRemoveAsset(record.id)}
+          onClick={() => handleRemoveAsset(record)}
           disabled={isSubmitting || isUpdatingMovement}
         >
             <Trash2 className="h-4 w-4 mr-1" />
@@ -959,7 +1082,7 @@ export default function EditMovementPage() {
         }}
         onConfirm={handleAddAssetsFromModal}
         title="Chọn tài sản từ sổ tài sản để di chuyển"
-        excludeAssetIds={selectedAssets.map(asset => asset.id)}
+        excludeAssetIds={selectedAssets.map(asset => getAssetKey(asset))}
         initialFilters={modalInitialFilters}
       />
       </div>

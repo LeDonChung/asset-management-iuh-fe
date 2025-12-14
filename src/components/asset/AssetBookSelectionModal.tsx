@@ -482,7 +482,10 @@ export default function AssetBookSelectionModal({
   };
 
   const availableAssets = filteredAssetBooks.data.filter(
-    (asset) => !excludeAssetIds.includes(asset.id)
+    (asset) => {
+      const assetKey = asset.bookItemId || asset.id;
+      return !excludeAssetIds.includes(assetKey);
+    }
   );
 
   const columns: TableColumn<Asset>[] = [

@@ -584,24 +584,25 @@ export default function AssetBookPage() {
     selectedRowKeys: string[],
     selectedRows: Asset[]
   ) => {
-    const assetIds = selectedRows.map(asset => asset.id);
-    setSelectedAssets(assetIds);
+    const assetKeys = selectedRows.map(asset => asset.bookItemId || asset.id);
+    setSelectedAssets(assetKeys);
   };
 
   const handleMoveSelectionChange = (
     selectedRowKeys: string[],
     selectedRows: Asset[]
   ) => {
-    const assetIds = selectedRows.map(asset => asset.id);
-    setSelectedAssetsForMoveLocal(assetIds);
+    const assetKeys = selectedRows.map(asset => asset.bookItemId || asset.id);
+    setSelectedAssetsForMoveLocal(assetKeys);
   };
 
   const handleLiquidationSelectionChange = (
     selectedRowKeys: string[],
     selectedRows: Asset[]
   ) => {
-    const assetIds = selectedRows.map(asset => asset.id);
-    setSelectedAssetsForLiquidationLocal(assetIds);
+    // Use bookItemId || id to handle duplicate asset codes correctly
+    const assetKeys = selectedRows.map(asset => asset.bookItemId || asset.id);
+    setSelectedAssetsForLiquidationLocal(assetKeys);
   };
 
   const deduplicatedAssets = React.useMemo(() => {
@@ -622,9 +623,10 @@ export default function AssetBookPage() {
       return;
     }
 
-    const selectedAssetObjects = deduplicatedAssets.filter((asset) =>
-      selectedAssets.includes(asset.id)
-    );
+    const selectedAssetObjects = deduplicatedAssets.filter((asset) => {
+      const assetKey = asset.bookItemId || asset.id;
+      return selectedAssets.includes(assetKey);
+    });
 
     let sourceUnitId: string | undefined = selectedUnitId || undefined;
 
@@ -711,9 +713,10 @@ export default function AssetBookPage() {
       return;
     }
 
-    const selectedAssetObjects = deduplicatedAssets.filter((asset) =>
-      selectedAssetsForMoveLocal.includes(asset.id)
-    );
+    const selectedAssetObjects = deduplicatedAssets.filter((asset) => {
+      const assetKey = asset.bookItemId || asset.id;
+      return selectedAssetsForMoveLocal.includes(assetKey);
+    });
 
     const moveContext = {
       sourceRoomId: selectedRoomId || undefined,
@@ -782,9 +785,10 @@ export default function AssetBookPage() {
       return;
     }
 
-    const selectedAssetObjects = deduplicatedAssets.filter((asset) =>
-      selectedAssetsForLiquidationLocal.includes(asset.id)
-    );
+    const selectedAssetObjects = deduplicatedAssets.filter((asset) => {
+      const assetKey = asset.bookItemId || asset.id;
+      return selectedAssetsForLiquidationLocal.includes(assetKey);
+    });
 
     try {
       const liquidationDraft = {
@@ -1032,12 +1036,13 @@ export default function AssetBookPage() {
                     <DropdownMenuItem
                       onClick={(e) => {
                         e.stopPropagation();
+                        const assetKey = asset.bookItemId || asset.id;
                         if (isSelectionMode) {
-                          if (!selectedAssets.includes(asset.id)) {
-                            setSelectedAssets((prev) => [...prev, asset.id]);
+                          if (!selectedAssets.includes(assetKey)) {
+                            setSelectedAssets((prev) => [...prev, assetKey]);
                           }
                         } else {
-                          setSelectedAssets([asset.id]);
+                          setSelectedAssets([assetKey]);
                           setIsSelectionMode(true);
                         }
                       }}
@@ -1055,15 +1060,16 @@ export default function AssetBookPage() {
                     <DropdownMenuItem
                       onClick={(e) => {
                         e.stopPropagation();
+                        const assetKey = asset.bookItemId || asset.id;
                         if (isMoveMode) {
-                          if (!selectedAssetsForMoveLocal.includes(asset.id)) {
+                          if (!selectedAssetsForMoveLocal.includes(assetKey)) {
                             setSelectedAssetsForMoveLocal((prev) => [
                               ...prev,
-                              asset.id,
+                              assetKey,
                             ]);
                           }
                         } else {
-                          setSelectedAssetsForMoveLocal([asset.id]);
+                          setSelectedAssetsForMoveLocal([assetKey]);
                           setIsMoveMode(true);
                         }
                       }}
@@ -1083,19 +1089,20 @@ export default function AssetBookPage() {
                     <DropdownMenuItem
                       onClick={(e) => {
                         e.stopPropagation();
+                        const assetKey = asset.bookItemId || asset.id;
                         if (isLiquidationMode) {
                           if (
                             !selectedAssetsForLiquidationLocal.includes(
-                              asset.id
+                              assetKey
                             )
                           ) {
                             setSelectedAssetsForLiquidationLocal((prev) => [
                               ...prev,
-                              asset.id,
+                              assetKey,
                             ]);
                           }
                         } else {
-                          setSelectedAssetsForLiquidationLocal([asset.id]);
+                          setSelectedAssetsForLiquidationLocal([assetKey]);
                           setIsLiquidationMode(true);
                         }
                       }}
@@ -1507,10 +1514,7 @@ export default function AssetBookPage() {
         rowSelection={
           isSelectionMode
             ? {
-                selectedRowKeys: selectedAssets.map(assetId => {
-                  const asset = deduplicatedAssets.find(a => a.id === assetId);
-                  return asset?.bookItemId || assetId;
-                }),
+                selectedRowKeys: selectedAssets,
                 onChange: handleSelectionChange,
                 getCheckboxProps: (record) => ({
                   disabled: !canSelectForHandover(
@@ -1520,10 +1524,7 @@ export default function AssetBookPage() {
               }
             : isMoveMode
             ? {
-                selectedRowKeys: selectedAssetsForMoveLocal.map(assetId => {
-                  const asset = deduplicatedAssets.find(a => a.id === assetId);
-                  return asset?.bookItemId || assetId;
-                }),
+                selectedRowKeys: selectedAssetsForMoveLocal,
                 onChange: handleMoveSelectionChange,
                 getCheckboxProps: (record) => ({
                   disabled: !canSelectForMove(
@@ -1533,10 +1534,7 @@ export default function AssetBookPage() {
               }
             : isLiquidationMode
             ? {
-                selectedRowKeys: selectedAssetsForLiquidationLocal.map(assetId => {
-                  const asset = deduplicatedAssets.find(a => a.id === assetId);
-                  return asset?.bookItemId || assetId;
-                }),
+                selectedRowKeys: selectedAssetsForLiquidationLocal,
                 onChange: handleLiquidationSelectionChange,
                 getCheckboxProps: (record) => ({
                   disabled: !canProposeLiquidation(

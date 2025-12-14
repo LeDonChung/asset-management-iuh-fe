@@ -82,6 +82,26 @@ const MovementItemsTable: React.FC<{
       ),
     },
     {
+      key: "quantity",
+      title: "Số lượng",
+      render: (value, record) => {
+        const asset = record.asset as any;
+        return (
+          <div className="text-center">
+            <div className="text-sm font-medium text-gray-900">
+              {record.quantity || 1}
+            </div>
+            {asset?.unit && (
+              <div className="text-xs text-gray-500 mt-0.5">
+                {asset.unit}
+              </div>
+            )}
+          </div>
+        );
+      },
+      className: "text-center",
+    },
+    {
       key: "roomMovement",
       title: "Di chuyển",
       render: (value, record) => (

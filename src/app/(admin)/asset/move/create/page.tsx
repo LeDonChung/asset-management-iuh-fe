@@ -243,6 +243,10 @@ export default function MoveCreatePage() {
   const savedUnitIdRef = useRef<string>("");
   const savedRoomIdRef = useRef<string>("");
 
+  const getAssetKey = (asset: Asset): string => {
+    return asset.bookItemId || asset.id;
+  };
+
   useEffect(() => {
     const loadMoveDraft = () => {
       try {
@@ -266,14 +270,24 @@ export default function MoveCreatePage() {
             dispatch(setSelectedAssetsForMove(moveDraft.assets));
             
             const quantities: Record<string, number> = {};
+            const notes: Record<string, string> = {};
             moveDraft.assets.forEach((asset: Asset) => {
+              const assetKey = asset.bookItemId || asset.id;
               if (asset.type === AssetType.TOOLS_EQUIPMENT) {
-                quantities[asset.id] = moveDraft.quantities?.[asset.id] || 1;
+                // Try to get from saved quantities using both old key (id) and new key (bookItemId || id)
+                quantities[assetKey] = moveDraft.quantities?.[assetKey] || moveDraft.quantities?.[asset.id] || 1;
               } else {
-                quantities[asset.id] = 1;
+                quantities[assetKey] = 1;
+              }
+              // Load notes if available
+              if (moveDraft.notes) {
+                notes[assetKey] = moveDraft.notes[assetKey] || moveDraft.notes[asset.id] || "";
               }
             });
             setAssetQuantities(quantities);
+            if (Object.keys(notes).length > 0) {
+              setAssetNotes(notes);
+            }
             
             if (moveDraft.moveContext) {
               dispatch(setMoveContext(moveDraft.moveContext));
@@ -389,27 +403,73 @@ export default function MoveCreatePage() {
     router.push("/asset/asset-book");
   };
 
-  const handleRemoveAsset = (assetId: string) => {
-    dispatch(removeAssetFromMove(assetId));
-    setAssetNotes((prev) => {
-      const copy = { ...prev };
-      delete copy[assetId];
-      return copy;
-    });
-    setAssetQuantities((prev) => {
-      const copy = { ...prev };
-      delete copy[assetId];
-      return copy;
-    });
+  const handleRemoveAsset = (asset: Asset) => {
+    const assetKey = getAssetKey(asset);
+    const updatedAssets = selectedAssetsForMove.filter(a => getAssetKey(a) !== assetKey);
+    const updatedNotes = { ...assetNotes };
+    delete updatedNotes[assetKey];
+    const updatedQuantities = { ...assetQuantities };
+    delete updatedQuantities[assetKey];
+
+    dispatch(removeAssetFromMove(asset.id));
+    
+    setAssetNotes(updatedNotes);
+    setAssetQuantities(updatedQuantities);
+
+      try {
+        const moveDraft = {
+          selectedIds: updatedAssets.map((asset) => asset.id),
+          assets: updatedAssets,
+          quantities: updatedQuantities,
+          notes: updatedNotes,
+          moveContext: moveContext,
+          filterContext: {
+            selectedCampusId: selectedCampusId || undefined,
+            selectedUnitId: selectedUnitId || undefined,
+            selectedRoomId: selectedRoomId || undefined,
+          },
+          status: "DRAFT",
+          timestamp: new Date().toISOString(),
+        };
+        sessionStorage.setItem("moveDraft", JSON.stringify(moveDraft));
+      } catch (error) {
+        console.error("Error saving move draft:", error);
+      }
+    };
+
+    useEffect(() => {
+      if (selectedAssetsForMove.length > 0) {
+        try {
+          const moveDraft = {
+            selectedIds: selectedAssetsForMove.map((asset) => asset.id),
+            assets: selectedAssetsForMove,
+            quantities: assetQuantities,
+            notes: assetNotes,
+            moveContext: moveContext,
+            filterContext: {
+              selectedCampusId: selectedCampusId || undefined,
+              selectedUnitId: selectedUnitId || undefined,
+              selectedRoomId: selectedRoomId || undefined,
+            },
+            status: "DRAFT",
+            timestamp: new Date().toISOString(),
+          };
+          sessionStorage.setItem("moveDraft", JSON.stringify(moveDraft));
+        } catch (error) {
+          console.error("Error saving move draft:", error);
+        }
+      }
+    }, [assetQuantities, assetNotes, selectedAssetsForMove, moveContext, selectedCampusId, selectedUnitId, selectedRoomId]);
+
+  const handleNoteChange = (asset: Asset, note: string) => {
+    const assetKey = getAssetKey(asset);
+    setAssetNotes((prev) => ({ ...prev, [assetKey]: note }));
   };
 
-  const handleNoteChange = (assetId: string, note: string) => {
-    setAssetNotes((prev) => ({ ...prev, [assetId]: note }));
-  };
-
-  const handleQuantityChange = (assetId: string, quantity: number) => {
+  const handleQuantityChange = (asset: Asset, quantity: number) => {
     if (quantity < 1) return;
-    setAssetQuantities((prev) => ({ ...prev, [assetId]: quantity }));
+    const assetKey = getAssetKey(asset);
+    setAssetQuantities((prev) => ({ ...prev, [assetKey]: quantity }));
   };
 
   useEffect(() => {
@@ -440,9 +500,9 @@ export default function MoveCreatePage() {
       return;
     }
 
-    const currentAssetIds = selectedAssetsForMove.map(asset => asset.id);
-    const existingIds = new Set(currentAssetIds);
-    const newAssets = selectedAssets.filter(asset => !existingIds.has(asset.id));
+    const currentAssetKeys = selectedAssetsForMove.map(asset => getAssetKey(asset));
+    const existingKeys = new Set(currentAssetKeys);
+    const newAssets = selectedAssets.filter(asset => !existingKeys.has(getAssetKey(asset)));
     
     if (newAssets.length === 0) {
       toast.error("Tất cả tài sản đã được thêm vào danh sách!");
@@ -454,13 +514,15 @@ export default function MoveCreatePage() {
     
     const newQuantities: Record<string, number> = {};
     newAssets.forEach(asset => {
+      const assetKey = getAssetKey(asset);
       if (asset.type === AssetType.TOOLS_EQUIPMENT) {
-        newQuantities[asset.id] = 1;
+        newQuantities[assetKey] = 1;
       } else {
-        newQuantities[asset.id] = 1;
+        newQuantities[assetKey] = 1;
       }
     });
-    setAssetQuantities((prev) => ({ ...prev, ...newQuantities }));
+    const finalQuantities = { ...assetQuantities, ...newQuantities };
+    setAssetQuantities(finalQuantities);
     
     dispatch(setSelectedAssetsForMove(updatedAssets));
     
@@ -468,7 +530,8 @@ export default function MoveCreatePage() {
       const moveDraft = {
         selectedIds: updatedAssets.map((asset) => asset.id),
         assets: updatedAssets,
-        quantities: assetQuantities,
+        quantities: finalQuantities,
+        notes: assetNotes,
         moveContext: moveContext,
         filterContext: {
           selectedCampusId: selectedCampusId || undefined,
@@ -506,12 +569,28 @@ export default function MoveCreatePage() {
     }
 
     for (const asset of selectedAssetsForMove) {
+      const assetKey = getAssetKey(asset);
       if (asset.type === AssetType.TOOLS_EQUIPMENT) {
-        const quantity = assetQuantities[asset.id];
+        const quantity = assetQuantities[assetKey];
         if (!quantity || quantity < 1) {
           toast.error(`Vui lòng nhập số lượng hợp lệ (>= 1) cho tài sản "${asset.name}"`);
           return;
         }
+        // Validate quantity doesn't exceed current quantity
+        if (quantity > asset.quantity) {
+          toast.error(`Số lượng di chuyển (${quantity}) không được vượt quá số lượng hiện có (${asset.quantity}) cho tài sản "${asset.name}"`);
+          return;
+        }
+      }
+      
+      if (!asset.currentRoom || !asset.currentRoom.id) {
+        toast.error(`Tài sản "${asset.name}" (${asset.fixedCode}) chưa được phân bổ vào phòng. Vui lòng kiểm tra lại.`);
+        return;
+      }
+      
+      if (asset.currentRoom.id === selectedRoomId) {
+        toast.error(`Tài sản "${asset.name}" (${asset.fixedCode}) đã ở phòng đích. Vui lòng chọn phòng khác.`);
+        return;
       }
     }
 
@@ -524,15 +603,18 @@ export default function MoveCreatePage() {
     try {
       const roomName = rooms.find((r) => r.id === selectedRoomId)?.name || "";
 
-      const movementItems = selectedAssetsForMove.map((asset) => ({
-        assetId: asset.id,
-        quantity: asset.type === AssetType.TOOLS_EQUIPMENT 
-          ? (assetQuantities[asset.id] || 1)
-          : 1, // Tài sản cố định luôn = 1
-        fromRoomId: asset.currentRoom?.id || "",
-        toRoomId: selectedRoomId,
-        note: assetNotes[asset.id] || `Di chuyển đến ${roomName}`,
-      }));
+      const movementItems = selectedAssetsForMove.map((asset) => {
+        const assetKey = getAssetKey(asset);
+        return {
+          assetId: asset.id,
+          quantity: asset.type === AssetType.TOOLS_EQUIPMENT 
+            ? (assetQuantities[assetKey] || 1)
+            : 1, // Tài sản cố định luôn = 1
+          fromRoomId: asset.currentRoom?.id || "",
+          toRoomId: selectedRoomId,
+          note: assetNotes[assetKey] || `Di chuyển đến ${roomName}`,
+        };
+      });
 
       const createMovementDto = {
         items: movementItems,
@@ -601,11 +683,24 @@ export default function MoveCreatePage() {
       className: "text-center",
     },
     {
+      key: "currentQuantity",
+      title: "Số lượng hiện có",
+      render: (_, record) => (
+        <div className="text-sm font-medium text-gray-900 text-center">
+          {record.quantity}
+        </div>
+      ),
+      sortable: false,
+      className: "text-center",
+    },
+    {
       key: "quantity",
       title: "Số lượng di chuyển",
       render: (_, record) => {
+        const assetKey = getAssetKey(record);
         const isCCDC = record.type === AssetType.TOOLS_EQUIPMENT;
-        const quantity = assetQuantities[record.id] ?? (isCCDC ? 1 : 1);
+        const quantity = assetQuantities[assetKey] ?? (isCCDC ? 1 : 1);
+        const maxQuantity = record.quantity;
         
         if (isCCDC) {
           return (
@@ -613,6 +708,7 @@ export default function MoveCreatePage() {
               <input
                 type="number"
                 min="1"
+                max={maxQuantity}
                 step="1"
                 className="border rounded px-2 py-1 text-sm w-20 text-center"
                 placeholder="SL"
@@ -620,16 +716,24 @@ export default function MoveCreatePage() {
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10);
                   if (!isNaN(value) && value >= 1) {
-                    handleQuantityChange(record.id, value);
+                    if (value > maxQuantity) {
+                      toast.error(`Số lượng không được vượt quá ${maxQuantity}`);
+                      handleQuantityChange(record, maxQuantity);
+                    } else {
+                      handleQuantityChange(record, value);
+                    }
                   } else if (e.target.value === '') {
-                    handleQuantityChange(record.id, 1);
+                    handleQuantityChange(record, 1);
                   }
                 }}
                 disabled={isSubmitting || isCreatingMovement}
                 onBlur={(e) => {
                   const value = parseInt(e.target.value, 10);
                   if (isNaN(value) || value < 1) {
-                    handleQuantityChange(record.id, 1);
+                    handleQuantityChange(record, 1);
+                  } else if (value > maxQuantity) {
+                    toast.error(`Số lượng không được vượt quá ${maxQuantity}`);
+                    handleQuantityChange(record, maxQuantity);
                   }
                 }}
               />
@@ -676,16 +780,19 @@ export default function MoveCreatePage() {
     {
       key: "note",
       title: "Ghi chú",
-      render: (_, record) => (
-        <input
-          type="text"
-          className="border rounded px-2 py-1 text-xs w-full"
-          placeholder="Nhập ghi chú..."
-          value={assetNotes[record.id] || ""}
-          onChange={(e) => handleNoteChange(record.id, e.target.value)}
-          disabled={isSubmitting || isCreatingMovement}
-        />
-      ),
+      render: (_, record) => {
+        const assetKey = getAssetKey(record);
+        return (
+          <input
+            type="text"
+            className="border rounded px-2 py-1 text-xs w-full"
+            placeholder="Nhập ghi chú..."
+            value={assetNotes[assetKey] || ""}
+            onChange={(e) => handleNoteChange(record, e.target.value)}
+            disabled={isSubmitting || isCreatingMovement}
+          />
+        );
+      },
     },
     {
       key: "actions",
@@ -695,7 +802,7 @@ export default function MoveCreatePage() {
           variant="ghost"
           size="sm"
           className="text-red-600 hover:bg-red-50"
-          onClick={() => handleRemoveAsset(record.id)}
+          onClick={() => handleRemoveAsset(record)}
           disabled={isSubmitting || isCreatingMovement}
         >
             <Trash2 className="h-4 w-4 mr-1" />
@@ -919,7 +1026,7 @@ export default function MoveCreatePage() {
         }}
         onConfirm={handleAddAssetsFromModal}
         title="Chọn tài sản từ sổ tài sản để di chuyển"
-        excludeAssetIds={selectedAssetsForMove.map(asset => asset.id)}
+        excludeAssetIds={selectedAssetsForMove.map(asset => getAssetKey(asset))}
         initialFilters={modalInitialFilters}
       />
     </div>

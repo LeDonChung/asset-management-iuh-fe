@@ -237,6 +237,10 @@ export default function TransactionPage() {
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
   const savedUnitIdRef = useRef<string>("");
 
+  const getAssetKey = (asset: Asset): string => {
+    return asset.bookItemId || asset.id;
+  };
+
   useEffect(() => {
     const loadHandoverDraft = () => {
       try {
@@ -260,10 +264,12 @@ export default function TransactionPage() {
             
             const quantities: Record<string, number> = {};
             handoverDraft.assets.forEach((asset: Asset) => {
+              const assetKey = asset.bookItemId || asset.id;
               if (asset.type === AssetType.TOOLS_EQUIPMENT) {
-                quantities[asset.id] = handoverDraft.quantities?.[asset.id] || 1;
+                // Try to get from saved quantities using both old key (id) and new key (bookItemId || id)
+                quantities[assetKey] = handoverDraft.quantities?.[assetKey] || handoverDraft.quantities?.[asset.id] || 1;
               } else {
-                quantities[asset.id] = 1;
+                quantities[assetKey] = 1;
               }
             });
             setAssetQuantities(quantities);
@@ -380,27 +386,30 @@ export default function TransactionPage() {
     router.push("/asset/asset-book");
   };
 
-  const handleRemoveAsset = (assetId: string) => {
-    dispatch(removeAssetFromHandover(assetId));
+  const handleRemoveAsset = (asset: Asset) => {
+    const assetKey = getAssetKey(asset);
+    dispatch(removeAssetFromHandover(asset.id));
     setAssetNotes((prev) => {
       const copy = { ...prev };
-      delete copy[assetId];
+      delete copy[assetKey];
       return copy;
     });
     setAssetQuantities((prev) => {
       const copy = { ...prev };
-      delete copy[assetId];
+      delete copy[assetKey];
       return copy;
     });
   };
 
-  const handleNoteChange = (assetId: string, note: string) => {
-    setAssetNotes((prev) => ({ ...prev, [assetId]: note }));
+  const handleNoteChange = (asset: Asset, note: string) => {
+    const assetKey = getAssetKey(asset);
+    setAssetNotes((prev) => ({ ...prev, [assetKey]: note }));
   };
 
-  const handleQuantityChange = (assetId: string, quantity: number) => {
+  const handleQuantityChange = (asset: Asset, quantity: number) => {
     if (quantity < 1) return;
-    setAssetQuantities((prev) => ({ ...prev, [assetId]: quantity }));
+    const assetKey = getAssetKey(asset);
+    setAssetQuantities((prev) => ({ ...prev, [assetKey]: quantity }));
   };
 
   useEffect(() => {
@@ -448,9 +457,9 @@ export default function TransactionPage() {
       return;
     }
 
-    const currentAssetIds = selectedAssetsForHandover.map(asset => asset.id);
-    const existingIds = new Set(currentAssetIds);
-    const newAssets = selectedAssets.filter(asset => !existingIds.has(asset.id));
+    const currentAssetKeys = selectedAssetsForHandover.map(asset => getAssetKey(asset));
+    const existingKeys = new Set(currentAssetKeys);
+    const newAssets = selectedAssets.filter(asset => !existingKeys.has(getAssetKey(asset)));
     
     if (newAssets.length === 0) {
       toast.error("Tất cả tài sản đã được thêm vào danh sách!");
@@ -462,10 +471,11 @@ export default function TransactionPage() {
     
     const newQuantities: Record<string, number> = {};
     newAssets.forEach(asset => {
+      const assetKey = getAssetKey(asset);
       if (asset.type === AssetType.TOOLS_EQUIPMENT) {
-        newQuantities[asset.id] = 1;
+        newQuantities[assetKey] = 1;
       } else {
-        newQuantities[asset.id] = 1;
+        newQuantities[assetKey] = 1;
       }
     });
     setAssetQuantities((prev) => ({ ...prev, ...newQuantities }));
@@ -523,10 +533,16 @@ export default function TransactionPage() {
 
     // Validate quantity cho CCDC
     for (const asset of selectedAssetsForHandover) {
+      const assetKey = getAssetKey(asset);
       if (asset.type === AssetType.TOOLS_EQUIPMENT) {
-        const quantity = assetQuantities[asset.id];
+        const quantity = assetQuantities[assetKey];
         if (!quantity || quantity < 1) {
           toast.error(`Vui lòng nhập số lượng hợp lệ (>= 1) cho tài sản "${asset.name}"`);
+          return;
+        }
+        // Validate quantity doesn't exceed current quantity
+        if (quantity > asset.quantity) {
+          toast.error(`Số lượng bàn giao (${quantity}) không được vượt quá số lượng hiện có (${asset.quantity}) cho tài sản "${asset.name}"`);
           return;
         }
       }
@@ -540,14 +556,17 @@ export default function TransactionPage() {
     try {
       const unitName = units.find((u) => u.id === selectedUnitId)?.name || "";
 
-      const transactionItems = selectedAssetsForHandover.map((asset) => ({
-        assetId: asset.id,
-        quantity: asset.type === AssetType.TOOLS_EQUIPMENT 
-          ? (assetQuantities[asset.id] || 1)
-          : 1, // Tài sản cố định luôn = 1
-        fromRoomId: asset.currentRoom?.id,
-        note: assetNotes[asset.id] || `Bàn giao đến ${unitName}`,
-      }));
+      const transactionItems = selectedAssetsForHandover.map((asset) => {
+        const assetKey = getAssetKey(asset);
+        return {
+          assetId: asset.id,
+          quantity: asset.type === AssetType.TOOLS_EQUIPMENT 
+            ? (assetQuantities[assetKey] || 1)
+            : 1, // Tài sản cố định luôn = 1
+          fromRoomId: asset.currentRoom?.id,
+          note: assetNotes[assetKey] || `Bàn giao đến ${unitName}`,
+        };
+      });
 
       let fromUnitId: string | undefined = handoverContext?.sourceUnitId;
       
@@ -629,11 +648,24 @@ export default function TransactionPage() {
       className: "text-center",
     },
     {
+      key: "currentQuantity",
+      title: "Số lượng hiện có",
+      render: (_, record) => (
+        <div className="text-sm font-medium text-gray-900 text-center">
+          {record.quantity}
+        </div>
+      ),
+      sortable: false,
+      className: "text-center",
+    },
+    {
       key: "quantity",
       title: "Số lượng bàn giao",
       render: (_, record) => {
+        const assetKey = getAssetKey(record);
         const isCCDC = record.type === AssetType.TOOLS_EQUIPMENT;
-        const quantity = assetQuantities[record.id] ?? (isCCDC ? 1 : 1);
+        const quantity = assetQuantities[assetKey] ?? (isCCDC ? 1 : 1);
+        const maxQuantity = record.quantity;
         
         if (isCCDC) {
           return (
@@ -641,6 +673,7 @@ export default function TransactionPage() {
               <input
                 type="number"
                 min="1"
+                max={maxQuantity}
                 step="1"
                 className="border rounded px-2 py-1 text-sm w-20 text-center"
                 placeholder="SL"
@@ -648,16 +681,24 @@ export default function TransactionPage() {
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10);
                   if (!isNaN(value) && value >= 1) {
-                    handleQuantityChange(record.id, value);
+                    if (value > maxQuantity) {
+                      toast.error(`Số lượng không được vượt quá ${maxQuantity}`);
+                      handleQuantityChange(record, maxQuantity);
+                    } else {
+                      handleQuantityChange(record, value);
+                    }
                   } else if (e.target.value === '') {
-                    handleQuantityChange(record.id, 1);
+                    handleQuantityChange(record, 1);
                   }
                 }}
                 disabled={isSubmitting || isCreatingTransaction}
                 onBlur={(e) => {
                   const value = parseInt(e.target.value, 10);
                   if (isNaN(value) || value < 1) {
-                    handleQuantityChange(record.id, 1);
+                    handleQuantityChange(record, 1);
+                  } else if (value > maxQuantity) {
+                    toast.error(`Số lượng không được vượt quá ${maxQuantity}`);
+                    handleQuantityChange(record, maxQuantity);
                   }
                 }}
               />
@@ -703,16 +744,19 @@ export default function TransactionPage() {
     {
       key: "note",
       title: "Ghi chú",
-      render: (_, record) => (
-        <input
-          type="text"
-          className="border rounded px-2 py-1 text-xs w-full"
-          placeholder="Nhập ghi chú..."
-          value={assetNotes[record.id] || ""}
-          onChange={(e) => handleNoteChange(record.id, e.target.value)}
-          disabled={isSubmitting || isCreatingTransaction}
-        />
-      ),
+      render: (_, record) => {
+        const assetKey = getAssetKey(record);
+        return (
+          <input
+            type="text"
+            className="border rounded px-2 py-1 text-xs w-full"
+            placeholder="Nhập ghi chú..."
+            value={assetNotes[assetKey] || ""}
+            onChange={(e) => handleNoteChange(record, e.target.value)}
+            disabled={isSubmitting || isCreatingTransaction}
+          />
+        );
+      },
     },
     {
       key: "actions",
@@ -722,7 +766,7 @@ export default function TransactionPage() {
           variant="ghost"
           size="sm"
           className="text-red-600 hover:bg-red-50"
-          onClick={() => handleRemoveAsset(record.id)}
+          onClick={() => handleRemoveAsset(record)}
           disabled={isSubmitting || isCreatingTransaction}
         >
             <Trash2 className="h-4 w-4 mr-1" />
@@ -927,7 +971,7 @@ export default function TransactionPage() {
         }}
         onConfirm={handleAddAssetsFromModal}
         title="Chọn tài sản từ sổ tài sản để bàn giao"
-        excludeAssetIds={selectedAssetsForHandover.map(asset => asset.id)}
+        excludeAssetIds={selectedAssetsForHandover.map(asset => getAssetKey(asset))}
         initialFilters={modalInitialFilters}
       />
       </div>

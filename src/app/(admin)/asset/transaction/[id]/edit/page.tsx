@@ -207,6 +207,7 @@ const convertTransactionItemToAsset = (item: TransactionItemResponseDto): Asset 
   
   return {
     id: item.assetId,
+    bookItemId: fullAsset?.bookItemId || (item as any).bookItemId || undefined,
     ktCode: item.asset?.ktCode || "",
     fixedCode: item.asset?.fixedCode || "",
     name: item.asset?.name || "",
@@ -214,7 +215,7 @@ const convertTransactionItemToAsset = (item: TransactionItemResponseDto): Asset 
     entrydate: fullAsset?.entrydate || "",
     currentRoomId: item.fromRoomId || item.asset?.currentRoom?.id,
     unit: fullAsset?.unit || "",
-    quantity: fullAsset?.quantity || 1,
+    quantity: item.quantity || fullAsset?.quantity || 1,
     purchasePackage: fullAsset?.purchasePackage || 0,
     type: item.asset?.type as any || "FIXED_ASSET" as any,
     isLocked: false,
@@ -288,6 +289,11 @@ export default function EditTransactionPage() {
   const savedUnitIdRef = useRef<string>("");
   const [selectedAssets, setSelectedAssets] = useState<Asset[]>([]);
 
+  // Helper function to get unique key for asset (handles duplicate asset codes)
+  const getAssetKey = (asset: Asset): string => {
+    return asset.bookItemId || asset.id;
+  };
+
   // Load transaction data from API
   useEffect(() => {
     if (transactionId) {
@@ -312,14 +318,17 @@ export default function EditTransactionPage() {
       const assets = currentTransactionDetail.items.map(convertTransactionItemToAsset);
       setSelectedAssets(assets);
 
-      // Set asset notes
       const notes: Record<string, string> = {};
       const quantities: Record<string, number> = {};
       currentTransactionDetail.items.forEach((item) => {
-        if (item.note) {
-          notes[item.assetId] = item.note;
+        const asset = assets.find(a => a.id === item.assetId);
+        if (asset) {
+          const assetKey = getAssetKey(asset);
+          if (item.note) {
+            notes[assetKey] = item.note;
+          }
+          quantities[assetKey] = item.quantity || 1;
         }
-        quantities[item.assetId] = item.quantity || 1;
       });
       setAssetNotes(notes);
       setAssetQuantities(quantities);
@@ -423,27 +432,30 @@ export default function EditTransactionPage() {
     router.push(`/asset/transaction/${transactionId}`);
   };
 
-  const handleRemoveAsset = (assetId: string) => {
-    setSelectedAssets((prev) => prev.filter((asset) => asset.id !== assetId));
+  const handleRemoveAsset = (asset: Asset) => {
+    const assetKey = getAssetKey(asset);
+    setSelectedAssets((prev) => prev.filter((a) => getAssetKey(a) !== assetKey));
     setAssetNotes((prev) => {
       const copy = { ...prev };
-      delete copy[assetId];
+      delete copy[assetKey];
       return copy;
     });
     setAssetQuantities((prev) => {
       const copy = { ...prev };
-      delete copy[assetId];
+      delete copy[assetKey];
       return copy;
     });
   };
 
-  const handleNoteChange = (assetId: string, note: string) => {
-    setAssetNotes((prev) => ({ ...prev, [assetId]: note }));
+  const handleNoteChange = (asset: Asset, note: string) => {
+    const assetKey = getAssetKey(asset);
+    setAssetNotes((prev) => ({ ...prev, [assetKey]: note }));
   };
 
-  const handleQuantityChange = (assetId: string, quantity: number) => {
+  const handleQuantityChange = (asset: Asset, quantity: number) => {
     if (quantity < 1) return;
-    setAssetQuantities((prev) => ({ ...prev, [assetId]: quantity }));
+    const assetKey = getAssetKey(asset);
+    setAssetQuantities((prev) => ({ ...prev, [assetKey]: quantity }));
   };
 
   useEffect(() => {
@@ -469,9 +481,9 @@ export default function EditTransactionPage() {
       return;
     }
 
-    const currentAssetIds = selectedAssets.map(asset => asset.id);
-    const existingIds = new Set(currentAssetIds);
-    const newAssets = selectedAssetsFromModal.filter(asset => !existingIds.has(asset.id));
+    const currentAssetKeys = selectedAssets.map(asset => getAssetKey(asset));
+    const existingKeys = new Set(currentAssetKeys);
+    const newAssets = selectedAssetsFromModal.filter(asset => !existingKeys.has(getAssetKey(asset)));
     
     if (newAssets.length === 0) {
       toast.error("Tất cả tài sản đã được thêm vào danh sách!");
@@ -483,10 +495,11 @@ export default function EditTransactionPage() {
     
     const newQuantities: Record<string, number> = {};
     newAssets.forEach(asset => {
+      const assetKey = getAssetKey(asset);
       if (asset.type === AssetType.TOOLS_EQUIPMENT) {
-        newQuantities[asset.id] = 1;
+        newQuantities[assetKey] = 1;
       } else {
-        newQuantities[asset.id] = 1;
+        newQuantities[assetKey] = 1;
       }
     });
     setAssetQuantities((prev) => ({ ...prev, ...newQuantities }));
@@ -528,10 +541,16 @@ export default function EditTransactionPage() {
     }
 
     for (const asset of selectedAssets) {
+      const assetKey = getAssetKey(asset);
       if (asset.type === AssetType.TOOLS_EQUIPMENT) {
-        const quantity = assetQuantities[asset.id];
+        const quantity = assetQuantities[assetKey];
         if (!quantity || quantity < 1) {
           toast.error(`Vui lòng nhập số lượng hợp lệ (>= 1) cho tài sản "${asset.name}"`);
+          return;
+        }
+        // Validate quantity doesn't exceed current quantity
+        if (quantity > asset.quantity) {
+          toast.error(`Số lượng bàn giao (${quantity}) không được vượt quá số lượng hiện có (${asset.quantity}) cho tài sản "${asset.name}"`);
           return;
         }
       }
@@ -542,14 +561,17 @@ export default function EditTransactionPage() {
     try {
       const unitName = units.find((u) => u.id === selectedUnitId)?.name || "";
 
-      const transactionItems = selectedAssets.map((asset) => ({
-        assetId: asset.id,
-        quantity: asset.type === AssetType.TOOLS_EQUIPMENT 
-          ? (assetQuantities[asset.id] || 1)
-          : 1, // Tài sản cố định luôn = 1
-        fromRoomId: asset.currentRoom?.id,
-        note: assetNotes[asset.id] || `Bàn giao đến ${unitName}`,
-      }));
+      const transactionItems = selectedAssets.map((asset) => {
+        const assetKey = getAssetKey(asset);
+        return {
+          assetId: asset.id,
+          quantity: asset.type === AssetType.TOOLS_EQUIPMENT 
+            ? (assetQuantities[assetKey] || 1)
+            : 1, // Tài sản cố định luôn = 1
+          fromRoomId: asset.currentRoom?.id,
+          note: assetNotes[assetKey] || `Bàn giao đến ${unitName}`,
+        };
+      });
 
       let fromUnitId: string | undefined = currentTransactionDetail?.fromUnit?.id;
       
@@ -625,11 +647,24 @@ export default function EditTransactionPage() {
       className: "text-center",
     },
     {
+      key: "currentQuantity",
+      title: "Số lượng hiện có",
+      render: (_, record) => (
+        <div className="text-sm font-medium text-gray-900 text-center">
+          {record.quantity}
+        </div>
+      ),
+      sortable: false,
+      className: "text-center",
+    },
+    {
       key: "quantity",
       title: "Số lượng bàn giao",
       render: (_, record) => {
+        const assetKey = getAssetKey(record);
         const isCCDC = record.type === AssetType.TOOLS_EQUIPMENT;
-        const quantity = assetQuantities[record.id] ?? (isCCDC ? 1 : 1);
+        const quantity = assetQuantities[assetKey] ?? (isCCDC ? 1 : 1);
+        const maxQuantity = record.quantity;
         
         if (isCCDC) {
           return (
@@ -637,6 +672,7 @@ export default function EditTransactionPage() {
               <input
                 type="number"
                 min="1"
+                max={maxQuantity}
                 step="1"
                 className="border rounded px-2 py-1 text-sm w-20 text-center"
                 placeholder="SL"
@@ -644,16 +680,24 @@ export default function EditTransactionPage() {
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10);
                   if (!isNaN(value) && value >= 1) {
-                    handleQuantityChange(record.id, value);
+                    if (value > maxQuantity) {
+                      toast.error(`Số lượng không được vượt quá ${maxQuantity}`);
+                      handleQuantityChange(record, maxQuantity);
+                    } else {
+                      handleQuantityChange(record, value);
+                    }
                   } else if (e.target.value === '') {
-                    handleQuantityChange(record.id, 1);
+                    handleQuantityChange(record, 1);
                   }
                 }}
                 disabled={isSubmitting || isUpdatingTransaction}
                 onBlur={(e) => {
                   const value = parseInt(e.target.value, 10);
                   if (isNaN(value) || value < 1) {
-                    handleQuantityChange(record.id, 1);
+                    handleQuantityChange(record, 1);
+                  } else if (value > maxQuantity) {
+                    toast.error(`Số lượng không được vượt quá ${maxQuantity}`);
+                    handleQuantityChange(record, maxQuantity);
                   }
                 }}
               />
@@ -699,16 +743,19 @@ export default function EditTransactionPage() {
     {
       key: "note",
       title: "Ghi chú",
-      render: (_, record) => (
-        <input
-          type="text"
-          className="border rounded px-2 py-1 text-xs w-full"
-          placeholder="Nhập ghi chú..."
-          value={assetNotes[record.id] || ""}
-          onChange={(e) => handleNoteChange(record.id, e.target.value)}
-          disabled={isSubmitting || isUpdatingTransaction}
-        />
-      ),
+      render: (_, record) => {
+        const assetKey = getAssetKey(record);
+        return (
+          <input
+            type="text"
+            className="border rounded px-2 py-1 text-xs w-full"
+            placeholder="Nhập ghi chú..."
+            value={assetNotes[assetKey] || ""}
+            onChange={(e) => handleNoteChange(record, e.target.value)}
+            disabled={isSubmitting || isUpdatingTransaction}
+          />
+        );
+      },
     },
     {
       key: "actions",
@@ -718,7 +765,7 @@ export default function EditTransactionPage() {
           variant="ghost"
           size="sm"
           className="text-red-600 hover:bg-red-50"
-          onClick={() => handleRemoveAsset(record.id)}
+          onClick={() => handleRemoveAsset(record)}
           disabled={isSubmitting || isUpdatingTransaction}
         >
             <Trash2 className="h-4 w-4 mr-1" />
@@ -945,7 +992,7 @@ export default function EditTransactionPage() {
         }}
         onConfirm={handleAddAssetsFromModal}
         title="Chọn tài sản từ sổ tài sản để bàn giao"
-        excludeAssetIds={selectedAssets.map(asset => asset.id)}
+        excludeAssetIds={selectedAssets.map(asset => getAssetKey(asset))}
         initialFilters={modalInitialFilters}
       />
       </div>
