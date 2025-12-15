@@ -174,6 +174,11 @@ interface InventoryState {
   multiRoomInventoryResults: MultiRoomInventoryResponseDto | null;
   multiRoomInventoryLoading: boolean;
   multiRoomInventoryError: string | null;
+
+  // Statistics states
+  inventoryStatistics: InventoryStatistics | null;
+  statisticsLoading: boolean;
+  statisticsError: string | null;
 };
 
 const initialState: InventoryState = {
@@ -236,6 +241,11 @@ const initialState: InventoryState = {
   multiRoomInventoryResults: null,
   multiRoomInventoryLoading: false,
   multiRoomInventoryError: null,
+
+  // Statistics states
+  inventoryStatistics: null,
+  statisticsLoading: false,
+  statisticsError: null,
 };
 
 export interface CreateInventorySession {
@@ -734,6 +744,80 @@ export const getMultiRoomInventoryResults = createAsyncThunk(
       });
       
       const response = await axiosInstance.get(`/api/v1/inventories/multi-room-results?${params.toString()}`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export interface InventoryStatisticsFilter {
+  level?: 'ALL' | 'SESSION_UNIT' | 'GROUP' | 'ASSIGNMENT' | 'ROOM';
+  sessionUnitId?: string;
+  groupId?: string;
+  assignmentId?: string;
+  roomId?: string;
+  assetType?: string;
+}
+
+export interface InventoryStatistics {
+  level: string;
+  totalAssets: number;
+  overallStatusStatistics: {
+    matched: number;
+    missing: number;
+    excess: number;
+    broken: number;
+    needsRepair: number;
+    liquidationProposed: number;
+  };
+  overallAssetTypeStatistics: {
+    fixedAssets: number;
+    toolsEquipment: number;
+  };
+  overallScanMethodStatistics: {
+    rfid: number;
+    manual: number;
+  };
+  levelStatistics: Array<{
+    id: string;
+    name: string;
+    totalAssets: number;
+    statusStatistics: any;
+    assetTypeStatistics: any;
+    scanMethodStatistics: any;
+  }>;
+}
+
+export const getInventoryStatistics = createAsyncThunk(
+  "inventory/getInventoryStatistics",
+  async (filters: InventoryStatisticsFilter, { rejectWithValue }) => {
+    try {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, String(value));
+        }
+      });
+      
+      const response = await axiosInstance.get(`/api/v1/inventories/statistics?${params.toString()}`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const updateInventoryResult = createAsyncThunk(
+  "inventory/updateInventoryResult",
+  async (
+    { resultId, countedQuantity }: { resultId: string; countedQuantity: number },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await axiosInstance.patch(`/api/v1/inventories/inventory-results/${resultId}`, {
+        countedQuantity,
+      });
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data || error.message);
@@ -1326,8 +1410,122 @@ const inventorySlice = createSlice({
         state.multiRoomInventoryError = action.payload as string;
         console.log('Failed to get multi-room inventory results', action.payload);
       })
+      // Update inventory result
+      .addCase(updateInventoryResult.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(updateInventoryResult.fulfilled, (state, action) => {
+        state.loading = false;
+        const updatedResult = action.payload;
+        
+        // Update in roomInventoryResults if exists
+        if (state.roomInventoryResults) {
+          // Update in fixedAssets
+          const fixedAssetIndex = state.roomInventoryResults.fixedAssets.findIndex(
+            (r) => r.id === updatedResult.id
+          );
+          if (fixedAssetIndex >= 0) {
+            state.roomInventoryResults.fixedAssets[fixedAssetIndex] = updatedResult;
+            // Recalculate summary
+            state.roomInventoryResults.summary = calculateRoomSummary(
+              state.roomInventoryResults.fixedAssets,
+              state.roomInventoryResults.toolsEquipment
+            );
+          }
+          
+          // Update in toolsEquipment
+          const toolsEquipmentIndex = state.roomInventoryResults.toolsEquipment.findIndex(
+            (r) => r.id === updatedResult.id
+          );
+          if (toolsEquipmentIndex >= 0) {
+            state.roomInventoryResults.toolsEquipment[toolsEquipmentIndex] = updatedResult;
+            // Recalculate summary
+            state.roomInventoryResults.summary = calculateRoomSummary(
+              state.roomInventoryResults.fixedAssets,
+              state.roomInventoryResults.toolsEquipment
+            );
+          }
+        }
+        
+        // Update in multiRoomInventoryResults if exists
+        if (state.multiRoomInventoryResults) {
+          state.multiRoomInventoryResults.rooms = state.multiRoomInventoryResults.rooms.map((room) => {
+            // Update in fixedAssets
+            const fixedAssetIndex = room.fixedAssets.findIndex((r) => r.id === updatedResult.id);
+            if (fixedAssetIndex >= 0) {
+              room.fixedAssets[fixedAssetIndex] = {
+                ...room.fixedAssets[fixedAssetIndex],
+                countedQuantity: updatedResult.countedQuantity,
+                status: updatedResult.status,
+              };
+            }
+            
+            // Update in toolsEquipment
+            if (room.toolsEquipment) {
+              const toolsEquipmentIndex = room.toolsEquipment.findIndex((r) => r.id === updatedResult.id);
+              if (toolsEquipmentIndex >= 0) {
+                room.toolsEquipment[toolsEquipmentIndex] = {
+                  ...room.toolsEquipment[toolsEquipmentIndex],
+                  countedQuantity: updatedResult.countedQuantity,
+                  status: updatedResult.status,
+                };
+              }
+            }
+            
+            return room;
+          });
+        }
+      })
+      .addCase(updateInventoryResult.rejected, (state, action) => {
+        state.loading = false;
+        state.error = (action.payload as any)?.message || "Update failed";
+      })
+      // Inventory statistics
+      .addCase(getInventoryStatistics.pending, (state) => {
+        state.statisticsLoading = true;
+        state.statisticsError = null;
+      })
+      .addCase(getInventoryStatistics.fulfilled, (state, action) => {
+        state.statisticsLoading = false;
+        state.statisticsError = null;
+        state.inventoryStatistics = action.payload;
+      })
+      .addCase(getInventoryStatistics.rejected, (state, action) => {
+        state.statisticsLoading = false;
+        state.statisticsError = (action.payload as any)?.message || "Failed to load statistics";
+      })
   },
 });
+
+// Helper function to calculate room summary
+function calculateRoomSummary(
+  fixedAssets: InventoryResultResponseDto[],
+  toolsEquipment: InventoryResultResponseDto[]
+): {
+  totalAssets: number;
+  totalFixedAssets: number;
+  totalToolsEquipment: number;
+  matchedAssets: number;
+  missingAssets: number;
+  excessAssets: number;
+  brokenAssets: number;
+  needsRepairAssets: number;
+  liquidationProposedAssets: number;
+} {
+  const allAssets = [...fixedAssets, ...toolsEquipment];
+  
+  return {
+    totalAssets: allAssets.length,
+    totalFixedAssets: fixedAssets.length,
+    totalToolsEquipment: toolsEquipment.length,
+    matchedAssets: allAssets.filter((a) => a.status === 'MATCHED').length,
+    missingAssets: allAssets.filter((a) => a.status === 'MISSING').length,
+    excessAssets: allAssets.filter((a) => a.status === 'EXCESS').length,
+    brokenAssets: allAssets.filter((a) => a.status === 'BROKEN').length,
+    needsRepairAssets: allAssets.filter((a) => a.status === 'NEEDS_REPAIR').length,
+    liquidationProposedAssets: allAssets.filter((a) => a.status === 'LIQUIDATION_PROPOSED').length,
+  };
+}
 
 export const {
   updateFilter,

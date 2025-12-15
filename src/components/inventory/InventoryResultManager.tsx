@@ -9,16 +9,20 @@ import {
   getMultiRoomInventoryResults,
   clearMultiRoomResults,
   clearRoomResults,
+  updateInventoryResult,
+  getInventoryStatistics,
   InventoryResultResponseDto,
   MultiRoomInventoryResponseDto,
   RoomInventorySimpleDto,
   AssetInventorySimpleDto,
 } from "@/lib/store/slices/inventorySlice";
+import { InventoryStatistics } from "./InventoryStatistics";
 import { Button } from "@/components/ui/button";
 import { Select, SelectOption } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableColumn } from "@/components/ui/table";
-import { Search, FileText, Plus, Loader2, Building, Users, MapPin, Package, BarChart3, Download, Eye, Camera, Tag, CheckCircle, XCircle, AlertCircle, Clock, X, Info, ChevronDown, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Search, FileText, Plus, Loader2, Building, Users, MapPin, Package, BarChart3, Download, Eye, Camera, Tag, CheckCircle, XCircle, AlertCircle, Clock, X, Info, ChevronDown, ChevronRight, Edit2, Save, X as XIcon } from "lucide-react";
 import {
   AssetType,
   InventoryGroup,
@@ -42,6 +46,7 @@ interface FilterState {
   roomId: string;
   assetType: AssetType | "ALL";
   multiRoomAssetType: string; // Thêm filter riêng cho multi-room
+  statisticsLevel: 'ALL' | 'SESSION_UNIT' | 'GROUP' | 'ASSIGNMENT' | 'ROOM'; // Mức độ thống kê
 }
 
 
@@ -55,7 +60,16 @@ interface ViewModalData {
 
 export const InventoryResultManager = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { currentSession, unitRooms, roomInventoryResults, multiRoomInventoryResults, multiRoomInventoryLoading, multiRoomInventoryError } = useSelector(
+  const { 
+    currentSession, 
+    unitRooms, 
+    roomInventoryResults, 
+    multiRoomInventoryResults, 
+    multiRoomInventoryLoading, 
+    multiRoomInventoryError,
+    inventoryStatistics,
+    statisticsLoading,
+  } = useSelector(
     (state: RootState) => state.inventory
   );
   const { user: currentUser } = useAuth();
@@ -135,7 +149,10 @@ export const InventoryResultManager = () => {
     roomId: "",
     assetType: "ALL",
     multiRoomAssetType: "ALL",
+    statisticsLevel: "ALL",
   });
+
+  const [showStatistics, setShowStatistics] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +178,11 @@ export const InventoryResultManager = () => {
 
   // State for asset book creation
   const [isCreatingAssetBook, setIsCreatingAssetBook] = useState(false);
+
+  // State for editing quantity - hỗ trợ chỉnh sửa nhiều items cùng lúc
+  const [editingQuantities, setEditingQuantities] = useState<Record<string, number>>({});
+  const [isUpdatingQuantity, setIsUpdatingQuantity] = useState(false);
+  const [updatingResultIds, setUpdatingResultIds] = useState<Set<string>>(new Set());
 
   // Tự động khởi tạo filters dựa trên access scope
   useEffect(() => {
@@ -483,6 +505,144 @@ export const InventoryResultManager = () => {
     };
   };
 
+  // Xử lý bắt đầu chỉnh sửa số lượng (có thể chỉnh sửa nhiều items)
+  const handleStartEditQuantity = (result: InventoryResultResponseDto | AssetInventorySimpleDto) => {
+    setEditingQuantities((prev) => ({
+      ...prev,
+      [result.id]: result.countedQuantity,
+    }));
+  };
+
+  // Xử lý mở tất cả để chỉnh sửa
+  const handleStartEditAll = (results: (InventoryResultResponseDto | AssetInventorySimpleDto)[]) => {
+    const quantities: Record<string, number> = {};
+    results.forEach((result) => {
+      quantities[result.id] = result.countedQuantity;
+    });
+    setEditingQuantities(quantities);
+  };
+
+  // Xử lý hủy chỉnh sửa một item
+  const handleCancelEditQuantity = (resultId?: string) => {
+    if (resultId) {
+      setEditingQuantities((prev) => {
+        const newQuantities = { ...prev };
+        delete newQuantities[resultId];
+        return newQuantities;
+      });
+    } else {
+      // Hủy tất cả
+      setEditingQuantities({});
+    }
+  };
+
+  // Xử lý cập nhật số lượng cho một item
+  const handleUpdateQuantity = (resultId: string, quantity: number) => {
+    setEditingQuantities((prev) => ({
+      ...prev,
+      [resultId]: quantity,
+    }));
+  };
+
+  // Xử lý lưu số lượng đã chỉnh sửa (một item)
+  const handleSaveQuantity = async (resultId: string) => {
+    const quantity = editingQuantities[resultId];
+    if (quantity === undefined) return;
+    
+    if (quantity < 0) {
+      toast.error("Số lượng không được nhỏ hơn 0");
+      return;
+    }
+
+    try {
+      setUpdatingResultIds((prev) => new Set(prev).add(resultId));
+      await dispatch(updateInventoryResult({ resultId, countedQuantity: quantity })).unwrap();
+      toast.success("Cập nhật số lượng thành công!");
+      
+      // Xóa khỏi editing state
+      setEditingQuantities((prev) => {
+        const newQuantities = { ...prev };
+        delete newQuantities[resultId];
+        return newQuantities;
+      });
+      
+      // Reload results để cập nhật trạng thái
+      if (filters.roomId) {
+        dispatch(getRoomInventoryResults(filters.roomId));
+      } else if (filters.unitId) {
+        const multiRoomFilters = {
+          unitId: filters.unitId,
+          page: multiRoomInventoryResults?.page || 1,
+          limit: multiRoomInventoryResults?.limit || 5,
+          assetType: filters.multiRoomAssetType !== "ALL" ? filters.multiRoomAssetType : undefined,
+        };
+        dispatch(getMultiRoomInventoryResults(multiRoomFilters));
+      }
+    } catch (error: any) {
+      console.error("Error updating quantity:", error);
+      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi cập nhật số lượng");
+    } finally {
+      setUpdatingResultIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(resultId);
+        return newSet;
+      });
+    }
+  };
+
+  // Xử lý lưu tất cả số lượng đã chỉnh sửa
+  const handleSaveAllQuantities = async () => {
+    const resultIds = Object.keys(editingQuantities);
+    if (resultIds.length === 0) {
+      toast.error("Không có thay đổi nào để lưu");
+      return;
+    }
+
+    // Validate tất cả
+    for (const resultId of resultIds) {
+      const quantity = editingQuantities[resultId];
+      if (quantity < 0) {
+        toast.error("Số lượng không được nhỏ hơn 0");
+        return;
+      }
+    }
+
+    try {
+      setIsUpdatingQuantity(true);
+      setUpdatingResultIds(new Set(resultIds));
+
+      // Lưu tất cả cùng lúc
+      const updatePromises = resultIds.map((resultId) =>
+        dispatch(updateInventoryResult({ resultId, countedQuantity: editingQuantities[resultId] })).unwrap()
+      );
+
+      await Promise.all(updatePromises);
+      toast.success(`Đã cập nhật thành công ${resultIds.length} số lượng!`);
+      
+      // Xóa tất cả khỏi editing state
+      setEditingQuantities({});
+      
+      // Reload results để cập nhật trạng thái
+      if (filters.roomId) {
+        dispatch(getRoomInventoryResults(filters.roomId));
+      } else if (filters.unitId) {
+        const multiRoomFilters = {
+          unitId: filters.unitId,
+          page: multiRoomInventoryResults?.page || 1,
+          limit: multiRoomInventoryResults?.limit || 5,
+          assetType: filters.multiRoomAssetType !== "ALL" ? filters.multiRoomAssetType : undefined,
+        };
+        dispatch(getMultiRoomInventoryResults(multiRoomFilters));
+      }
+    } catch (error: any) {
+      console.error("Error updating quantities:", error);
+      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi cập nhật số lượng");
+    } finally {
+      setIsUpdatingQuantity(false);
+      setUpdatingResultIds(new Set());
+    }
+  };
+
   // Xử lý tạo sổ tài sản từ kết quả kiểm kê
   const handleCreateAssetBook = async () => {
     const { canCreate, assignmentId, unitId } = canCreateAssetBook();
@@ -524,6 +684,38 @@ export const InventoryResultManager = () => {
 
   useEffect(() => {}, [filters.sessionUnitId, filters.groupId, filters.unitId]);
 
+  // Load statistics khi filter thay đổi và showStatistics = true
+  useEffect(() => {
+    if (!showStatistics) return;
+
+    // Xác định level dựa trên filter nếu statisticsLevel = 'ALL'
+    let level: 'ALL' | 'SESSION_UNIT' | 'GROUP' | 'ASSIGNMENT' | 'ROOM' = 'ALL';
+    if (filters.statisticsLevel === 'ALL') {
+      if (filters.roomId) {
+        level = 'ROOM';
+      } else if (filters.unitId) {
+        level = 'ASSIGNMENT';
+      } else if (filters.groupId) {
+        level = 'GROUP';
+      } else if (filters.sessionUnitId) {
+        level = 'SESSION_UNIT';
+      }
+    } else {
+      level = filters.statisticsLevel;
+    }
+
+    const statisticsFilters = {
+      level: level,
+      sessionUnitId: filters.sessionUnitId || undefined,
+      groupId: filters.groupId || undefined,
+      assignmentId: filters.unitId || undefined, // unitId trong filter thực tế là assignmentId
+      roomId: filters.roomId || undefined,
+      assetType: filters.assetType !== "ALL" ? filters.assetType : undefined,
+    };
+
+    dispatch(getInventoryStatistics(statisticsFilters));
+  }, [filters, showStatistics, dispatch]);
+
   // Define table columns for Fixed Assets
   const fixedAssetsColumns: TableColumn<InventoryResultResponseDto>[] = [
     {
@@ -558,12 +750,73 @@ export const InventoryResultManager = () => {
     {
       key: "countedQuantity",
       title: "Số lượng kiểm kê",
-      width: "120px",
-      render: (_, result) => (
-        <div className="text-sm text-gray-900 text-center">
-          {result.countedQuantity}
-        </div>
-      ),
+      width: "180px",
+      render: (_, result) => {
+        const isEditing = result.id in editingQuantities;
+        const isUpdating = updatingResultIds.has(result.id);
+        const editingValue = editingQuantities[result.id] ?? result.countedQuantity;
+        
+        if (isEditing) {
+          return (
+            <div className="flex items-center justify-center gap-1">
+              <Input
+                type="number"
+                min="0"
+                value={editingValue}
+                onChange={(e) => handleUpdateQuantity(result.id, parseInt(e.target.value) || 0)}
+                className="w-20 h-8 text-center text-sm"
+                disabled={isUpdating}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveQuantity(result.id);
+                  } else if (e.key === 'Escape') {
+                    handleCancelEditQuantity(result.id);
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleSaveQuantity(result.id)}
+                disabled={isUpdating}
+                className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                title="Lưu"
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Save className="h-3 w-3" />
+                )}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleCancelEditQuantity(result.id)}
+                disabled={isUpdating}
+                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                title="Hủy"
+              >
+                <XIcon className="h-3 w-3" />
+              </Button>
+            </div>
+          );
+        }
+        
+        return (
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-sm text-gray-900">{result.countedQuantity}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => handleStartEditQuantity(result)}
+              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              title="Chỉnh sửa số lượng"
+            >
+              <Edit2 className="h-3 w-3" />
+            </Button>
+          </div>
+        );
+      },
       className: "text-center",
     },
     {
@@ -662,12 +915,73 @@ export const InventoryResultManager = () => {
     {
       key: "countedQuantity",
       title: "Số lượng kiểm kê",
-      width: "120px",
-      render: (_, result) => (
-        <div className="text-sm text-gray-900 text-center">
-          {result.countedQuantity}
-        </div>
-      ),
+      width: "180px",
+      render: (_, result) => {
+        const isEditing = result.id in editingQuantities;
+        const isUpdating = updatingResultIds.has(result.id);
+        const editingValue = editingQuantities[result.id] ?? result.countedQuantity;
+        
+        if (isEditing) {
+          return (
+            <div className="flex items-center justify-center gap-1">
+              <Input
+                type="number"
+                min="0"
+                value={editingValue}
+                onChange={(e) => handleUpdateQuantity(result.id, parseInt(e.target.value) || 0)}
+                className="w-20 h-8 text-center text-sm"
+                disabled={isUpdating}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveQuantity(result.id);
+                  } else if (e.key === 'Escape') {
+                    handleCancelEditQuantity(result.id);
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleSaveQuantity(result.id)}
+                disabled={isUpdating}
+                className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                title="Lưu"
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Save className="h-3 w-3" />
+                )}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleCancelEditQuantity(result.id)}
+                disabled={isUpdating}
+                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                title="Hủy"
+              >
+                <XIcon className="h-3 w-3" />
+              </Button>
+            </div>
+          );
+        }
+        
+        return (
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-sm text-gray-900">{result.countedQuantity}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => handleStartEditQuantity(result)}
+              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              title="Chỉnh sửa số lượng"
+            >
+              <Edit2 className="h-3 w-3" />
+            </Button>
+          </div>
+        );
+      },
       className: "text-center",
     },
     {
@@ -723,6 +1037,19 @@ export const InventoryResultManager = () => {
               </div>
             </div>
             <div className="flex space-x-3">
+              {/* Button xem thống kê */}
+              <Button
+                onClick={() => setShowStatistics(!showStatistics)}
+                variant={showStatistics ? "default" : "outline"}
+                className={showStatistics 
+                  ? "bg-purple-600 hover:bg-purple-700 text-white shadow-md transition-all duration-200 hover:shadow-lg" 
+                  : "border-purple-600 text-purple-600 hover:bg-purple-50"
+                }
+              >
+                <BarChart3 className="h-4 w-4 mr-2" />
+                {showStatistics ? "Ẩn thống kê" : "Xem thống kê"}
+              </Button>
+
               {/* Button tạo sổ tài sản */}
               {(() => {
                 const { canCreate } = canCreateAssetBook();
@@ -902,9 +1229,44 @@ export const InventoryResultManager = () => {
                   </Select>
                 </div>
               )}
+
+              {/* Mức độ thống kê - Hiển thị khi bật xem thống kê */}
+              {showStatistics && (
+                <div className="space-y-3">
+                  <label className="flex items-center text-sm font-medium text-gray-700">
+                    <BarChart3 className="h-4 w-4 mr-2 text-indigo-500" />
+                    Mức độ thống kê
+                  </label>
+                  <Select
+                    value={filters.statisticsLevel}
+                    onChange={(e) => {
+                      setFilters((prev) => ({ 
+                        ...prev, 
+                        statisticsLevel: e.target.value as 'ALL' | 'SESSION_UNIT' | 'GROUP' | 'ASSIGNMENT' | 'ROOM'
+                      }));
+                    }}
+                    className="w-full border-slate-300 focus:border-blue-500 focus:ring-blue-500 transition-colors duration-200"
+                  >
+                    <SelectOption value="ALL">Tự động (dựa trên filter)</SelectOption>
+                    <SelectOption value="SESSION_UNIT">Theo cơ sở</SelectOption>
+                    <SelectOption value="GROUP">Theo nhóm</SelectOption>
+                    <SelectOption value="ASSIGNMENT">Theo phân công</SelectOption>
+                    <SelectOption value="ROOM">Theo phòng</SelectOption>
+                  </Select>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
+
+        {/* Statistics Section */}
+        {showStatistics && (
+          <Card className="bg-white shadow-sm border-slate-200">
+            <CardContent className="p-6">
+              <InventoryStatistics statistics={inventoryStatistics} loading={statisticsLoading} />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Khu vực hiển thị kết quả */}
         <Card className="bg-white shadow-sm border-slate-200">
@@ -1047,8 +1409,61 @@ export const InventoryResultManager = () => {
                                 <MapPin className="h-4 w-4 mr-2 text-blue-500" />
                                 {room.roomName}
                               </h4>
-                              <div className="text-sm text-gray-600">
-                                Tổng: {room.fixedAssets.length + (room.toolsEquipment?.length || 0)} tài sản
+                              <div className="flex items-center gap-3">
+                                <div className="text-sm text-gray-600">
+                                  Tổng: {room.fixedAssets.length + (room.toolsEquipment?.length || 0)} tài sản
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {Object.keys(editingQuantities).length > 0 && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={handleSaveAllQuantities}
+                                      disabled={isUpdatingQuantity}
+                                      className="text-green-600 border-green-600 hover:bg-green-50 text-xs"
+                                    >
+                                      {isUpdatingQuantity ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                          Đang lưu...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Save className="h-3 w-3 mr-1" />
+                                          Lưu tất cả ({Object.keys(editingQuantities).length})
+                                        </>
+                                      )}
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const allResults = [
+                                        ...room.fixedAssets,
+                                        ...(room.toolsEquipment || [])
+                                      ];
+                                      handleStartEditAll(allResults);
+                                    }}
+                                    disabled={isUpdatingQuantity || Object.keys(editingQuantities).length > 0}
+                                    className="text-blue-600 border-blue-600 hover:bg-blue-50 text-xs"
+                                  >
+                                    <Edit2 className="h-3 w-3 mr-1" />
+                                    Chỉnh sửa tất cả
+                                  </Button>
+                                  {Object.keys(editingQuantities).length > 0 && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleCancelEditQuantity()}
+                                      disabled={isUpdatingQuantity}
+                                      className="text-red-600 border-red-600 hover:bg-red-50 text-xs"
+                                    >
+                                      <XIcon className="h-3 w-3 mr-1" />
+                                      Hủy
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1141,71 +1556,71 @@ export const InventoryResultManager = () => {
                   </div>
                 </div>
 
-                {/* Thống kê tổng quan */}
-                <div className="p-6 border-b border-slate-100">
-                  <h4 className="text-md font-medium text-gray-700 mb-4">Thống kê tổng quan</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-sm font-medium text-gray-600">Tài sản cố định</div>
-                          <div className="text-2xl font-bold text-gray-900 mt-1">
-                            {roomInventoryResults.summary?.totalFixedAssets || 0}
-                          </div>
-                        </div>
-                        <Package className="h-5 w-5 text-gray-500" />
-                      </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-sm font-medium text-gray-600">Công cụ dụng cụ</div>
-                          <div className="text-2xl font-bold text-gray-900 mt-1">
-                            {roomInventoryResults.summary?.totalToolsEquipment || 0}
-                          </div>
-                        </div>
-                        <Package className="h-5 w-5 text-gray-500" />
-                      </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-sm font-medium text-gray-600">Khớp</div>
-                          <div className="text-2xl font-bold text-gray-900 mt-1">
-                            {roomInventoryResults.summary?.matchedAssets || 0}
-                          </div>
-                        </div>
-                        <BarChart3 className="h-5 w-5 text-gray-500" />
-                      </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-sm font-medium text-gray-600">Thiếu</div>
-                          <div className="text-2xl font-bold text-gray-900 mt-1">
-                            {roomInventoryResults.summary?.missingAssets || 0}
-                          </div>
-                        </div>
-                        <Search className="h-5 w-5 text-gray-500" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Chi tiết kết quả kiểm kê */}
                 <div className="p-6 space-y-8">
+                  {/* Header với nút chỉnh sửa tất cả */}
+                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
+                    <h4 className="text-lg font-semibold text-gray-900">Chi tiết kết quả kiểm kê</h4>
+                    <div className="flex items-center gap-2">
+                      {Object.keys(editingQuantities).length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleSaveAllQuantities}
+                          disabled={isUpdatingQuantity}
+                          className="text-green-600 border-green-600 hover:bg-green-50"
+                        >
+                          {isUpdatingQuantity ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Đang lưu...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-4 w-4 mr-2" />
+                              Lưu tất cả ({Object.keys(editingQuantities).length})
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const allResults = [
+                            ...(roomInventoryResults.fixedAssets || []),
+                            ...(roomInventoryResults.toolsEquipment || [])
+                          ];
+                          handleStartEditAll(allResults);
+                        }}
+                        disabled={isUpdatingQuantity || Object.keys(editingQuantities).length > 0}
+                        className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                      >
+                        <Edit2 className="h-4 w-4 mr-2" />
+                        Chỉnh sửa tất cả
+                      </Button>
+                      {Object.keys(editingQuantities).length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCancelEditQuantity()}
+                          disabled={isUpdatingQuantity}
+                          className="text-red-600 border-red-600 hover:bg-red-50"
+                        >
+                          <XIcon className="h-4 w-4 mr-2" />
+                          Hủy tất cả
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Tài sản cố định */}
                   {roomInventoryResults.fixedAssets && roomInventoryResults.fixedAssets.length > 0 && (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-lg font-semibold text-gray-900 flex items-center">
-                          <Package className="h-5 w-5 mr-2" />
-                          Tài sản cố định ({roomInventoryResults.fixedAssets.length} tài sản)
-                        </h4>
-                      </div>
+                      <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                        <Package className="h-5 w-5 mr-2" />
+                        Tài sản cố định ({roomInventoryResults.fixedAssets.length} tài sản)
+                      </h4>
                       <Table<InventoryResultResponseDto>
                         columns={fixedAssetsColumns}
                         data={roomInventoryResults.fixedAssets}
@@ -1217,12 +1632,10 @@ export const InventoryResultManager = () => {
                   {/* Công cụ dụng cụ */}
                   {roomInventoryResults.toolsEquipment && roomInventoryResults.toolsEquipment.length > 0 && (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-lg font-semibold text-gray-900 flex items-center">
-                          <Package className="h-5 w-5 mr-2" />
-                          Công cụ dụng cụ ({roomInventoryResults.toolsEquipment.length} tài sản)
-                        </h4>
-                      </div>
+                      <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                        <Package className="h-5 w-5 mr-2" />
+                        Công cụ dụng cụ ({roomInventoryResults.toolsEquipment.length} tài sản)
+                      </h4>
                       <Table<InventoryResultResponseDto>
                         columns={toolsEquipmentColumns}
                         data={roomInventoryResults.toolsEquipment}

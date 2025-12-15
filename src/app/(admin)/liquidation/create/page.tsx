@@ -349,8 +349,6 @@ export default function LiquidationCreatePage() {
       return;
     }
     
-    console.log("Loading assets from sessionStorage...");
-    
     try {
       // Try to load a draft object first (allows restoring form fields + ids)
       const draftRaw = sessionStorage.getItem('liquidationDraft');
@@ -372,8 +370,6 @@ export default function LiquidationCreatePage() {
 
         // If the draft contains full asset objects (written by asset-book), use them
         if (draft.assets && Array.isArray(draft.assets) && draft.assets.length > 0) {
-          console.log('Loading assets from draft:', draft.assets.length, 'assets');
-          
           // Auto-detect asset type from first asset if available
           if (draft.assets[0]?.type) {
             setAssetTypeFilter(draft.assets[0].type);
@@ -382,7 +378,6 @@ export default function LiquidationCreatePage() {
           
           setAssetsFromStore(draft.assets);
           setFilteredAssets(draft.assets);
-          console.log('Loaded assets from draft in sessionStorage:', draft.assets);
           
           // Initialize quantities from draft if available
           if (draft.systemQuantities) {
@@ -415,7 +410,6 @@ export default function LiquidationCreatePage() {
           // Load filter context if available
           if (draft.filterContext) {
             setFilterContext(draft.filterContext);
-            console.log('Loaded filter context from draft:', draft.filterContext);
           }
           
           hasLoadedRef.current = true;
@@ -425,7 +419,6 @@ export default function LiquidationCreatePage() {
         // Load filter context if available
         if (draft.filterContext) {
           setFilterContext(draft.filterContext);
-          console.log('Loaded filter context from draft:', draft.filterContext);
         }
       }
 
@@ -436,10 +429,8 @@ export default function LiquidationCreatePage() {
       }
       
       const storedAssets = sessionStorage.getItem('selectedAssetsForLiquidation');
-      console.log("Raw stored data:", storedAssets);
       if (storedAssets && storedAssets !== 'null' && storedAssets !== 'undefined') {
         const assets = JSON.parse(storedAssets);
-        console.log("Parsed assets:", assets);
 
         if (Array.isArray(assets) && assets.length > 0) {
           // If assetsFromStore already set by draft, merge unique
@@ -483,11 +474,9 @@ export default function LiquidationCreatePage() {
             setCountedQuantities(prev => ({ ...prev, ...newCountedQuantities }));
           }
 
-          console.log('Loaded selected assets from sessionStorage (legacy key):', assets);
           hasLoadedRef.current = true; // Đánh dấu đã load
           // Do NOT remove the sessionStorage entry here — keep draft persisted across reloads
         } else {
-          console.log("Assets array is empty or invalid");
           if (!hasLoadedRef.current) {
             hasLoadedRef.current = true;
             toast.error('Danh sách tài sản trống. Vui lòng chọn tài sản từ sổ tài sản.');
@@ -495,7 +484,6 @@ export default function LiquidationCreatePage() {
           }
         }
       } else {
-        console.log("No stored assets found (legacy key)");
         // If there was no draft and no legacy stored assets, show an error and redirect
         if (!hasLoadedRef.current) {
           hasLoadedRef.current = true;
@@ -504,7 +492,6 @@ export default function LiquidationCreatePage() {
         }
       }
     } catch (error) {
-      console.error('Error loading selected assets from sessionStorage:', error);
       if (!hasLoadedRef.current) {
         hasLoadedRef.current = true;
         toast.error('Có lỗi khi tải danh sách tài sản được chọn.');
@@ -540,7 +527,7 @@ export default function LiquidationCreatePage() {
         sessionStorage.setItem('selectedAssetsForLiquidation', JSON.stringify(assetsFromStore));
       }
     } catch (e) {
-      console.error('Error saving liquidation draft to sessionStorage:', e);
+      // Silent fail for sessionStorage operations
     }
   }, [selectedAssets, selectedStatus, transactionNote, selectedAssetType, assetsFromStore, filterContext, systemQuantities, countedQuantities]);
   
@@ -560,14 +547,6 @@ export default function LiquidationCreatePage() {
   // Filter assets based on search and filters
   useEffect(() => {
     let filtered = [...assetsFromStore];
-    
-    console.log('Filtering assets:', {
-      total: assetsFromStore.length,
-      searchTerm,
-      roomFilter,
-      assetTypeFilter,
-      firstAssetType: assetsFromStore[0]?.type
-    });
 
     // Apply search filter
     if (searchTerm) {
@@ -595,7 +574,6 @@ export default function LiquidationCreatePage() {
       }
     }
 
-    console.log('Filtered assets result:', filtered.length, 'out of', assetsFromStore.length);
     setFilteredAssets(filtered);
   }, [searchTerm, roomFilter, assetTypeFilter, assetsFromStore]);
 
@@ -982,16 +960,14 @@ export default function LiquidationCreatePage() {
       try {
         sessionStorage.removeItem('liquidationDraft');
         sessionStorage.removeItem('selectedAssetsForLiquidation');
-        console.log('Cleared liquidation draft from sessionStorage');
       } catch (e) {
-        console.error('Error clearing draft from sessionStorage:', e);
+        // Silent fail for sessionStorage operations
       }
       
       // Chuyển hướng về trang danh sách đề xuất
       router.push("/liquidation");
       
     } catch (error: any) {
-      console.error("Error creating liquidation proposal:", error);
       // Handle error object or string
       let errorMessage = "Có lỗi xảy ra khi tạo đề xuất thanh lý. Vui lòng thử lại.";
       if (error) {
@@ -1103,21 +1079,6 @@ export default function LiquidationCreatePage() {
         rowKey={(record) => getAssetKey(record)}
         pagination={false}
       />
-      
-      {/* Debug info - remove in production */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-4 p-2 bg-gray-100 text-xs rounded">
-          <div><strong>Debug Info:</strong></div>
-          <div>assetsFromStore: {assetsFromStore.length}</div>
-          <div>filteredAssets: {filteredAssets.length}</div>
-          <div>assetTypeFilter: {assetTypeFilter}</div>
-          <div>searchTerm: {searchTerm || '(empty)'}</div>
-          <div>roomFilter: {roomFilter || '(empty)'}</div>
-          {assetsFromStore.length > 0 && (
-            <div>First asset type: {assetsFromStore[0]?.type || 'no type'}</div>
-          )}
-        </div>
-      )}
 
       {/* Asset Detail Modal */}
       <Modal

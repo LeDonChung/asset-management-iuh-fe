@@ -1,4 +1,5 @@
 import axiosInstance from "../api";
+import { InventoryResultResponseDto } from "../store/slices/inventorySlice";
 
 export enum AssetActionStatus {
   MATCHED = 'MATCHED',
@@ -227,4 +228,35 @@ export const inventoryApi = {
     link.remove();
     window.URL.revokeObjectURL(url);
   },
+
+  /**
+   * Cập nhật số lượng kết quả kiểm kê
+   */
+  updateInventoryResult: async (resultId: string, data: { countedQuantity: number }): Promise<InventoryResultResponseDto> => {
+    const response = await axiosInstance.patch(`/api/v1/inventories/inventory-results/${resultId}`, data);
+    return response.data;
+  },
+
+  /**
+   * Lấy thống kê kết quả kiểm kê theo nhiều mức độ
+   */
+  getInventoryStatistics: async (filters: {
+    level?: 'ALL' | 'SESSION_UNIT' | 'GROUP' | 'ASSIGNMENT' | 'ROOM';
+    sessionUnitId?: string;
+    groupId?: string;
+    assignmentId?: string;
+    roomId?: string;
+    assetType?: string;
+  }): Promise<any> => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value));
+      }
+    });
+    const response = await axiosInstance.get(`/api/v1/inventories/statistics?${params.toString()}`);
+    return response.data;
+  },
 };
+
+export type { InventoryResultResponseDto };

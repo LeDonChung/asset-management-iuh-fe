@@ -534,7 +534,6 @@ export default function LiquidationEditPage() {
       router.push(`/liquidation/${proposalId}`);
       
     } catch (error: any) {
-      console.error("Error updating liquidation proposal:", error);
       toast.error(
         error?.message || "Có lỗi xảy ra khi cập nhật đề xuất thanh lý. Vui lòng thử lại."
       );
