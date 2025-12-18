@@ -82,6 +82,7 @@ const statusIcons = {
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [yearFilter, setYearFilter] = useState<number>();
   const [statusFilter, setStatusFilter] = useState<InventorySessionStatus>();
   const router = useRouter();
@@ -109,13 +110,23 @@ export default function InventoryPage() {
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
     handlerRender({
       ...currentFilter,
-      search: searchTerm || undefined,
+      search: debouncedSearchTerm || undefined,
       yearFilter: yearFilter ? [yearFilter] : undefined,
       statusFilter: statusFilter ? [statusFilter] : undefined,
     });
-  }, [searchTerm, yearFilter, statusFilter]);
+  }, [debouncedSearchTerm, yearFilter, statusFilter]);
 
   const handlerRender = (currentFilter: InventoryFilterRequest) => {
     dispatch(filterInventorySessions(currentFilter));

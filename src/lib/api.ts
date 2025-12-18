@@ -7,7 +7,7 @@ export const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 seconds timeout
+  timeout: 60000, // 10 seconds timeout
 })
 
 // Map để lưu các request đang pending, tránh gọi API trùng lặp

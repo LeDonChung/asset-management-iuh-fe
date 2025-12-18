@@ -53,6 +53,7 @@ export default function UsersPage() {
   const { campuses } = useAppSelector((state: RootState) => state.unit);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [unitFilter, setUnitFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -306,13 +307,23 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
     handlerRender({
       ...currentFilter,
-      search: searchTerm || undefined,
+      search: debouncedSearchTerm || undefined,
       unitFilter: unitFilter || undefined,
       statusFilter: statusFilter || undefined,
     });
-  }, [searchTerm, unitFilter, statusFilter]);
+  }, [debouncedSearchTerm, unitFilter, statusFilter]);
   return (
     <div className="p-6">
       {/* Header */}
