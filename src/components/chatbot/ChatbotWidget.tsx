@@ -71,12 +71,13 @@ export default function ChatbotWidget({ unitId }: ChatbotWidgetProps) {
     setMessages((prev) => [...prev, loadingMessage]);
 
     try {
-      // Prepare conversation history (last 5 messages)
+      // Prepare conversation history (last 3 messages to save tokens)
+      // Also truncate long messages to max 500 characters
       const conversationHistory = messages
-        .slice(-5)
+        .slice(-3)
         .map((msg) => ({
           role: msg.role,
-          content: msg.content,
+          content: msg.content.length > 500 ? msg.content.substring(0, 500) + '...' : msg.content,
         }));
 
       const response = await chatbotApi.chat({
@@ -153,7 +154,7 @@ export default function ChatbotWidget({ unitId }: ChatbotWidgetProps) {
   return (
     <div
       className={`fixed bottom-6 right-6 z-50 flex flex-col bg-white shadow-2xl transition-all ${
-        isMinimized ? 'h-14 w-80' : 'h-[600px] w-96'
+        isMinimized ? 'h-14 w-96' : 'h-[600px] w-[500px]'
       } rounded-lg border border-gray-200`}
     >
       {/* Header */}
@@ -265,6 +266,13 @@ export default function ChatbotWidget({ unitId }: ChatbotWidgetProps) {
                 disabled={isLoading}
               >
                 Thống kê
+              </button>
+              <button
+                onClick={() => setInputMessage('Tài sản nằm ở đâu?')}
+                className="rounded-full bg-gray-100 px-3 py-1 text-xs hover:bg-gray-200"
+                disabled={isLoading}
+              >
+                Tìm vị trí tài sản
               </button>
               <button
                 onClick={handleClearChat}
