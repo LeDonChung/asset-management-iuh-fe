@@ -358,6 +358,9 @@ export default function AssetBookPage() {
   const storedFilters = loadFiltersFromStorage();
 
   const [searchTerm, setSearchTerm] = useState(storedFilters?.searchTerm || "");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(
+    storedFilters?.searchTerm || ""
+  );
   const [selectedCampusId, setSelectedCampusId] = useState(
     storedFilters?.selectedCampusId || ""
   );
@@ -408,9 +411,20 @@ export default function AssetBookPage() {
     (state: RootState) => state.room
   );
 
+  // Debounce search term để tránh gọi API quá nhiều khi người dùng đang gõ
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // Đợi 500ms sau khi người dùng ngừng gõ
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
   useEffect(() => {
     const filtersToSave = {
-      searchTerm,
+      searchTerm: debouncedSearchTerm,
       selectedCampusId,
       selectedUnitId,
       selectedYear,
@@ -425,7 +439,7 @@ export default function AssetBookPage() {
       console.error("Error saving filters to localStorage:", error);
     }
   }, [
-    searchTerm,
+    debouncedSearchTerm,
     selectedCampusId,
     selectedUnitId,
     selectedYear,
@@ -485,7 +499,7 @@ export default function AssetBookPage() {
     if (hasRequiredFilters()) {
       handleFilterChange({
         ...currentFilter,
-        search: searchTerm || undefined,
+        search: debouncedSearchTerm || undefined,
         campusId: selectedCampusId || undefined,
         unitId:
           selectedUnitId ||
@@ -499,7 +513,7 @@ export default function AssetBookPage() {
       });
     }
   }, [
-    searchTerm,
+    debouncedSearchTerm,
     selectedCampusId,
     selectedUnitId,
     selectedYear,

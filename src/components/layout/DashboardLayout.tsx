@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { permission } from "process";
 import { PermissionConstants } from "@/hooks/usePermissions";
+import { ChatbotWidget } from "@/components/chatbot";
 
 // Header Component - Combined Sidebar Header and Topbar
 const Header = React.memo(function Header({ 
@@ -1051,6 +1052,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           }}
           loading={updateProfileLoading}
         />
+
+        {/* Chatbot Widget */}
+        <ChatbotWidget unitId={user?.unitId} />
       </div>
     );
   }

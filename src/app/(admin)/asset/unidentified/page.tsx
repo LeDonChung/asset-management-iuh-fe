@@ -49,6 +49,7 @@ import ImportAssetsModal from "@/components/assets/ImportAssetsModal";
 
 export default function UnidentifiedAssetsPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [showIdentifyModal, setShowIdentifyModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -102,6 +103,16 @@ export default function UnidentifiedAssetsPage() {
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // Đợi 500ms sau khi người dùng ngừng gõ
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
     handlerRender({
       ...currentFilter,
       conditions: [
@@ -112,19 +123,19 @@ export default function UnidentifiedAssetsPage() {
           operator: FilterOperator.EQUALS,
           value: [AssetType.FIXED_ASSET],
         },
-        ...(searchTerm
+        ...(debouncedSearchTerm
           ? [
               {
                 field: "name",
                 fieldType: FieldType.TEXT,
                 operator: FilterOperator.CONTAINS,
-                value: [searchTerm],
+                value: [debouncedSearchTerm],
               },
             ]
           : []),
       ],
     });
-  }, [searchTerm]);
+  }, [debouncedSearchTerm]);
 
   const handlerRender = (filter: UnidentifiedAssetFilter) => {
     setCurrentFilter(filter);

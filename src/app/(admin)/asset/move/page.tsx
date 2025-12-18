@@ -126,6 +126,7 @@ export default function MovementManagementPage() {
   } = useSelector((state: RootState) => state.move);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
 
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -141,19 +142,29 @@ export default function MovementManagementPage() {
   const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // Đợi 500ms sau khi người dùng ngừng gõ
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
     const filterRequest: MovementFilterDto = {
       pagination: {
         currentPage: 1,
         itemsPerPage: 10,
       },
       sorting: [],
-      search: searchTerm || undefined,
+      search: debouncedSearchTerm || undefined,
       status: (selectedStatus as MoveStatus) || undefined,
     };
 
     dispatch(setCurrentFilter(filterRequest));
     dispatch(filterSimplifiedMovements(filterRequest));
-  }, [dispatch, searchTerm, selectedStatus]);
+  }, [dispatch, debouncedSearchTerm, selectedStatus]);
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);

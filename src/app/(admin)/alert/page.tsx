@@ -429,6 +429,7 @@ export default function AlertPage() {
     useAppSelector((state: RootState) => state.alert);
   const { socket, isConnected, on, off } = useSocket();
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<AlertStatus>();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -466,14 +467,24 @@ export default function AlertPage() {
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
     handlerRender({
       ...currentFilter,
-      search: searchTerm || undefined,
+      search: debouncedSearchTerm || undefined,
       statusFilter: statusFilter || undefined,
       createdFrom: dateFrom || undefined,
       createdTo: dateTo || undefined,
     });
-  }, [searchTerm, statusFilter, dateFrom, dateTo]);
+  }, [debouncedSearchTerm, statusFilter, dateFrom, dateTo]);
 
   const handlerRender = (currentFilter: AlertFilterRequest) => {
     dispatch(filterAlert(currentFilter));

@@ -177,3 +177,84 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Chatbot Markdown Styles */
+.chatbot-markdown {
+  @apply text-sm;
+}
+
+.chatbot-markdown h1 {
+  @apply text-lg font-bold mt-3 mb-2;
+}
+
+.chatbot-markdown h2 {
+  @apply text-base font-bold mt-2 mb-1;
+}
+
+.chatbot-markdown h3 {
+  @apply text-sm font-bold mt-2 mb-1;
+}
+
+.chatbot-markdown p {
+  @apply mb-2 last:mb-0;
+}
+
+.chatbot-markdown ul {
+  @apply list-disc list-inside mb-2 space-y-1;
+}
+
+.chatbot-markdown ol {
+  @apply list-decimal list-inside mb-2 space-y-1;
+}
+
+.chatbot-markdown li {
+  @apply ml-2;
+}
+
+.chatbot-markdown code {
+  @apply bg-gray-200 text-gray-800 px-1 py-0.5 rounded text-xs font-mono;
+}
+
+.chatbot-markdown pre {
+  @apply bg-gray-200 p-2 rounded mb-2 overflow-x-auto;
+}
+
+.chatbot-markdown pre code {
+  @apply bg-transparent p-0;
+}
+
+.chatbot-markdown blockquote {
+  @apply border-l-4 border-blue-500 pl-3 italic my-2;
+}
+
+.chatbot-markdown table {
+  @apply min-w-full border-collapse border border-gray-300 text-xs mb-2;
+}
+
+.chatbot-markdown thead {
+  @apply bg-gray-100;
+}
+
+.chatbot-markdown th {
+  @apply border border-gray-300 px-2 py-1 text-left font-semibold;
+}
+
+.chatbot-markdown td {
+  @apply border border-gray-300 px-2 py-1;
+}
+
+.chatbot-markdown a {
+  @apply text-blue-600 hover:underline;
+}
+
+.chatbot-markdown strong {
+  @apply font-bold text-gray-900;
+}
+
+.chatbot-markdown em {
+  @apply italic;
+}
+
+.chatbot-markdown hr {
+  @apply my-3 border-gray-300;
+}

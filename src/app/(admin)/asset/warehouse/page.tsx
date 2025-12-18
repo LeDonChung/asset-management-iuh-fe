@@ -123,6 +123,7 @@ export default function WarehousePage() {
   } = useAppSelector((state: RootState) => state.asset);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -156,8 +157,18 @@ export default function WarehousePage() {
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
     const filters: WarehouseAssetFilterDto = {
-      search: searchTerm || undefined,
+      search: debouncedSearchTerm || undefined,
       type: typeFilter || undefined,
       status: statusFilter || undefined,
       categoryId: categoryFilter || undefined,
@@ -167,7 +178,7 @@ export default function WarehousePage() {
     };
     loadWarehouseAssets(filters);
   }, [
-    searchTerm,
+    debouncedSearchTerm,
     typeFilter,
     statusFilter,
     categoryFilter,

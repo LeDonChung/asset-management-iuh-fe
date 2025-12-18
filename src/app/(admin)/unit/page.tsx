@@ -52,6 +52,7 @@ const unitStatusOptions = [
 
 export default function UnitsPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<UnitType>();
   const [statusFilter, setStatusFilter] = useState<UnitStatus>();
   const router = useRouter();
@@ -83,13 +84,23 @@ export default function UnitsPage() {
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
     handlerRender({
       ...currentFilter,
-      search: searchTerm || undefined,
+      search: debouncedSearchTerm || undefined,
       unitTypeFilter: typeFilter || undefined,
       statusFilter: statusFilter || undefined,
     });
-  }, [searchTerm, typeFilter, statusFilter]);
+  }, [debouncedSearchTerm, typeFilter, statusFilter]);
 
   const handlerRender = (currentFilter: UnitFilterRequest) => {
     dispatch(filterUnit(currentFilter));

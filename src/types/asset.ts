@@ -192,6 +192,16 @@ export interface Room {
   unit?: Unit;
 }
 
+export interface RoomAllocation {
+  roomId: string;
+  roomName: string;
+  roomCode: string;
+  quantity: number;
+  status: string;
+  assignedAt: string;
+  note?: string;
+}
+
 export interface Asset {
   id: string; // Asset id
   bookItemId?: string; // AssetBookItem ID (chỉ có khi lấy từ sổ tài sản, để làm unique key)
@@ -223,6 +233,7 @@ export interface Asset {
   category?: Category;
   rfidTag?: RfidTag;
   transactionItems?: TransactionItemAssetResponseDto[];
+  roomAllocations?: RoomAllocation[]; // Danh sách phân bổ theo phòng (chỉ cho công cụ dụng cụ)
 }
 
 export interface Category {

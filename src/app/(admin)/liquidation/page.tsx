@@ -85,6 +85,7 @@ export default function LiquidationPage() {
   const { campuses } = useAppSelector((state: RootState) => state.unit);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<LiquidationStatus | "">("");
   const [unitFilter, setUnitFilter] = useState<string>("");
   const [yearFilter, setYearFilter] = useState<number | "">("");
@@ -385,14 +386,24 @@ export default function LiquidationPage() {
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
     handlerRender({
       ...currentFilter,
-      search: searchTerm || undefined,
+      search: debouncedSearchTerm || undefined,
       status: statusFilter || undefined,
       unitId: unitFilter || undefined,
       year: yearFilter || undefined,
     });
-  }, [searchTerm, statusFilter, unitFilter, yearFilter]);
+  }, [debouncedSearchTerm, statusFilter, unitFilter, yearFilter]);
 
   return (
     <>
