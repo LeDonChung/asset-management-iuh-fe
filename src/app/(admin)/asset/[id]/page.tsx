@@ -246,7 +246,7 @@ export default function AssetDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-2 mb-2">
-                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                       <span className="font-medium text-sm text-gray-900">
                         {history.user?.fullName || "N/A"}
                       </span>
@@ -451,7 +451,7 @@ export default function AssetDetailPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                     <div className="flex flex-col sm:flex-row sm:justify-between py-2 border-b border-gray-100">
                       <span className="text-gray-600 mb-1 sm:mb-0">Tên tài sản</span>
-                      <span className="font-medium break-words text-right sm:max-w-[60%]">
+                      <span className="font-medium wrap-break-word text-right sm:max-w-[60%]">
                         {asset?.name || "N/A"}
                       </span>
                     </div>
@@ -558,10 +558,11 @@ export default function AssetDetailPage() {
                   </div>
                 )}
 
-                {/* Vị trí hiện tại */}
-                {asset?.currentRoom && (
+                {/* Vị trí hiện tại - Chỉ hiển thị cho Tài sản cố định */}
+                {asset?.type === AssetType.FIXED_ASSET && asset?.currentRoom && (
                   <div>
                     <h3 className="text-lg font-semibold mb-4 text-gray-900 flex items-center gap-2">
+                      <MapPin className="w-5 h-5" />
                       Vị trí hiện tại
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
@@ -594,6 +595,105 @@ export default function AssetDetailPage() {
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* Danh sách phân bổ theo phòng - Chỉ hiển thị cho Công cụ dụng cụ */}
+                {asset?.type === AssetType.TOOLS_EQUIPMENT && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 text-gray-900 flex items-center gap-2">
+                      <Building className="w-5 h-5" />
+                      Danh sách phân bổ theo phòng
+                    </h3>
+                    {asset?.roomAllocations && asset.roomAllocations.length > 0 ? (
+                      <div className="space-y-4">
+                        {asset.roomAllocations.map((allocation, index) => (
+                          <div
+                            key={`${allocation.roomId}-${index}`}
+                            className="bg-gray-50 p-4 rounded-lg border border-gray-200"
+                          >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+                              <div className="flex justify-between py-2 border-b border-gray-200">
+                                <span className="text-gray-600">Phòng</span>
+                                <span className="font-medium">{allocation.roomName}</span>
+                              </div>
+
+                              <div className="flex justify-between py-2 border-b border-gray-200">
+                                <span className="text-gray-600">Mã phòng</span>
+                                <span className="font-medium font-mono text-sm">
+                                  {allocation.roomCode}
+                                </span>
+                              </div>
+
+                              <div className="flex justify-between py-2 border-b border-gray-200">
+                                <span className="text-gray-600">Số lượng</span>
+                                <span className="font-medium text-blue-600">
+                                  {allocation.quantity} {asset.unit}
+                                </span>
+                              </div>
+
+                              <div className="flex justify-between py-2 border-b border-gray-200">
+                                <span className="text-gray-600">Trạng thái</span>
+                                <Badge
+                                  className={`text-xs ${
+                                    allocation.status === "IN_USE"
+                                      ? "bg-green-100 text-green-800"
+                                      : allocation.status === "DAMAGED"
+                                      ? "bg-red-100 text-red-800"
+                                      : allocation.status === "PROPOSED_LIQUIDATION"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-gray-100 text-gray-800"
+                                  }`}
+                                >
+                                  {allocation.status === "IN_USE"
+                                    ? "Đang sử dụng"
+                                    : allocation.status === "DAMAGED"
+                                    ? "Hư hỏng"
+                                    : allocation.status === "PROPOSED_LIQUIDATION"
+                                    ? "Đề xuất thanh lý"
+                                    : allocation.status}
+                                </Badge>
+                              </div>
+
+                              <div className="flex justify-between py-2 border-b border-gray-200 md:col-span-2">
+                                <span className="text-gray-600">Ngày phân bổ</span>
+                                <span className="font-medium">
+                                  {format(new Date(allocation.assignedAt), "dd/MM/yyyy", {
+                                    locale: vi,
+                                  })}
+                                </span>
+                              </div>
+
+                              {allocation.note && (
+                                <div className="md:col-span-2 pt-2">
+                                  <span className="text-gray-600 text-sm">Ghi chú: </span>
+                                  <span className="text-sm text-gray-700">{allocation.note}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-700 font-medium">Tổng số lượng phân bổ:</span>
+                            <span className="text-lg font-bold text-blue-600">
+                              {asset.roomAllocations.reduce(
+                                (sum, alloc) => sum + alloc.quantity,
+                                0
+                              )}{" "}
+                              {asset.unit}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center">
+                        <Building className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                        <p className="text-gray-500 text-sm">
+                          Tài sản chưa được phân bổ vào phòng nào
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
